@@ -1,14 +1,14 @@
 # deploy-config-schema
 
-`@extratoast/deploy-config-schema` provides a JSON Schema and CLI contract for deploy and infrastructure config documents. The Round-2 MVP validates YAML or JSON config and renders deterministic Traefik IngressRoutes, edge catalogs, Gatus endpoints, and image metadata audit output for the common Kubernetes platform case.
+`@jorisjonkers-dev/deploy-config-schema` provides a JSON Schema and CLI contract for deploy and infrastructure config documents. The Round-2 MVP validates YAML or JSON config and renders deterministic Traefik IngressRoutes, edge catalogs, Gatus endpoints, and image metadata audit output for the common Kubernetes platform case.
 
 ## Install
 
 ```bash
-npm install @extratoast/deploy-config-schema
+npm install @jorisjonkers-dev/deploy-config-schema
 ```
 
-The package is published under the short ExtraToast npm coordinate. A brand-new GitHub Packages npm package on this personal account defaults private; the owner must set it public once after the first publish.
+The package is published under the short JorisJonkers-dev npm coordinate. A brand-new GitHub Packages npm package on this personal account defaults private; the owner must set it public once after the first publish.
 
 ## Commands
 

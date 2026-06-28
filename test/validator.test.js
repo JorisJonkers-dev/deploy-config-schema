@@ -142,7 +142,7 @@ test("reports semantic consistency diagnostics across config sections", () => {
     },
   };
   config.image_metadata.workloads["unknown-image"] = {
-    repository: "ghcr.io/extratoast/unknown-image",
+    repository: "ghcr.io/jorisjonkers-dev/unknown-image",
     tag: "latest",
     pull_policy: "Always",
     source: "first_party",

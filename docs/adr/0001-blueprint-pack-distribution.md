@@ -13,9 +13,9 @@ machine-specific defaults are not acceptable because they make CI behavior
 depend on a developer workstation layout.
 
 `platform-blueprints` is already consumed by version tag/ref. Its release
-workflow only echoes the tag, and existing ExtraToast GitHub workflow actions
+workflow only echoes the tag, and existing JorisJonkers-dev GitHub workflow actions
 consume platform-blueprints content by checking out that repository at a ref.
-Private GitHub Packages access has also caused friction for `@extratoast`
+Private GitHub Packages access has also caused friction for `@jorisjonkers-dev`
 packages, so adding a package-registry dependency would make pack resolution
 less reliable for consumers.
 
@@ -41,7 +41,7 @@ version used for pack resolution.
 
 Option 3 matches how `platform-blueprints` is already consumed: by tag/ref. It
 also matches the existing GitHub workflow checkout pattern used by
-ExtraToast/github-workflows actions for platform-blueprints content.
+JorisJonkers-dev/github-workflows actions for platform-blueprints content.
 
 This avoids GitHub Packages authentication friction, works offline after the
 pinned checkout exists in CI, and keeps rendering deterministic because the

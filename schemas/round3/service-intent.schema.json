@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://schemas.extratoast.com/round3/service-intent.schema.json",
-  "title": "ExtraToast Round 3 Service Intent Skeleton",
+  "$id": "https://schemas.jorisjonkers.dev/round3/service-intent.schema.json",
+  "title": "JorisJonkers-dev Round 3 Service Intent Skeleton",
   "description": "Design-first schema for per-service special-casing and future Nomad input contracts. No production renderer consumes this schema in round 3.",
   "type": "object",
   "additionalProperties": false,

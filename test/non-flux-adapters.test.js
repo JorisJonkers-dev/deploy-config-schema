@@ -302,7 +302,7 @@ test("nix-hosts adapter renders flake and guarded host scaffolds from fleet role
   const readme = file(files, "platform/nix/hosts/frankfurt-contabo-1/README.md").content;
 
   assert.deepEqual(files, renderNixHosts(context));
-  assert.match(flake, /platform-blueprints.url = "github:ExtraToast\/platform-blueprints"/);
+  assert.match(flake, /platform-blueprints.url = "github:JorisJonkers-dev\/platform-blueprints"/);
   assert.match(flake, /frankfurt-contabo-1 = \{/);
   assert.match(controlPlane, /inputs.platform-blueprints.nixosModules.roleControlPlane/);
   assert.ok(controlPlane.includes("builtins.pathExists ./network.nix"));

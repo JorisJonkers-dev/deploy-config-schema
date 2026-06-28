@@ -2,8 +2,8 @@ import { jsonSchemaBackedZodSchema } from "./support.js";
 
 export const platformJsonSchema = {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://schemas.extratoast.com/platform.schema.json",
-  "title": "ExtraToast Minimal Platform Intent",
+  "$id": "https://schemas.jorisjonkers.dev/platform.schema.json",
+  "title": "JorisJonkers-dev Minimal Platform Intent",
   "type": "object",
   "additionalProperties": false,
   "required": [

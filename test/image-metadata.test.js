@@ -13,7 +13,7 @@ test("image metadata renders deterministic workload audit output", () => {
   assert.equal(first, second);
   assert.match(first, /cluster: personal-stack/);
   assert.match(first, /service: app-ui/);
-  assert.match(first, /repository: ghcr\.io\/extratoast\/app-ui/);
+  assert.match(first, /repository: ghcr\.io\/jorisjonkers-dev\/app-ui/);
   assert.match(first, /strategy: latest_tag/);
   assert.match(first, /poll_schedule: "@every 2m"/);
   assert.match(first, /service: jellyfin/);

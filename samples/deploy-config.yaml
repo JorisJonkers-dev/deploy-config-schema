@@ -222,7 +222,7 @@ monitoring_intent:
 image_metadata:
   workloads:
     app-ui:
-      repository: ghcr.io/extratoast/app-ui
+      repository: ghcr.io/jorisjonkers-dev/app-ui
       tag: latest
       pull_policy: Always
       source: first_party
@@ -235,7 +235,7 @@ image_metadata:
           trigger: poll
           poll_schedule: "@every 2m"
     assistant-api:
-      repository: ghcr.io/extratoast/assistant-api
+      repository: ghcr.io/jorisjonkers-dev/assistant-api
       tag: latest
       pull_policy: Always
       source: first_party

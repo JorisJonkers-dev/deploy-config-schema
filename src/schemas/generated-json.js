@@ -2,8 +2,8 @@
 
 export const platformJsonSchema = {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://schemas.extratoast.com/platform.schema.json",
-  "title": "ExtraToast Minimal Platform Intent",
+  "$id": "https://schemas.jorisjonkers.dev/platform.schema.json",
+  "title": "JorisJonkers-dev Minimal Platform Intent",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -469,8 +469,8 @@ export const platformJsonSchema = {
 
 export const deployConfigJsonSchema = {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://schemas.extratoast.com/deploy-config.schema.json",
-  "title": "ExtraToast Deploy Config",
+  "$id": "https://schemas.jorisjonkers.dev/deploy-config.schema.json",
+  "title": "JorisJonkers-dev Deploy Config",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -1318,8 +1318,8 @@ export const deployConfigJsonSchema = {
 
 export const serviceIntentJsonSchema = {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://schemas.extratoast.com/round3/service-intent.schema.json",
-  "title": "ExtraToast Round 3 Service Intent Skeleton",
+  "$id": "https://schemas.jorisjonkers.dev/round3/service-intent.schema.json",
+  "title": "JorisJonkers-dev Round 3 Service Intent Skeleton",
   "description": "Design-first schema for per-service special-casing and future Nomad input contracts. No production renderer consumes this schema in round 3.",
   "type": "object",
   "additionalProperties": false,
@@ -2417,8 +2417,8 @@ export const serviceIntentJsonSchema = {
 
 export const fleetInventoryJsonSchema = {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://schemas.extratoast.com/round3/fleet-inventory.schema.json",
-  "title": "ExtraToast Round 3 Fleet Inventory Extension Skeleton",
+  "$id": "https://schemas.jorisjonkers.dev/round3/fleet-inventory.schema.json",
+  "title": "JorisJonkers-dev Round 3 Fleet Inventory Extension Skeleton",
   "description": "Design-first schema for richer sites, nodes, capabilities, placement, origins, exposure, SSO, and renderer target selection.",
   "type": "object",
   "additionalProperties": false,
@@ -3090,8 +3090,8 @@ export const fleetInventoryJsonSchema = {
 
 export const vaultDynamicSecretsJsonSchema = {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://schemas.extratoast.com/round3/vault-dynamic-secrets.schema.json",
-  "title": "ExtraToast Round 3 Vault Dynamic Secret Input Skeleton",
+  "$id": "https://schemas.jorisjonkers.dev/round3/vault-dynamic-secrets.schema.json",
+  "title": "JorisJonkers-dev Round 3 Vault Dynamic Secret Input Skeleton",
   "description": "Design-first input schema for Vault auth, KV, transit, database, RabbitMQ, VSO, and service-consumer coordination. This schema does not generate policies, scripts, or manifests.",
   "type": "object",
   "additionalProperties": false,
