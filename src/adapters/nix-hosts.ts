@@ -113,7 +113,7 @@ function renderFlake(cluster: NixCluster, nodes: NormalizedNode[]): string {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     deploy-rs.url = "github:serokell/deploy-rs";
     disko.url = "github:nix-community/disko";
-    platform-blueprints.url = "github:ExtraToast/platform-blueprints";
+    platform-blueprints.url = "github:JorisJonkers-dev/platform-blueprints";
   };
 
   outputs =

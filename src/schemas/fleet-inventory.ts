@@ -2,8 +2,8 @@ import { jsonSchemaBackedZodSchema } from "./support.js";
 
 export const fleetInventoryJsonSchema = {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://schemas.extratoast.com/round3/fleet-inventory.schema.json",
-  "title": "ExtraToast Round 3 Fleet Inventory Extension Skeleton",
+  "$id": "https://schemas.jorisjonkers.dev/round3/fleet-inventory.schema.json",
+  "title": "JorisJonkers-dev Round 3 Fleet Inventory Extension Skeleton",
   "description": "Design-first schema for richer sites, nodes, capabilities, placement, origins, exposure, SSO, and renderer target selection.",
   "type": "object",
   "additionalProperties": false,

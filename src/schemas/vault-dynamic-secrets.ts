@@ -2,8 +2,8 @@ import { jsonSchemaBackedZodSchema } from "./support.js";
 
 export const vaultDynamicSecretsJsonSchema = {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://schemas.extratoast.com/round3/vault-dynamic-secrets.schema.json",
-  "title": "ExtraToast Round 3 Vault Dynamic Secret Input Skeleton",
+  "$id": "https://schemas.jorisjonkers.dev/round3/vault-dynamic-secrets.schema.json",
+  "title": "JorisJonkers-dev Round 3 Vault Dynamic Secret Input Skeleton",
   "description": "Design-first input schema for Vault auth, KV, transit, database, RabbitMQ, VSO, and service-consumer coordination. This schema does not generate policies, scripts, or manifests.",
   "type": "object",
   "additionalProperties": false,

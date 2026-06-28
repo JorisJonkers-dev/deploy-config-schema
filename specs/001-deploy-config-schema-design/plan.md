@@ -6,7 +6,7 @@
 
 ## Technical Context
 
-The initial artifact is an npm package named `@extratoast/deploy-config-schema`. The package uses Node.js 20, plain JavaScript modules, Ajv 8 for JSON Schema 2020-12 validation, and `yaml` for YAML/JSON source parsing and deterministic YAML output. This keeps the package small, avoids a compile step, and matches the initial distribution requirement without adding a Maven or OCI artifact.
+The initial artifact is an npm package named `@jorisjonkers-dev/deploy-config-schema`. The package uses Node.js 20, plain JavaScript modules, Ajv 8 for JSON Schema 2020-12 validation, and `yaml` for YAML/JSON source parsing and deterministic YAML output. This keeps the package small, avoids a compile step, and matches the initial distribution requirement without adding a Maven or OCI artifact.
 
 The command entrypoint is `deploy-config-schema`. It validates YAML or JSON config documents against `schemas/deploy-config.schema.json`, then applies semantic validation for cross-reference rules that are not practical to express portably in JSON Schema. Diagnostics are stable JSON objects with `code`, `message`, and `path`.
 
@@ -26,7 +26,7 @@ Release automation uses release-please for version tags and a separate npm publi
 - `samples/deploy-config.yaml`: non-secret representative sample based on the personal-stack inventory concepts.
 - `test/`: Node test runner coverage for schema validation, semantic diagnostics, CLI behavior, deterministic Traefik output, and adapter stubs.
 - `.github/workflows/ci.yml`: real gating jobs for npm install/test/sample validation, ending in `Pipeline Complete`.
-- `.github/workflows/release.yml` and `.github/workflows/publish-on-release.yml`: release-please and npm publication.
+- `.github/workflows/release.yml`: release-please and npm publication.
 
 ## Requirement Mapping
 
@@ -57,7 +57,7 @@ Release automation uses release-please for version tags and a separate npm publi
 | FR-23 | Package metadata and release docs identify pinned npm consumption by personal-stack and website. |
 | FR-24 | Package coordinate is short and no doubled marker coordinate is introduced. |
 | FR-25 | README names personal-stack and website as optional consumer references without modifying either repository. |
-| FR-26 | `package.json` publishes `@extratoast/deploy-config-schema` to GitHub Packages with schema and CLI entrypoints. |
+| FR-26 | `package.json` publishes `@jorisjonkers-dev/deploy-config-schema` to GitHub Packages with schema and CLI entrypoints. |
 | FR-27 | Route rules are generic and do not hard-code service names in the schema or renderer. |
 
 ## Success Mapping
@@ -67,7 +67,7 @@ Release automation uses release-please for version tags and a separate npm publi
 - SC-3: Tests run implemented adapters twice and compare byte-for-byte output.
 - SC-4 and SC-5: Traefik tests assert public/LAN inclusion and required route fields.
 - SC-6 through SC-10: Gatus, edge catalog, edge route catalog, and image metadata tests assert required MVP fields and deterministic ordering.
-- SC-11: Package and README name `@extratoast/deploy-config-schema`.
+- SC-11: Package and README name `@jorisjonkers-dev/deploy-config-schema`.
 - SC-12: No downstream edits, live deployment action, or Nomad rendering is part of this branch.
 
 ## Verification

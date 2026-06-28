@@ -2,8 +2,8 @@ import { jsonSchemaBackedZodSchema } from "./support.js";
 
 export const deployConfigJsonSchema = {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://schemas.extratoast.com/deploy-config.schema.json",
-  "title": "ExtraToast Deploy Config",
+  "$id": "https://schemas.jorisjonkers.dev/deploy-config.schema.json",
+  "title": "JorisJonkers-dev Deploy Config",
   "type": "object",
   "additionalProperties": false,
   "required": [

@@ -7,7 +7,7 @@
 
 ## Overview
 
-ExtraToast/deploy-config-schema defines a versioned contract for a JSON-schema-driven deploy and infrastructure configuration artifact. The artifact is intended to describe fleet, service, exposure, access, ingress, monitoring, and image rollout intent once platform boundaries are proven outside this repository.
+JorisJonkers-dev/deploy-config-schema defines a versioned contract for a JSON-schema-driven deploy and infrastructure configuration artifact. The artifact is intended to describe fleet, service, exposure, access, ingress, monitoring, and image rollout intent once platform boundaries are proven outside this repository.
 
 The design is based on the current personal-stack fleet inventory, platform tooling, and render scripts, with website used as a read-only compatibility reference for version metadata, Kubernetes GitOps deployment, and Keel-managed image rollouts. The desired outcome is a versioned schema plus command surface that downstream repositories can consume to validate declarative config and generate operational artifacts without copying downstream-specific render logic.
 
@@ -64,7 +64,7 @@ personal-stack and website depend on the published deploy-config-schema artifact
 - FR-23: The distribution design must allow personal-stack and website to consume versioned artifacts through Renovate-pinned dependency coordinates while personal-stack remains continuously auto-deployed and unversioned as an application.
 - FR-24: The distribution design must require short artifact coordinates and must forbid doubled plugin-marker names.
 - FR-25: The primary first-class consumer set must include both personal-stack and website, with adoption remaining optional and consumer-owned for each repository.
-- FR-26: The first published artifact format must be an npm package named `@extratoast/deploy-config-schema` that contains the JSON schema and CLI contract entrypoints; any future Maven, OCI, or other artifact must use an equally short ExtraToast coordinate without repeated marker terms.
+- FR-26: The first published artifact format must be an npm package named `@jorisjonkers-dev/deploy-config-schema` that contains the JSON schema and CLI contract entrypoints; any future Maven, OCI, or other artifact must use an equally short JorisJonkers-dev coordinate without repeated marker terms.
 - FR-27: The compatibility promise for route exception behavior must use a generic route-rule model that can represent the known personal-stack special cases without preserving every current service-specific name.
 
 ## Success Criteria (SC-n, measurable)
@@ -79,7 +79,7 @@ personal-stack and website depend on the published deploy-config-schema artifact
 - SC-8: The edge catalog adapter contains one entry for every service with exposure intent and includes exposure, access, and host fields where applicable.
 - SC-9: The edge route catalog adapter contains all declared route rules and can be compared mechanically to generated Traefik route names.
 - SC-10: The image metadata adapter identifies all configured images, separates latest-tag Keel-managed workloads from pinned third-party workloads, and reports poll cadence for every Keel-managed workload.
-- SC-11: The distribution section names `@extratoast/deploy-config-schema` as the initial short coordinate, and a Renovate rule can pin that coordinate without causing doubled plugin-marker names.
+- SC-11: The distribution section names `@jorisjonkers-dev/deploy-config-schema` as the initial short coordinate, and a Renovate rule can pin that coordinate without causing doubled plugin-marker names.
 - SC-12: No generated output application, downstream repository edit, live deployment action, or Nomad job rendering is required to complete this initial skeleton.
 
 ## Assumptions
@@ -88,7 +88,7 @@ personal-stack and website depend on the published deploy-config-schema artifact
 - The current personal-stack fleet inventory is the seed domain model, not a mandate to preserve its exact file shape.
 - website is a compatibility reference for production GitOps and Keel behavior, not a writable target during this feature.
 - Adapter outputs are text artifacts suitable for GitOps repositories.
-- The first distribution package is published as `@extratoast/deploy-config-schema`; additional package ecosystems are future extensions rather than initial requirements.
+- The first distribution package is published as `@jorisjonkers-dev/deploy-config-schema`; additional package ecosystems are future extensions rather than initial requirements.
 - Secrets, token values, certificate material, and runtime credentials are not represented in the schema.
 - The schema version is independent from personal-stack's deployment cadence.
 - Renovate can pin the deploy-config-schema artifact in downstream repositories without changing their release model.

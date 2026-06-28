@@ -17,6 +17,8 @@ jobs:
   test:
     name: Test and Coverage
     runs-on: ubuntu-latest
+    env:
+      NODE_AUTH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -29,6 +31,8 @@ jobs:
   schema-and-cli:
     name: Schema and CLI
     runs-on: ubuntu-latest
+    env:
+      NODE_AUTH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

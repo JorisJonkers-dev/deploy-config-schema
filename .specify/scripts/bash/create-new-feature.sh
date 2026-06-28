@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-SPECIFY_SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)
+SPECIFY_SCRIPT_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 . "${SPECIFY_SCRIPT_DIR}/common.sh"
 
 json=false
@@ -132,4 +132,3 @@ else
   printf 'BRANCH_NAME: %s\n' "${branch_name}"
   printf 'SPEC_FILE: %s\n' "${spec_file}"
 fi
-
