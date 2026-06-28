@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.1](https://github.com/JorisJonkers-dev/deploy-config-schema/compare/v0.8.0...v0.8.1) (2026-06-28)
+
+
+### Bug Fixes
+
+* migrate deploy config schema coordinates ([#1](https://github.com/JorisJonkers-dev/deploy-config-schema/issues/1)) ([e2d6ca6](https://github.com/JorisJonkers-dev/deploy-config-schema/commit/e2d6ca61c2e87bd001cf59f2c2d5e988e4f41333))
+
 ## [0.8.0](https://github.com/JorisJonkers-dev/deploy-config-schema/compare/v0.7.0...v0.8.0) (2026-06-10)
 
 
