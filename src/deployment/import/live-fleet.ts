@@ -430,11 +430,15 @@ function existingFiles(root: string, options: { platformBlueprintsPath?: string;
 function sourceFor(path: string, options: { platformBlueprintsPath?: string; collectionsRootPath?: string }): ParityImportSource {
   const pack = packForPath(path);
   if (pack) {
+    const sourcePath = packSourcePath(path);
     return {
       kind: "pack-sourced",
       pack,
+      ...(sourcePath ? { path: sourcePath } : {}),
       reason: options.platformBlueprintsPath
-        ? "Platform support manifest owned by the platform-blueprints pack; embedded content is retained as a parity fallback when the rendered pack output is not byte-identical."
+        ? sourcePath
+          ? "Platform support manifest owned by the platform-blueprints pack and resolved from the supplied pack checkout."
+          : "Platform support manifest owned by the platform-blueprints pack; embedded content is retained as a parity fallback when the rendered pack output is not byte-identical."
         : "Platform support manifest should be sourced from platform-blueprints; no pack checkout path was provided during import.",
     };
   }
@@ -455,6 +459,7 @@ function sourceFor(path: string, options: { platformBlueprintsPath?: string; col
 }
 
 function packForPath(path: string): string | undefined {
+  if (path === "apps/core/kustomization.yaml") return "flux-core-pack";
   const core = path.match(/^apps\/core\/([^/]+)\//)?.[1];
   if (core) {
     return ({
@@ -463,12 +468,22 @@ function packForPath(path: string): string | undefined {
       "ingress-controller": "flux-core-traefik-public",
       "lan-ingress-controller": "flux-core-traefik-lan",
       metallb: "flux-core-metallb",
+      "nvidia-device-plugin": "flux-core-nvidia-device-plugin",
       vso: "flux-core-vso",
     } as Record<string, string | undefined>)[core];
   }
   if (path.startsWith("apps/edge/")) return "edge-pack";
   if (path.startsWith("apps/observability/") || path.startsWith("apps/observability-rules/") || path.startsWith("apps/grafana-dashboards/")) return "observability-stack-pack";
   if (path.startsWith("apps/data/rabbitmq/")) return "rabbitmq-data-service-pack";
+  return undefined;
+}
+
+function packSourcePath(path: string): string | undefined {
+  if (path === "apps/core/kustomization.yaml") return "packs/flux-core/kustomization.yaml";
+  if (path === "apps/core/nvidia-device-plugin/release.yaml") return undefined;
+  if (path.startsWith("apps/core/nvidia-device-plugin/")) {
+    return path.replace("apps/core/nvidia-device-plugin/", "packs/flux-core/nvidia-device-plugin/");
+  }
   return undefined;
 }
 
@@ -487,6 +502,9 @@ function carriedReason(path: string): string {
   }
   if (path.startsWith("apps/vso-secrets/")) {
     return "Consumer-specific Vault secret sync manifest is carried until VSO source modeling is byte-identical.";
+  }
+  if (path.startsWith("apps/metallb-config/")) {
+    return "Site-specific MetalLB address pool configuration is carried because it contains consumer-local network allocation.";
   }
   return "No source ownership rule matched this live parity manifest.";
 }
