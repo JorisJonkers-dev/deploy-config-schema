@@ -657,6 +657,22 @@ function parseOptions(args) {
         options.reachability = value;
         index += 1;
       }
+    } else if (arg === "--deployment") {
+      const value = args[index + 1];
+      if (!value) {
+        diagnostics.push({ code: "E_USAGE", message: "--deployment requires a path", path: "/" });
+      } else {
+        appendOption(options, "deployment", value);
+        index += 1;
+      }
+    } else if (arg === "--collection") {
+      const value = args[index + 1];
+      if (!value) {
+        diagnostics.push({ code: "E_USAGE", message: "--collection requires a path", path: "/" });
+      } else {
+        appendOption(options, "collection", value);
+        index += 1;
+      }
     } else if (arg === "--fleet") {
       const value = args[index + 1];
       if (!value) {
@@ -719,6 +735,16 @@ function parseOptions(args) {
   }
 
   return { positionals, options, diagnostics };
+}
+
+function appendOption(options, key, value) {
+  if (!options[key]) {
+    options[key] = value;
+  } else if (Array.isArray(options[key])) {
+    options[key].push(value);
+  } else {
+    options[key] = [options[key], value];
+  }
 }
 
 function resolveBlueprintsForRender(expansion, options) {

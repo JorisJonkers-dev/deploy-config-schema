@@ -28,8 +28,12 @@
           "minItems": 1,
           "uniqueItems": true,
           "items": {
-            "type": "string",
-            "pattern": "^[a-z0-9][a-z0-9._-]*$"
+            "enum": [
+              "runtime",
+              "development",
+              "staging",
+              "production"
+            ]
           }
         },
         "firstParty": {

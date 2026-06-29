@@ -5,7 +5,7 @@ channels:
     hosts:
       - agents.example.com
     auth:
-      defaultScope: authenticated
+      defaultScope: application
   lan:
     hosts:
       - agents.lan.example.com

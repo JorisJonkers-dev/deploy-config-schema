@@ -3,11 +3,17 @@ kind: Deployment
 metadata:
   name: assistant-api
 spec:
-  services:
+  workloads:
     assistant-api:
       image: ghcr.io/jorisjonkers-dev/assistant-api:v1.2.3
+      group: agents
       namespace: agents
       account: assistant-api
+      containers:
+        - name: assistant-api
+          ports:
+            - name: http
+              containerPort: 8080
       ports:
         - name: http
           containerPort: 8080
@@ -26,22 +32,26 @@ spec:
         metrics:
           - port: http
             path: /actuator/prometheus
-        gatus:
+        status:
           - name: health
+            group: agents
             url: https://agents.example.com/health
+            type: http
+            conditions:
+              - "[STATUS] == 200"
       routes:
         - host: agents.example.com
           expose:
             tier: public-frankfurt
+          auth:
+            scope: application
           rules:
             - path: /
               port: http
               operation: prefix
-              auth:
-                scope: authenticated
       hooks:
         pre:
-          - migrate-db
+          - name: migrate-db
       safety:
         gateOn:
           - parity

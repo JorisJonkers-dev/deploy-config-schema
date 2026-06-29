@@ -3789,10 +3789,10 @@ export const deploymentV2JsonSchema = {
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "services"
+        "workloads"
       ],
       "properties": {
-        "services": {
+        "workloads": {
           "type": "object",
           "minProperties": 1,
           "propertyNames": {
@@ -3806,11 +3806,38 @@ export const deploymentV2JsonSchema = {
               "image"
             ],
             "properties": {
-              "image": {
+              "group": {
                 "type": "string",
-                "pattern": "^[^\\s]+@sha256:[a-f0-9]{64}$|^[^\\s]+:[^\\s]+$"
+                "pattern": "^[a-z0-9][a-z0-9._-]*$"
+              },
+              "kind": {
+                "enum": [
+                  "deployment",
+                  "statefulset",
+                  "job",
+                  "cronjob",
+                  "external_service",
+                  "host_native",
+                  "nomad_job"
+                ]
               },
               "namespace": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9._-]*$"
+              },
+              "replicas": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "schedule": {
+                "type": "string",
+                "minLength": 1
+              },
+              "restartPolicy": {
+                "type": "string",
+                "minLength": 1
+              },
+              "serviceAccountName": {
                 "type": "string",
                 "pattern": "^[a-z0-9][a-z0-9._-]*$"
               },
@@ -3818,18 +3845,393 @@ export const deploymentV2JsonSchema = {
                 "type": "string",
                 "pattern": "^[a-z0-9][a-z0-9._-]*$"
               },
-              "command": {
+              "image": {
+                "type": "string",
+                "pattern": "^[^\\s]+@sha256:[a-f0-9]{64}$|^[^\\s]+:[^\\s]+$"
+              },
+              "pullPolicy": {
+                "enum": [
+                  "Always",
+                  "IfNotPresent",
+                  "Never"
+                ]
+              },
+              "pullSecrets": {
                 "type": "array",
+                "uniqueItems": true,
                 "items": {
                   "type": "string",
-                  "minLength": 1
+                  "pattern": "^[a-z0-9][a-z0-9._-]*$"
                 }
               },
-              "args": {
+              "updateEligible": {
+                "type": "boolean"
+              },
+              "containers": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "name"
+                  ],
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                    },
+                    "image": {
+                      "type": "string",
+                      "pattern": "^[^\\s]+@sha256:[a-f0-9]{64}$|^[^\\s]+:[^\\s]+$"
+                    },
+                    "command": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "args": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "ports": {
+                      "type": "array",
+                      "uniqueItems": true,
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "name",
+                          "containerPort"
+                        ],
+                        "properties": {
+                          "name": {
+                            "type": "string",
+                            "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                          },
+                          "containerPort": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 65535
+                          },
+                          "servicePort": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 65535
+                          },
+                          "protocol": {
+                            "enum": [
+                              "TCP",
+                              "UDP"
+                            ],
+                            "default": "TCP"
+                          }
+                        }
+                      }
+                    },
+                    "env": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "string"
+                      }
+                    },
+                    "envFromSecrets": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "name"
+                        ],
+                        "properties": {
+                          "name": {
+                            "type": "string",
+                            "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                          },
+                          "optional": {
+                            "type": "boolean"
+                          }
+                        }
+                      }
+                    },
+                    "resources": {
+                      "type": "object",
+                      "additionalProperties": true
+                    },
+                    "volumeMounts": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "volume",
+                          "path"
+                        ],
+                        "properties": {
+                          "volume": {
+                            "type": "string",
+                            "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                          },
+                          "path": {
+                            "type": "string",
+                            "pattern": "^/"
+                          },
+                          "readOnly": {
+                            "type": "boolean"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "initContainers": {
                 "type": "array",
                 "items": {
-                  "type": "string",
-                  "minLength": 1
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "name"
+                  ],
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                    },
+                    "image": {
+                      "type": "string",
+                      "pattern": "^[^\\s]+@sha256:[a-f0-9]{64}$|^[^\\s]+:[^\\s]+$"
+                    },
+                    "command": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "args": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "ports": {
+                      "type": "array",
+                      "uniqueItems": true,
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "name",
+                          "containerPort"
+                        ],
+                        "properties": {
+                          "name": {
+                            "type": "string",
+                            "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                          },
+                          "containerPort": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 65535
+                          },
+                          "servicePort": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 65535
+                          },
+                          "protocol": {
+                            "enum": [
+                              "TCP",
+                              "UDP"
+                            ],
+                            "default": "TCP"
+                          }
+                        }
+                      }
+                    },
+                    "env": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "string"
+                      }
+                    },
+                    "envFromSecrets": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "name"
+                        ],
+                        "properties": {
+                          "name": {
+                            "type": "string",
+                            "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                          },
+                          "optional": {
+                            "type": "boolean"
+                          }
+                        }
+                      }
+                    },
+                    "resources": {
+                      "type": "object",
+                      "additionalProperties": true
+                    },
+                    "volumeMounts": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "volume",
+                          "path"
+                        ],
+                        "properties": {
+                          "volume": {
+                            "type": "string",
+                            "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                          },
+                          "path": {
+                            "type": "string",
+                            "pattern": "^/"
+                          },
+                          "readOnly": {
+                            "type": "boolean"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "sidecars": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "name"
+                  ],
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                    },
+                    "image": {
+                      "type": "string",
+                      "pattern": "^[^\\s]+@sha256:[a-f0-9]{64}$|^[^\\s]+:[^\\s]+$"
+                    },
+                    "command": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "args": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "ports": {
+                      "type": "array",
+                      "uniqueItems": true,
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "name",
+                          "containerPort"
+                        ],
+                        "properties": {
+                          "name": {
+                            "type": "string",
+                            "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                          },
+                          "containerPort": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 65535
+                          },
+                          "servicePort": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 65535
+                          },
+                          "protocol": {
+                            "enum": [
+                              "TCP",
+                              "UDP"
+                            ],
+                            "default": "TCP"
+                          }
+                        }
+                      }
+                    },
+                    "env": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "string"
+                      }
+                    },
+                    "envFromSecrets": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "name"
+                        ],
+                        "properties": {
+                          "name": {
+                            "type": "string",
+                            "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                          },
+                          "optional": {
+                            "type": "boolean"
+                          }
+                        }
+                      }
+                    },
+                    "resources": {
+                      "type": "object",
+                      "additionalProperties": true
+                    },
+                    "volumeMounts": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "volume",
+                          "path"
+                        ],
+                        "properties": {
+                          "volume": {
+                            "type": "string",
+                            "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                          },
+                          "path": {
+                            "type": "string",
+                            "pattern": "^/"
+                          },
+                          "readOnly": {
+                            "type": "boolean"
+                          }
+                        }
+                      }
+                    }
+                  }
                 }
               },
               "ports": {
@@ -3852,6 +4254,11 @@ export const deploymentV2JsonSchema = {
                       "minimum": 1,
                       "maximum": 65535
                     },
+                    "servicePort": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 65535
+                    },
                     "protocol": {
                       "enum": [
                         "TCP",
@@ -3862,6 +4269,26 @@ export const deploymentV2JsonSchema = {
                   }
                 }
               },
+              "command": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "env": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              },
               "data": {
                 "type": "object",
                 "additionalProperties": true
@@ -3870,10 +4297,160 @@ export const deploymentV2JsonSchema = {
                 "type": "object",
                 "additionalProperties": true
               },
+              "config": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "values": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string"
+                    }
+                  },
+                  "files": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "secrets": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "name",
+                    "destinationSecretName"
+                  ],
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                    },
+                    "destinationSecretName": {
+                      "type": "string",
+                      "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                    },
+                    "envKeys": {
+                      "type": "array",
+                      "uniqueItems": true,
+                      "items": {
+                        "type": "string",
+                        "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                      }
+                    }
+                  }
+                }
+              },
+              "storage": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "volumes": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "name",
+                        "kind"
+                      ],
+                      "properties": {
+                        "name": {
+                          "type": "string",
+                          "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                        },
+                        "kind": {
+                          "enum": [
+                            "persistent",
+                            "host_path",
+                            "empty_dir",
+                            "config_map",
+                            "secret"
+                          ]
+                        },
+                        "size": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "accessModes": {
+                          "type": "array",
+                          "uniqueItems": true,
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "storageClassName": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "tier": {
+                          "type": "string",
+                          "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                        },
+                        "hostPath": {
+                          "type": "string",
+                          "pattern": "^/"
+                        },
+                        "statefulTemplate": {
+                          "type": "boolean"
+                        }
+                      }
+                    }
+                  },
+                  "mounts": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "volume",
+                        "path"
+                      ],
+                      "properties": {
+                        "volume": {
+                          "type": "string",
+                          "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                        },
+                        "path": {
+                          "type": "string",
+                          "pattern": "^/"
+                        },
+                        "readOnly": {
+                          "type": "boolean"
+                        }
+                      }
+                    }
+                  },
+                  "tiers": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "storageClassName"
+                      ],
+                      "properties": {
+                        "storageClassName": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      }
+                    }
+                  }
+                }
+              },
               "placement": {
                 "type": "object",
                 "additionalProperties": false,
                 "properties": {
+                  "nodeName": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                  },
                   "site": {
                     "type": "string",
                     "pattern": "^[a-z0-9][a-z0-9._-]*$"
@@ -3892,12 +4469,30 @@ export const deploymentV2JsonSchema = {
                       "type": "string",
                       "pattern": "^[a-z0-9][a-z0-9._-]*$"
                     }
+                  },
+                  "tolerations": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  },
+                  "topologySpread": {
+                    "type": "array",
+                    "uniqueItems": true,
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
                   }
                 }
               },
               "autoscaling": {
                 "type": "object",
                 "additionalProperties": false,
+                "required": [
+                  "maxReplicas"
+                ],
                 "properties": {
                   "minReplicas": {
                     "type": "integer",
@@ -3906,6 +4501,32 @@ export const deploymentV2JsonSchema = {
                   "maxReplicas": {
                     "type": "integer",
                     "minimum": 1
+                  },
+                  "targetCpuUtilization": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100
+                  },
+                  "targetMemoryUtilization": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100
+                  },
+                  "keda": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "triggers"
+                    ],
+                    "properties": {
+                      "triggers": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "additionalProperties": true
+                        }
+                      }
+                    }
                   }
                 }
               },
@@ -3928,9 +4549,37 @@ export const deploymentV2JsonSchema = {
                       "type": "string",
                       "minLength": 1
                     },
+                    "provider": {
+                      "enum": [
+                        "vault-kv",
+                        "postgres",
+                        "mariadb",
+                        "rabbitmq",
+                        "external"
+                      ]
+                    },
                     "destinationSecret": {
                       "type": "string",
                       "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                    },
+                    "namespace": {
+                      "type": "string",
+                      "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                    },
+                    "rotation": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "refreshAfter": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "renewalPercent": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 100
+                        }
+                      }
                     }
                   }
                 }
@@ -3939,27 +4588,7 @@ export const deploymentV2JsonSchema = {
                 "type": "object",
                 "additionalProperties": false,
                 "properties": {
-                  "metrics": {
-                    "type": "array",
-                    "items": {
-                      "type": "object",
-                      "additionalProperties": false,
-                      "required": [
-                        "port"
-                      ],
-                      "properties": {
-                        "port": {
-                          "type": "string",
-                          "pattern": "^[a-z0-9][a-z0-9._-]*$"
-                        },
-                        "path": {
-                          "type": "string",
-                          "pattern": "^/"
-                        }
-                      }
-                    }
-                  },
-                  "gatus": {
+                  "status": {
                     "type": "array",
                     "items": {
                       "type": "object",
@@ -3973,7 +4602,65 @@ export const deploymentV2JsonSchema = {
                           "type": "string",
                           "pattern": "^[a-z0-9][a-z0-9._-]*$"
                         },
+                        "group": {
+                          "type": "string",
+                          "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                        },
                         "url": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "type": {
+                          "enum": [
+                            "http",
+                            "tcp"
+                          ]
+                        },
+                        "interval": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "conditions": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "strategy": {
+                          "enum": [
+                            "internal",
+                            "external",
+                            "both"
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  "metrics": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "port"
+                      ],
+                      "properties": {
+                        "kind": {
+                          "enum": [
+                            "ServiceMonitor",
+                            "PodMonitor"
+                          ]
+                        },
+                        "port": {
+                          "type": "string",
+                          "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                        },
+                        "path": {
+                          "type": "string",
+                          "pattern": "^/"
+                        },
+                        "interval": {
                           "type": "string",
                           "minLength": 1
                         }
@@ -3990,9 +4677,14 @@ export const deploymentV2JsonSchema = {
                   "required": [
                     "host",
                     "expose",
+                    "auth",
                     "rules"
                   ],
                   "properties": {
+                    "name": {
+                      "type": "string",
+                      "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                    },
                     "host": {
                       "type": "string",
                       "minLength": 1
@@ -4008,6 +4700,22 @@ export const deploymentV2JsonSchema = {
                           "enum": [
                             "lan",
                             "public-frankfurt"
+                          ]
+                        }
+                      }
+                    },
+                    "auth": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "scope"
+                      ],
+                      "properties": {
+                        "scope": {
+                          "enum": [
+                            "anonymous",
+                            "application",
+                            "user"
                           ]
                         }
                       }
@@ -4050,19 +4758,6 @@ export const deploymentV2JsonSchema = {
                               "type": "string",
                               "minLength": 1
                             }
-                          },
-                          "auth": {
-                            "type": "object",
-                            "additionalProperties": false,
-                            "properties": {
-                              "scope": {
-                                "enum": [
-                                  "anonymous",
-                                  "authenticated",
-                                  "admin"
-                                ]
-                              }
-                            }
                           }
                         }
                       }
@@ -4077,8 +4772,41 @@ export const deploymentV2JsonSchema = {
                   "pre": {
                     "type": "array",
                     "items": {
-                      "type": "string",
-                      "minLength": 1
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "name"
+                      ],
+                      "properties": {
+                        "name": {
+                          "type": "string",
+                          "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                        },
+                        "image": {
+                          "type": "string",
+                          "pattern": "^[^\\s]+@sha256:[a-f0-9]{64}$|^[^\\s]+:[^\\s]+$"
+                        },
+                        "command": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "args": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "env": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "string"
+                          }
+                        }
+                      }
                     }
                   }
                 }
@@ -4096,9 +4824,24 @@ export const deploymentV2JsonSchema = {
                     }
                   }
                 }
+              },
+              "rawManifests": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
               }
             }
           }
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "messaging": {
+          "type": "object",
+          "additionalProperties": true
         },
         "fragments": {
           "type": "array",
@@ -4140,8 +4883,12 @@ export const deploymentEnvV1JsonSchema = {
       ],
       "properties": {
         "name": {
-          "type": "string",
-          "pattern": "^[a-z0-9][a-z0-9._-]*$"
+          "enum": [
+            "runtime",
+            "development",
+            "staging",
+            "production"
+          ]
         }
       }
     },
@@ -4192,8 +4939,12 @@ export const deploymentSourcesV1JsonSchema = {
           "minItems": 1,
           "uniqueItems": true,
           "items": {
-            "type": "string",
-            "pattern": "^[a-z0-9][a-z0-9._-]*$"
+            "enum": [
+              "runtime",
+              "development",
+              "staging",
+              "production"
+            ]
           }
         },
         "firstParty": {
@@ -4829,10 +5580,10 @@ export const collectionV1JsonSchema = {
                 "type": "object",
                 "additionalProperties": false,
                 "required": [
-                  "services"
+                  "workloads"
                 ],
                 "properties": {
-                  "services": {
+                  "workloads": {
                     "type": "object",
                     "minProperties": 1,
                     "propertyNames": {
@@ -4846,11 +5597,38 @@ export const collectionV1JsonSchema = {
                         "image"
                       ],
                       "properties": {
-                        "image": {
+                        "group": {
                           "type": "string",
-                          "pattern": "^[^\\s]+@sha256:[a-f0-9]{64}$|^[^\\s]+:[^\\s]+$"
+                          "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                        },
+                        "kind": {
+                          "enum": [
+                            "deployment",
+                            "statefulset",
+                            "job",
+                            "cronjob",
+                            "external_service",
+                            "host_native",
+                            "nomad_job"
+                          ]
                         },
                         "namespace": {
+                          "type": "string",
+                          "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                        },
+                        "replicas": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "schedule": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "restartPolicy": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "serviceAccountName": {
                           "type": "string",
                           "pattern": "^[a-z0-9][a-z0-9._-]*$"
                         },
@@ -4858,18 +5636,393 @@ export const collectionV1JsonSchema = {
                           "type": "string",
                           "pattern": "^[a-z0-9][a-z0-9._-]*$"
                         },
-                        "command": {
+                        "image": {
+                          "type": "string",
+                          "pattern": "^[^\\s]+@sha256:[a-f0-9]{64}$|^[^\\s]+:[^\\s]+$"
+                        },
+                        "pullPolicy": {
+                          "enum": [
+                            "Always",
+                            "IfNotPresent",
+                            "Never"
+                          ]
+                        },
+                        "pullSecrets": {
                           "type": "array",
+                          "uniqueItems": true,
                           "items": {
                             "type": "string",
-                            "minLength": 1
+                            "pattern": "^[a-z0-9][a-z0-9._-]*$"
                           }
                         },
-                        "args": {
+                        "updateEligible": {
+                          "type": "boolean"
+                        },
+                        "containers": {
+                          "type": "array",
+                          "minItems": 1,
+                          "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "name"
+                            ],
+                            "properties": {
+                              "name": {
+                                "type": "string",
+                                "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                              },
+                              "image": {
+                                "type": "string",
+                                "pattern": "^[^\\s]+@sha256:[a-f0-9]{64}$|^[^\\s]+:[^\\s]+$"
+                              },
+                              "command": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "minLength": 1
+                                }
+                              },
+                              "args": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "minLength": 1
+                                }
+                              },
+                              "ports": {
+                                "type": "array",
+                                "uniqueItems": true,
+                                "items": {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": [
+                                    "name",
+                                    "containerPort"
+                                  ],
+                                  "properties": {
+                                    "name": {
+                                      "type": "string",
+                                      "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                                    },
+                                    "containerPort": {
+                                      "type": "integer",
+                                      "minimum": 1,
+                                      "maximum": 65535
+                                    },
+                                    "servicePort": {
+                                      "type": "integer",
+                                      "minimum": 1,
+                                      "maximum": 65535
+                                    },
+                                    "protocol": {
+                                      "enum": [
+                                        "TCP",
+                                        "UDP"
+                                      ],
+                                      "default": "TCP"
+                                    }
+                                  }
+                                }
+                              },
+                              "env": {
+                                "type": "object",
+                                "additionalProperties": {
+                                  "type": "string"
+                                }
+                              },
+                              "envFromSecrets": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": [
+                                    "name"
+                                  ],
+                                  "properties": {
+                                    "name": {
+                                      "type": "string",
+                                      "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                                    },
+                                    "optional": {
+                                      "type": "boolean"
+                                    }
+                                  }
+                                }
+                              },
+                              "resources": {
+                                "type": "object",
+                                "additionalProperties": true
+                              },
+                              "volumeMounts": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": [
+                                    "volume",
+                                    "path"
+                                  ],
+                                  "properties": {
+                                    "volume": {
+                                      "type": "string",
+                                      "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                                    },
+                                    "path": {
+                                      "type": "string",
+                                      "pattern": "^/"
+                                    },
+                                    "readOnly": {
+                                      "type": "boolean"
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        },
+                        "initContainers": {
                           "type": "array",
                           "items": {
-                            "type": "string",
-                            "minLength": 1
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "name"
+                            ],
+                            "properties": {
+                              "name": {
+                                "type": "string",
+                                "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                              },
+                              "image": {
+                                "type": "string",
+                                "pattern": "^[^\\s]+@sha256:[a-f0-9]{64}$|^[^\\s]+:[^\\s]+$"
+                              },
+                              "command": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "minLength": 1
+                                }
+                              },
+                              "args": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "minLength": 1
+                                }
+                              },
+                              "ports": {
+                                "type": "array",
+                                "uniqueItems": true,
+                                "items": {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": [
+                                    "name",
+                                    "containerPort"
+                                  ],
+                                  "properties": {
+                                    "name": {
+                                      "type": "string",
+                                      "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                                    },
+                                    "containerPort": {
+                                      "type": "integer",
+                                      "minimum": 1,
+                                      "maximum": 65535
+                                    },
+                                    "servicePort": {
+                                      "type": "integer",
+                                      "minimum": 1,
+                                      "maximum": 65535
+                                    },
+                                    "protocol": {
+                                      "enum": [
+                                        "TCP",
+                                        "UDP"
+                                      ],
+                                      "default": "TCP"
+                                    }
+                                  }
+                                }
+                              },
+                              "env": {
+                                "type": "object",
+                                "additionalProperties": {
+                                  "type": "string"
+                                }
+                              },
+                              "envFromSecrets": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": [
+                                    "name"
+                                  ],
+                                  "properties": {
+                                    "name": {
+                                      "type": "string",
+                                      "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                                    },
+                                    "optional": {
+                                      "type": "boolean"
+                                    }
+                                  }
+                                }
+                              },
+                              "resources": {
+                                "type": "object",
+                                "additionalProperties": true
+                              },
+                              "volumeMounts": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": [
+                                    "volume",
+                                    "path"
+                                  ],
+                                  "properties": {
+                                    "volume": {
+                                      "type": "string",
+                                      "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                                    },
+                                    "path": {
+                                      "type": "string",
+                                      "pattern": "^/"
+                                    },
+                                    "readOnly": {
+                                      "type": "boolean"
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        },
+                        "sidecars": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "name"
+                            ],
+                            "properties": {
+                              "name": {
+                                "type": "string",
+                                "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                              },
+                              "image": {
+                                "type": "string",
+                                "pattern": "^[^\\s]+@sha256:[a-f0-9]{64}$|^[^\\s]+:[^\\s]+$"
+                              },
+                              "command": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "minLength": 1
+                                }
+                              },
+                              "args": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "minLength": 1
+                                }
+                              },
+                              "ports": {
+                                "type": "array",
+                                "uniqueItems": true,
+                                "items": {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": [
+                                    "name",
+                                    "containerPort"
+                                  ],
+                                  "properties": {
+                                    "name": {
+                                      "type": "string",
+                                      "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                                    },
+                                    "containerPort": {
+                                      "type": "integer",
+                                      "minimum": 1,
+                                      "maximum": 65535
+                                    },
+                                    "servicePort": {
+                                      "type": "integer",
+                                      "minimum": 1,
+                                      "maximum": 65535
+                                    },
+                                    "protocol": {
+                                      "enum": [
+                                        "TCP",
+                                        "UDP"
+                                      ],
+                                      "default": "TCP"
+                                    }
+                                  }
+                                }
+                              },
+                              "env": {
+                                "type": "object",
+                                "additionalProperties": {
+                                  "type": "string"
+                                }
+                              },
+                              "envFromSecrets": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": [
+                                    "name"
+                                  ],
+                                  "properties": {
+                                    "name": {
+                                      "type": "string",
+                                      "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                                    },
+                                    "optional": {
+                                      "type": "boolean"
+                                    }
+                                  }
+                                }
+                              },
+                              "resources": {
+                                "type": "object",
+                                "additionalProperties": true
+                              },
+                              "volumeMounts": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": [
+                                    "volume",
+                                    "path"
+                                  ],
+                                  "properties": {
+                                    "volume": {
+                                      "type": "string",
+                                      "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                                    },
+                                    "path": {
+                                      "type": "string",
+                                      "pattern": "^/"
+                                    },
+                                    "readOnly": {
+                                      "type": "boolean"
+                                    }
+                                  }
+                                }
+                              }
+                            }
                           }
                         },
                         "ports": {
@@ -4892,6 +6045,11 @@ export const collectionV1JsonSchema = {
                                 "minimum": 1,
                                 "maximum": 65535
                               },
+                              "servicePort": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 65535
+                              },
                               "protocol": {
                                 "enum": [
                                   "TCP",
@@ -4902,6 +6060,26 @@ export const collectionV1JsonSchema = {
                             }
                           }
                         },
+                        "command": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "args": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "env": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "string"
+                          }
+                        },
                         "data": {
                           "type": "object",
                           "additionalProperties": true
@@ -4910,10 +6088,160 @@ export const collectionV1JsonSchema = {
                           "type": "object",
                           "additionalProperties": true
                         },
+                        "config": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "properties": {
+                            "values": {
+                              "type": "object",
+                              "additionalProperties": {
+                                "type": "string"
+                              }
+                            },
+                            "files": {
+                              "type": "object",
+                              "additionalProperties": {
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "secrets": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "name",
+                              "destinationSecretName"
+                            ],
+                            "properties": {
+                              "name": {
+                                "type": "string",
+                                "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                              },
+                              "destinationSecretName": {
+                                "type": "string",
+                                "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                              },
+                              "envKeys": {
+                                "type": "array",
+                                "uniqueItems": true,
+                                "items": {
+                                  "type": "string",
+                                  "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                                }
+                              }
+                            }
+                          }
+                        },
+                        "storage": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "properties": {
+                            "volumes": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": [
+                                  "name",
+                                  "kind"
+                                ],
+                                "properties": {
+                                  "name": {
+                                    "type": "string",
+                                    "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                                  },
+                                  "kind": {
+                                    "enum": [
+                                      "persistent",
+                                      "host_path",
+                                      "empty_dir",
+                                      "config_map",
+                                      "secret"
+                                    ]
+                                  },
+                                  "size": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "accessModes": {
+                                    "type": "array",
+                                    "uniqueItems": true,
+                                    "items": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    }
+                                  },
+                                  "storageClassName": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "tier": {
+                                    "type": "string",
+                                    "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                                  },
+                                  "hostPath": {
+                                    "type": "string",
+                                    "pattern": "^/"
+                                  },
+                                  "statefulTemplate": {
+                                    "type": "boolean"
+                                  }
+                                }
+                              }
+                            },
+                            "mounts": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": [
+                                  "volume",
+                                  "path"
+                                ],
+                                "properties": {
+                                  "volume": {
+                                    "type": "string",
+                                    "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                                  },
+                                  "path": {
+                                    "type": "string",
+                                    "pattern": "^/"
+                                  },
+                                  "readOnly": {
+                                    "type": "boolean"
+                                  }
+                                }
+                              }
+                            },
+                            "tiers": {
+                              "type": "object",
+                              "additionalProperties": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": [
+                                  "storageClassName"
+                                ],
+                                "properties": {
+                                  "storageClassName": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        },
                         "placement": {
                           "type": "object",
                           "additionalProperties": false,
                           "properties": {
+                            "nodeName": {
+                              "type": "string",
+                              "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                            },
                             "site": {
                               "type": "string",
                               "pattern": "^[a-z0-9][a-z0-9._-]*$"
@@ -4932,12 +6260,30 @@ export const collectionV1JsonSchema = {
                                 "type": "string",
                                 "pattern": "^[a-z0-9][a-z0-9._-]*$"
                               }
+                            },
+                            "tolerations": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "additionalProperties": true
+                              }
+                            },
+                            "topologySpread": {
+                              "type": "array",
+                              "uniqueItems": true,
+                              "items": {
+                                "type": "string",
+                                "minLength": 1
+                              }
                             }
                           }
                         },
                         "autoscaling": {
                           "type": "object",
                           "additionalProperties": false,
+                          "required": [
+                            "maxReplicas"
+                          ],
                           "properties": {
                             "minReplicas": {
                               "type": "integer",
@@ -4946,6 +6292,32 @@ export const collectionV1JsonSchema = {
                             "maxReplicas": {
                               "type": "integer",
                               "minimum": 1
+                            },
+                            "targetCpuUtilization": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 100
+                            },
+                            "targetMemoryUtilization": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 100
+                            },
+                            "keda": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": [
+                                "triggers"
+                              ],
+                              "properties": {
+                                "triggers": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                  }
+                                }
+                              }
                             }
                           }
                         },
@@ -4968,9 +6340,37 @@ export const collectionV1JsonSchema = {
                                 "type": "string",
                                 "minLength": 1
                               },
+                              "provider": {
+                                "enum": [
+                                  "vault-kv",
+                                  "postgres",
+                                  "mariadb",
+                                  "rabbitmq",
+                                  "external"
+                                ]
+                              },
                               "destinationSecret": {
                                 "type": "string",
                                 "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                              },
+                              "namespace": {
+                                "type": "string",
+                                "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                              },
+                              "rotation": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                  "refreshAfter": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "renewalPercent": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 100
+                                  }
+                                }
                               }
                             }
                           }
@@ -4979,27 +6379,7 @@ export const collectionV1JsonSchema = {
                           "type": "object",
                           "additionalProperties": false,
                           "properties": {
-                            "metrics": {
-                              "type": "array",
-                              "items": {
-                                "type": "object",
-                                "additionalProperties": false,
-                                "required": [
-                                  "port"
-                                ],
-                                "properties": {
-                                  "port": {
-                                    "type": "string",
-                                    "pattern": "^[a-z0-9][a-z0-9._-]*$"
-                                  },
-                                  "path": {
-                                    "type": "string",
-                                    "pattern": "^/"
-                                  }
-                                }
-                              }
-                            },
-                            "gatus": {
+                            "status": {
                               "type": "array",
                               "items": {
                                 "type": "object",
@@ -5013,7 +6393,65 @@ export const collectionV1JsonSchema = {
                                     "type": "string",
                                     "pattern": "^[a-z0-9][a-z0-9._-]*$"
                                   },
+                                  "group": {
+                                    "type": "string",
+                                    "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                                  },
                                   "url": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "type": {
+                                    "enum": [
+                                      "http",
+                                      "tcp"
+                                    ]
+                                  },
+                                  "interval": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "conditions": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    }
+                                  },
+                                  "strategy": {
+                                    "enum": [
+                                      "internal",
+                                      "external",
+                                      "both"
+                                    ]
+                                  }
+                                }
+                              }
+                            },
+                            "metrics": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": [
+                                  "port"
+                                ],
+                                "properties": {
+                                  "kind": {
+                                    "enum": [
+                                      "ServiceMonitor",
+                                      "PodMonitor"
+                                    ]
+                                  },
+                                  "port": {
+                                    "type": "string",
+                                    "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                                  },
+                                  "path": {
+                                    "type": "string",
+                                    "pattern": "^/"
+                                  },
+                                  "interval": {
                                     "type": "string",
                                     "minLength": 1
                                   }
@@ -5030,9 +6468,14 @@ export const collectionV1JsonSchema = {
                             "required": [
                               "host",
                               "expose",
+                              "auth",
                               "rules"
                             ],
                             "properties": {
+                              "name": {
+                                "type": "string",
+                                "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                              },
                               "host": {
                                 "type": "string",
                                 "minLength": 1
@@ -5048,6 +6491,22 @@ export const collectionV1JsonSchema = {
                                     "enum": [
                                       "lan",
                                       "public-frankfurt"
+                                    ]
+                                  }
+                                }
+                              },
+                              "auth": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": [
+                                  "scope"
+                                ],
+                                "properties": {
+                                  "scope": {
+                                    "enum": [
+                                      "anonymous",
+                                      "application",
+                                      "user"
                                     ]
                                   }
                                 }
@@ -5090,19 +6549,6 @@ export const collectionV1JsonSchema = {
                                         "type": "string",
                                         "minLength": 1
                                       }
-                                    },
-                                    "auth": {
-                                      "type": "object",
-                                      "additionalProperties": false,
-                                      "properties": {
-                                        "scope": {
-                                          "enum": [
-                                            "anonymous",
-                                            "authenticated",
-                                            "admin"
-                                          ]
-                                        }
-                                      }
                                     }
                                   }
                                 }
@@ -5117,8 +6563,41 @@ export const collectionV1JsonSchema = {
                             "pre": {
                               "type": "array",
                               "items": {
-                                "type": "string",
-                                "minLength": 1
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": [
+                                  "name"
+                                ],
+                                "properties": {
+                                  "name": {
+                                    "type": "string",
+                                    "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                                  },
+                                  "image": {
+                                    "type": "string",
+                                    "pattern": "^[^\\s]+@sha256:[a-f0-9]{64}$|^[^\\s]+:[^\\s]+$"
+                                  },
+                                  "command": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    }
+                                  },
+                                  "args": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    }
+                                  },
+                                  "env": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                      "type": "string"
+                                    }
+                                  }
+                                }
                               }
                             }
                           }
@@ -5136,9 +6615,24 @@ export const collectionV1JsonSchema = {
                               }
                             }
                           }
+                        },
+                        "rawManifests": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "additionalProperties": true
+                          }
                         }
                       }
                     }
+                  },
+                  "data": {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  "messaging": {
+                    "type": "object",
+                    "additionalProperties": true
                   },
                   "fragments": {
                     "type": "array",
@@ -5155,7 +6649,60 @@ export const collectionV1JsonSchema = {
         },
         "providerExports": {
           "type": "object",
-          "additionalProperties": true
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": true,
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9._-]*$"
+              },
+              "type": {
+                "enum": [
+                  "database",
+                  "messaging",
+                  "kv",
+                  "external"
+                ]
+              },
+              "namespace": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9._-]*$"
+              },
+              "endpoint": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "service",
+                  "port"
+                ],
+                "properties": {
+                  "service": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                  },
+                  "port": {
+                    "anyOf": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    ]
+                  }
+                }
+              },
+              "grants": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
         }
       }
     }

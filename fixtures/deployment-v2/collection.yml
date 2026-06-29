@@ -10,10 +10,16 @@ spec:
       metadata:
         name: platform-postgres
       spec:
-        services:
+        workloads:
           platform-postgres:
             image: ghcr.io/jorisjonkers-dev/platform-postgres:v16
+            group: data
             namespace: data
+            containers:
+              - name: platform-postgres
+                ports:
+                  - name: postgres
+                    containerPort: 5432
             ports:
               - name: postgres
                 containerPort: 5432

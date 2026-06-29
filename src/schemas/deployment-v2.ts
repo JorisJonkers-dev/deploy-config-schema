@@ -10,6 +10,11 @@ const nonEmptyString = {
   minLength: 1,
 };
 
+const stringMap = {
+  type: "object",
+  additionalProperties: { type: "string" },
+};
+
 const apiVersion = (value: string) => ({
   const: value,
 });
@@ -51,6 +56,82 @@ const gitRef = {
   },
 };
 
+const port = {
+  type: "object",
+  additionalProperties: false,
+  required: ["name", "containerPort"],
+  properties: {
+    name: identifier,
+    containerPort: {
+      type: "integer",
+      minimum: 1,
+      maximum: 65535,
+    },
+    servicePort: {
+      type: "integer",
+      minimum: 1,
+      maximum: 65535,
+    },
+    protocol: {
+      enum: ["TCP", "UDP"],
+      default: "TCP",
+    },
+  },
+};
+
+const container = {
+  type: "object",
+  additionalProperties: false,
+  required: ["name"],
+  properties: {
+    name: identifier,
+    image: imageRef,
+    command: {
+      type: "array",
+      items: nonEmptyString,
+    },
+    args: {
+      type: "array",
+      items: nonEmptyString,
+    },
+    ports: {
+      type: "array",
+      uniqueItems: true,
+      items: port,
+    },
+    env: stringMap,
+    envFromSecrets: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["name"],
+        properties: {
+          name: identifier,
+          optional: { type: "boolean" },
+        },
+      },
+    },
+    resources: {
+      type: "object",
+      additionalProperties: true,
+    },
+    volumeMounts: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["volume", "path"],
+        properties: {
+          volume: identifier,
+          path: { type: "string", pattern: "^/" },
+          readOnly: { type: "boolean" },
+        },
+      },
+    },
+  },
+};
+
 const routeRule = {
   type: "object",
   additionalProperties: false,
@@ -74,26 +155,104 @@ const routeRule = {
       uniqueItems: true,
       items: nonEmptyString,
     },
-    auth: {
+  },
+};
+
+const credential = {
+  type: "object",
+  additionalProperties: false,
+  required: ["name", "claim"],
+  properties: {
+    name: identifier,
+    claim: nonEmptyString,
+    provider: {
+      enum: ["vault-kv", "postgres", "mariadb", "rabbitmq", "external"],
+    },
+    destinationSecret: identifier,
+    namespace: identifier,
+    rotation: {
       type: "object",
       additionalProperties: false,
       properties: {
-        scope: {
-          enum: ["anonymous", "authenticated", "admin"],
+        refreshAfter: nonEmptyString,
+        renewalPercent: {
+          type: "integer",
+          minimum: 1,
+          maximum: 100,
         },
       },
     },
   },
 };
 
-const deploymentService = {
+const storageVolume = {
+  type: "object",
+  additionalProperties: false,
+  required: ["name", "kind"],
+  properties: {
+    name: identifier,
+    kind: {
+      enum: ["persistent", "host_path", "empty_dir", "config_map", "secret"],
+    },
+    size: nonEmptyString,
+    accessModes: {
+      type: "array",
+      uniqueItems: true,
+      items: nonEmptyString,
+    },
+    storageClassName: nonEmptyString,
+    tier: identifier,
+    hostPath: { type: "string", pattern: "^/" },
+    statefulTemplate: { type: "boolean" },
+  },
+};
+
+const deploymentWorkload = {
   type: "object",
   additionalProperties: false,
   required: ["image"],
   properties: {
-    image: imageRef,
+    group: identifier,
+    kind: {
+      enum: ["deployment", "statefulset", "job", "cronjob", "external_service", "host_native", "nomad_job"],
+    },
     namespace: identifier,
+    replicas: {
+      type: "integer",
+      minimum: 0,
+    },
+    schedule: nonEmptyString,
+    restartPolicy: nonEmptyString,
+    serviceAccountName: identifier,
     account: identifier,
+    image: imageRef,
+    pullPolicy: {
+      enum: ["Always", "IfNotPresent", "Never"],
+    },
+    pullSecrets: {
+      type: "array",
+      uniqueItems: true,
+      items: identifier,
+    },
+    updateEligible: { type: "boolean" },
+    containers: {
+      type: "array",
+      minItems: 1,
+      items: container,
+    },
+    initContainers: {
+      type: "array",
+      items: container,
+    },
+    sidecars: {
+      type: "array",
+      items: container,
+    },
+    ports: {
+      type: "array",
+      uniqueItems: true,
+      items: port,
+    },
     command: {
       type: "array",
       items: nonEmptyString,
@@ -102,27 +261,7 @@ const deploymentService = {
       type: "array",
       items: nonEmptyString,
     },
-    ports: {
-      type: "array",
-      uniqueItems: true,
-      items: {
-        type: "object",
-        additionalProperties: false,
-        required: ["name", "containerPort"],
-        properties: {
-          name: identifier,
-          containerPort: {
-            type: "integer",
-            minimum: 1,
-            maximum: 65535,
-          },
-          protocol: {
-            enum: ["TCP", "UDP"],
-            default: "TCP",
-          },
-        },
-      },
-    },
+    env: stringMap,
     data: {
       type: "object",
       additionalProperties: true,
@@ -131,10 +270,70 @@ const deploymentService = {
       type: "object",
       additionalProperties: true,
     },
+    config: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        values: stringMap,
+        files: stringMap,
+      },
+    },
+    secrets: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["name", "destinationSecretName"],
+        properties: {
+          name: identifier,
+          destinationSecretName: identifier,
+          envKeys: {
+            type: "array",
+            uniqueItems: true,
+            items: identifier,
+          },
+        },
+      },
+    },
+    storage: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        volumes: {
+          type: "array",
+          items: storageVolume,
+        },
+        mounts: {
+          type: "array",
+          items: {
+            type: "object",
+            additionalProperties: false,
+            required: ["volume", "path"],
+            properties: {
+              volume: identifier,
+              path: { type: "string", pattern: "^/" },
+              readOnly: { type: "boolean" },
+            },
+          },
+        },
+        tiers: {
+          type: "object",
+          additionalProperties: {
+            type: "object",
+            additionalProperties: false,
+            required: ["storageClassName"],
+            properties: {
+              storageClassName: nonEmptyString,
+            },
+          },
+        },
+      },
+    },
     placement: {
       type: "object",
       additionalProperties: false,
       properties: {
+        nodeName: identifier,
         site: identifier,
         nodeSelector: {
           type: "object",
@@ -145,11 +344,24 @@ const deploymentService = {
           uniqueItems: true,
           items: identifier,
         },
+        tolerations: {
+          type: "array",
+          items: {
+            type: "object",
+            additionalProperties: true,
+          },
+        },
+        topologySpread: {
+          type: "array",
+          uniqueItems: true,
+          items: nonEmptyString,
+        },
       },
     },
     autoscaling: {
       type: "object",
       additionalProperties: false,
+      required: ["maxReplicas"],
       properties: {
         minReplicas: {
           type: "integer",
@@ -159,42 +371,39 @@ const deploymentService = {
           type: "integer",
           minimum: 1,
         },
+        targetCpuUtilization: {
+          type: "integer",
+          minimum: 1,
+          maximum: 100,
+        },
+        targetMemoryUtilization: {
+          type: "integer",
+          minimum: 1,
+          maximum: 100,
+        },
+        keda: {
+          type: "object",
+          additionalProperties: false,
+          required: ["triggers"],
+          properties: {
+            triggers: {
+              type: "array",
+              items: { type: "object", additionalProperties: true },
+            },
+          },
+        },
       },
     },
     credentials: {
       type: "array",
       uniqueItems: true,
-      items: {
-        type: "object",
-        additionalProperties: false,
-        required: ["name", "claim"],
-        properties: {
-          name: identifier,
-          claim: nonEmptyString,
-          destinationSecret: identifier,
-        },
-      },
+      items: credential,
     },
     observability: {
       type: "object",
       additionalProperties: false,
       properties: {
-        metrics: {
-          type: "array",
-          items: {
-            type: "object",
-            additionalProperties: false,
-            required: ["port"],
-            properties: {
-              port: identifier,
-              path: {
-                type: "string",
-                pattern: "^/",
-              },
-            },
-          },
-        },
-        gatus: {
+        status: {
           type: "array",
           items: {
             type: "object",
@@ -202,7 +411,32 @@ const deploymentService = {
             required: ["name", "url"],
             properties: {
               name: identifier,
+              group: identifier,
               url: nonEmptyString,
+              type: { enum: ["http", "tcp"] },
+              interval: nonEmptyString,
+              conditions: {
+                type: "array",
+                items: nonEmptyString,
+              },
+              strategy: { enum: ["internal", "external", "both"] },
+            },
+          },
+        },
+        metrics: {
+          type: "array",
+          items: {
+            type: "object",
+            additionalProperties: false,
+            required: ["port"],
+            properties: {
+              kind: { enum: ["ServiceMonitor", "PodMonitor"] },
+              port: identifier,
+              path: {
+                type: "string",
+                pattern: "^/",
+              },
+              interval: nonEmptyString,
             },
           },
         },
@@ -213,8 +447,9 @@ const deploymentService = {
       items: {
         type: "object",
         additionalProperties: false,
-        required: ["host", "expose", "rules"],
+        required: ["host", "expose", "auth", "rules"],
         properties: {
+          name: identifier,
           host: nonEmptyString,
           expose: {
             type: "object",
@@ -223,6 +458,16 @@ const deploymentService = {
             properties: {
               tier: {
                 enum: ["lan", "public-frankfurt"],
+              },
+            },
+          },
+          auth: {
+            type: "object",
+            additionalProperties: false,
+            required: ["scope"],
+            properties: {
+              scope: {
+                enum: ["anonymous", "application", "user"],
               },
             },
           },
@@ -240,7 +485,24 @@ const deploymentService = {
       properties: {
         pre: {
           type: "array",
-          items: nonEmptyString,
+          items: {
+            type: "object",
+            additionalProperties: false,
+            required: ["name"],
+            properties: {
+              name: identifier,
+              image: imageRef,
+              command: {
+                type: "array",
+                items: nonEmptyString,
+              },
+              args: {
+                type: "array",
+                items: nonEmptyString,
+              },
+              env: stringMap,
+            },
+          },
         },
       },
     },
@@ -253,6 +515,13 @@ const deploymentService = {
           uniqueItems: true,
           items: nonEmptyString,
         },
+      },
+    },
+    rawManifests: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: true,
       },
     },
   },
@@ -285,9 +554,17 @@ export const deploymentV2JsonSchema = {
     spec: {
       type: "object",
       additionalProperties: false,
-      required: ["services"],
+      required: ["workloads"],
       properties: {
-        services: objectMap(deploymentService, 1),
+        workloads: objectMap(deploymentWorkload, 1),
+        data: {
+          type: "object",
+          additionalProperties: true,
+        },
+        messaging: {
+          type: "object",
+          additionalProperties: true,
+        },
         fragments: {
           type: "array",
           uniqueItems: true,
@@ -315,7 +592,9 @@ export const deploymentEnvV1JsonSchema = {
       additionalProperties: false,
       required: ["name"],
       properties: {
-        name: identifier,
+        name: {
+          enum: ["runtime", "development", "staging", "production"],
+        },
       },
     },
     spec: {
@@ -356,7 +635,9 @@ export const deploymentSourcesV1JsonSchema = {
           type: "array",
           minItems: 1,
           uniqueItems: true,
-          items: identifier,
+          items: {
+            enum: ["runtime", "development", "staging", "production"],
+          },
         },
         firstParty: objectMap({
           type: "object",
@@ -585,7 +866,31 @@ export const collectionV1JsonSchema = {
         },
         providerExports: {
           type: "object",
-          additionalProperties: true,
+          additionalProperties: {
+            type: "object",
+            additionalProperties: true,
+            required: ["type"],
+            properties: {
+              name: identifier,
+              type: { enum: ["database", "messaging", "kv", "external"] },
+              namespace: identifier,
+              endpoint: {
+                type: "object",
+                additionalProperties: false,
+                required: ["service", "port"],
+                properties: {
+                  service: identifier,
+                  port: {
+                    anyOf: [{ type: "integer" }, nonEmptyString],
+                  },
+                },
+              },
+              grants: {
+                type: "object",
+                additionalProperties: true,
+              },
+            },
+          },
         },
       },
     },

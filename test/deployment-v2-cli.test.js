@@ -63,9 +63,28 @@ test("lock images emits deterministic image-tags output", async () => {
   assert.equal(io.stderr.text(), "");
   assert.equal(io.stdout.text(), [
     "ghcr.io/jorisjonkers-dev/assistant-api:v1.2.3",
+    "ghcr.io/jorisjonkers-dev/platform-postgres:v16",
     "ghcr.io/twin/gatus:v5.20.0",
     "",
   ].join("\n"));
+});
+
+test("lock images emits json and lock update preserves a valid lock file", async () => {
+  const dir = tempDir();
+  const lockPath = join(dir, "deployment.lock.yml");
+  writeFileSync(lockPath, readFileSync(fixture("deployment.lock.yml"), "utf8"));
+  const imagesIo = streams();
+  const updateIo = streams();
+
+  assert.equal(await runCli(["lock", "images", "--lock", lockPath], imagesIo), 0);
+  assert.deepEqual(JSON.parse(imagesIo.stdout.text()).images, [
+    "ghcr.io/jorisjonkers-dev/assistant-api:v1.2.3",
+    "ghcr.io/jorisjonkers-dev/platform-postgres:v16",
+    "ghcr.io/twin/gatus:v5.20.0",
+  ]);
+
+  assert.equal(await runCli(["lock", "--sources", fixture("deployment-sources.yml"), "--lock", lockPath, "--update"], updateIo), 0);
+  assert.equal(YAML.parse(readFileSync(lockPath, "utf8")).kind, "DeploymentLock");
 });
 
 test("resolve-sources reports unlocked source entries", async () => {
@@ -80,10 +99,10 @@ test("resolve-sources reports unlocked source entries", async () => {
   const result = JSON.parse(io.stdout.text());
 
   assert.equal(exitCode, 1);
-  assert.deepEqual(result.unlocked, ["firstParty.assistant-api"]);
+  assert.deepEqual(result.diagnostics.map((diagnostic) => diagnostic.path), ["/firstParty/assistant-api"]);
 });
 
-test("compile writes checked scaffold output", async () => {
+test("compile validates inputs and writes no files for empty stubs", async () => {
   const out = tempDir();
   const writeIo = streams();
   const checkIo = streams();
@@ -99,8 +118,17 @@ test("compile writes checked scaffold output", async () => {
   ];
 
   assert.equal(await runCli(args, writeIo), 0, writeIo.stderr.text());
-  assert.match(readFileSync(join(out, "deploy-v2-compile-report.json"), "utf8"), /"rendererStatus": "scaffold"/);
+  assert.deepEqual(JSON.parse(writeIo.stdout.text()).files, []);
   assert.equal(await runCli([...args, "--check"], checkIo), 0, checkIo.stdout.text());
+});
+
+test("compile usage errors are structured", async () => {
+  const io = streams();
+  const exitCode = await runCli(["compile", "--env", "production"], io);
+  const result = JSON.parse(io.stderr.text());
+
+  assert.equal(exitCode, 1);
+  assert.equal(result.diagnostics[0].code, "E_USAGE");
 });
 
 test("bundle pack writes a deterministic manifest file", async () => {
@@ -136,7 +164,8 @@ test("parity succeeds for identical normalized Kubernetes trees", async () => {
     "apiVersion: source.toolkit.fluxcd.io/v1",
     "kind: GitRepository",
     "metadata:",
-    "  name: production",
+    "  name: flux-system",
+    "  namespace: flux-system",
     "spec:",
     "  url: https://github.com/old/source",
     "  ref:",
@@ -151,7 +180,6 @@ test("parity succeeds for identical normalized Kubernetes trees", async () => {
     "parity",
     "--current", current,
     "--rendered", rendered,
-    "--allow-flux-source-diff", "true",
   ], io);
   const result = JSON.parse(io.stdout.text());
 
