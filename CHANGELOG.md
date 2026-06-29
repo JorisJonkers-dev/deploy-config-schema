@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.0](https://github.com/JorisJonkers-dev/deploy-config-schema/compare/v0.12.0...v0.13.0) (2026-06-29)
+
+
+### Features
+
+* extract host collection render tooling ([#17](https://github.com/JorisJonkers-dev/deploy-config-schema/issues/17)) ([27976fb](https://github.com/JorisJonkers-dev/deploy-config-schema/commit/27976fbea275e9fcc53c2bf7906220d78a65892a))
+
 ## [0.12.0](https://github.com/JorisJonkers-dev/deploy-config-schema/compare/v0.11.0...v0.12.0) (2026-06-29)
 
 
