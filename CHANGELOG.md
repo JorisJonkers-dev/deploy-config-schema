@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.2](https://github.com/JorisJonkers-dev/deploy-config-schema/compare/v0.13.1...v0.13.2) (2026-06-29)
+
+
+### Bug Fixes
+
+* classify imported parity sources ([#22](https://github.com/JorisJonkers-dev/deploy-config-schema/issues/22)) ([684d3f4](https://github.com/JorisJonkers-dev/deploy-config-schema/commit/684d3f4091e26a1e635607b091c7a3ef2f025469))
+
 ## [0.13.1](https://github.com/JorisJonkers-dev/deploy-config-schema/compare/v0.13.0...v0.13.1) (2026-06-29)
 
 
