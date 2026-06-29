@@ -1,0 +1,19 @@
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: apps-core
+  namespace: flux-system
+spec:
+  path: ./cluster/flux/apps/core
+  wait: true
+  timeout: 15m
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: apps-stateless
+  namespace: flux-system
+spec:
+  path: ./cluster/flux/apps/stateless
+  dependsOn:
+    - name: apps-core

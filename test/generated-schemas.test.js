@@ -90,10 +90,10 @@ function compile(schema) {
 function fixtureDocuments() {
   return ["samples", "fixtures"]
     .flatMap((directory) => documentFiles(join(repoRoot, directory)))
-    .map((path) => ({
-      relativePath: path.slice(repoRoot.length + 1),
-      value: readDocument(path),
-    }));
+    .flatMap((path) => readDocuments(path).map((value, index, values) => ({
+      relativePath: `${path.slice(repoRoot.length + 1)}${values.length > 1 ? `#${index}` : ""}`,
+      value,
+    })));
 }
 
 function documentFiles(directory) {
@@ -108,7 +108,9 @@ function documentFiles(directory) {
     .sort();
 }
 
-function readDocument(path) {
+function readDocuments(path) {
   const text = readFileSync(path, "utf8");
-  return path.endsWith(".json") ? JSON.parse(text) : YAML.parse(text);
+  return path.endsWith(".json")
+    ? [JSON.parse(text)]
+    : YAML.parseAllDocuments(text).map((document) => document.toJSON()).filter((document) => document !== null);
 }

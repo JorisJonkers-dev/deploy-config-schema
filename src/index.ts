@@ -78,3 +78,15 @@ export {
   readDeploymentLock,
   updateDeploymentLock,
 } from "./deployment-v2/lockfile.js";
+export {
+  normalizeParityTree,
+  compareParityTrees,
+  unifiedDiff,
+  type ParityObject,
+  type ParityReport,
+} from "./deployment-v2/parity.js";
+export {
+  importFleetV1,
+  type ImportFleetV1Options,
+  type ImportFleetV1Result,
+} from "./deployment-v2/import/fleet-v1.js";
