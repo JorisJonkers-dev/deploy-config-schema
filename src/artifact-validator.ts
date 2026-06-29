@@ -7,11 +7,14 @@ import type { Ajv2020 as Ajv2020Class } from "ajv/dist/2020.js";
 import { validateConfig } from "./validator.js";
 import {
   collectionJsonSchema,
+  collectionIndexJsonSchema,
   deploymentEnvJsonSchema,
   deploymentLockJsonSchema,
   deploymentSourcesJsonSchema,
   deploymentJsonSchema,
   fleetInventoryJsonSchema,
+  hostInventoryJsonSchema,
+  nodeInventoryJsonSchema,
   nodeContractJsonSchema,
   reachabilityJsonSchema,
   serviceIntentJsonSchema,
@@ -27,8 +30,11 @@ const artifactSchemas = {
   "deployment-env": deploymentEnvJsonSchema,
   "deployment-sources": deploymentSourcesJsonSchema,
   "deployment-lock": deploymentLockJsonSchema,
+  "host-inventory": hostInventoryJsonSchema,
+  "node-inventory": nodeInventoryJsonSchema,
   "node-contract": nodeContractJsonSchema,
   "collection": collectionJsonSchema,
+  "collection-index": collectionIndexJsonSchema,
   "reachability": reachabilityJsonSchema,
   "state-move-plan": stateMovePlanJsonSchema,
 };

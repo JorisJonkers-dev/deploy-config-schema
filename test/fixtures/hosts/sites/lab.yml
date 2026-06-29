@@ -1,0 +1,6 @@
+kind: SiteInventory
+metadata:
+  name: lab
+site:
+  kind: lab
+  purpose: deployment

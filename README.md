@@ -49,11 +49,14 @@ npx deploy-config-schema validate vault-dynamic-secrets fixtures/round3/vault-dy
 Validate Deployment inputs:
 
 ```bash
+npx deploy-config-schema validate host-inventory inventory/fleet.yml
+npx deploy-config-schema validate node-inventory inventory/nodes/k3s-01.yml
 npx deploy-config-schema validate deployment fixtures/deployment/deployment.yml
 npx deploy-config-schema validate deployment-sources fixtures/deployment/deployment-sources.yml
 npx deploy-config-schema validate deployment-lock fixtures/deployment/deployment.lock.yml
 npx deploy-config-schema validate node-contract fixtures/deployment/node-contract.lock.yml
 npx deploy-config-schema validate collection fixtures/deployment/collection.yml
+npx deploy-config-schema validate collection-index generated/collections.lock.yml
 npx deploy-config-schema validate reachability fixtures/deployment/reachability.yml
 npx deploy-config-schema validate state-move-plan fixtures/deployment/state-move-plan.yml
 ```
@@ -62,9 +65,23 @@ Deployment command contracts are available for source resolution, lock image
 extraction, bundle packing, compiler scaffolding, import, render, and parity:
 
 ```bash
-npx deploy-config-schema lock images --lock deployment.lock.yml --format image-tags
-npx deploy-config-schema compile --env production --sources deployment-sources.yml --lock deployment.lock.yml --node-contract inventory/node-contract.lock.yml --reachability catalog/reachability.yml --out cluster/flux --check
+npx deploy-config-schema hosts validate --inventory inventory/fleet.yml
+npx deploy-config-schema hosts render-node-contract --inventory inventory/fleet.yml --out generated/node-contract.lock.yml --labels-out generated/k3s-labels.yml
+npx deploy-config-schema hosts check-node-contract --inventory inventory/fleet.yml --contract generated/node-contract.lock.yml
+
+npx deploy-config-schema collections validate --root collections
+npx deploy-config-schema collections index --root collections --out generated/collections.lock.yml
+
+npx deploy-config-schema lock images --lock deployment.lock.yml --format image-tags --reject-latest
+npx deploy-config-schema compile --env production --sources deployment-sources.yml --lock deployment.lock.yml --node-contract inventory/node-contract.lock.yml --collections generated/collections.lock.yml --reachability catalog/reachability.yml --out cluster/flux --check
+npx deploy-config-schema parity check --rendered cluster/flux --compiled build/flux --profile flux
+npx deploy-config-schema state move-plan validate state/move-plan.yml
+npx deploy-config-schema cutover plan --current cluster/flux --candidate build/flux --out state/cutover-plan.yml
 ```
+
+`cutover plan` is intentionally non-applying. It compares current and candidate
+trees, writes a review artifact when requested, and never switches Flux sources
+or talks to a cluster.
 
 Render a full generated tree from `platform.yaml`:
 

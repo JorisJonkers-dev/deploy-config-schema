@@ -5343,6 +5343,781 @@ export const deploymentLockJsonSchema = {
   }
 };
 
+export const hostInventoryJsonSchema = {
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.jorisjonkers.dev/host-inventory.schema.json",
+  "title": "Host Inventory Documents",
+  "anyOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "metadata",
+        "sites",
+        "nodes"
+      ],
+      "properties": {
+        "kind": {
+          "const": "FleetInventory"
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "sites": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "path"
+            ],
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1,
+                "not": {
+                  "pattern": "^/"
+                }
+              }
+            }
+          }
+        },
+        "nodes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "path"
+            ],
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1,
+                "not": {
+                  "pattern": "^/"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "metadata",
+        "site"
+      ],
+      "properties": {
+        "kind": {
+          "const": "SiteInventory"
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "name"
+          ],
+          "properties": {
+            "name": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9._-]*$"
+            }
+          }
+        },
+        "site": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "kind",
+            "purpose"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9._-]*$"
+            },
+            "purpose": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9._-]*$"
+            },
+            "region": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9._-]*$"
+            },
+            "labels": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "metadata",
+        "status",
+        "site",
+        "arch",
+        "roles",
+        "capacity",
+        "gpus",
+        "capabilities",
+        "labels",
+        "taints",
+        "schedulability",
+        "storage"
+      ],
+      "properties": {
+        "kind": {
+          "const": "NodeInventory"
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "name"
+          ],
+          "properties": {
+            "name": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9._-]*$"
+            }
+          }
+        },
+        "status": {
+          "enum": [
+            "active",
+            "install-ready",
+            "planned",
+            "ignored",
+            "retired"
+          ]
+        },
+        "site": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]*$"
+        },
+        "arch": {
+          "enum": [
+            "amd64",
+            "arm64"
+          ]
+        },
+        "ssh": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "host",
+            "user",
+            "port"
+          ],
+          "properties": {
+            "host": {
+              "type": "string",
+              "minLength": 1
+            },
+            "user": {
+              "type": "string",
+              "minLength": 1
+            },
+            "port": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 65535
+            }
+          }
+        },
+        "roles": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]*$"
+          }
+        },
+        "capacity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "cpu_millicores",
+            "memory_mib"
+          ],
+          "properties": {
+            "cpu_millicores": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "memory_mib": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        },
+        "gpus": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "vendor",
+              "model",
+              "class",
+              "memory_mib",
+              "count"
+            ],
+            "properties": {
+              "vendor": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9._-]*$"
+              },
+              "model": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9._-]*$"
+              },
+              "class": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9._-]*$"
+              },
+              "memory_mib": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "count": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "resource_name": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        "capabilities": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]*$"
+          }
+        },
+        "labels": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "taints": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "key",
+              "effect"
+            ],
+            "properties": {
+              "key": {
+                "type": "string",
+                "minLength": 1
+              },
+              "value": {
+                "type": "string"
+              },
+              "effect": {
+                "enum": [
+                  "NoSchedule",
+                  "PreferNoSchedule",
+                  "NoExecute"
+                ]
+              }
+            }
+          }
+        },
+        "schedulability": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "enabled",
+            "reason"
+          ],
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "storage": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "longhorn",
+            "disks"
+          ],
+          "properties": {
+            "longhorn": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "eligible"
+              ],
+              "properties": {
+                "eligible": {
+                  "type": "boolean"
+                },
+                "role": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                },
+                "node_tags": {
+                  "type": "array",
+                  "uniqueItems": true,
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                  }
+                },
+                "reason": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "disks": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "name",
+                  "path",
+                  "media",
+                  "usable_gib",
+                  "reserved_gib",
+                  "roles",
+                  "longhorn"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                  },
+                  "path": {
+                    "type": "string",
+                    "pattern": "^/"
+                  },
+                  "media": {
+                    "enum": [
+                      "nvme",
+                      "ssd",
+                      "hdd",
+                      "sdcard"
+                    ]
+                  },
+                  "usable_gib": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "reserved_gib": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "roles": {
+                    "type": "array",
+                    "minItems": 1,
+                    "uniqueItems": true,
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                    }
+                  },
+                  "longhorn": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "enabled"
+                    ],
+                    "properties": {
+                      "enabled": {
+                        "type": "boolean"
+                      },
+                      "allow_scheduling": {
+                        "type": "boolean"
+                      },
+                      "disk_type": {
+                        "enum": [
+                          "filesystem",
+                          "block"
+                        ]
+                      },
+                      "tags": {
+                        "type": "array",
+                        "uniqueItems": true,
+                        "items": {
+                          "type": "string",
+                          "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+};
+
+export const nodeInventoryJsonSchema = {
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.jorisjonkers.dev/node-inventory.schema.json",
+  "title": "Node Inventory",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "metadata",
+    "status",
+    "site",
+    "arch",
+    "roles",
+    "capacity",
+    "gpus",
+    "capabilities",
+    "labels",
+    "taints",
+    "schedulability",
+    "storage"
+  ],
+  "properties": {
+    "kind": {
+      "const": "NodeInventory"
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]*$"
+        }
+      }
+    },
+    "status": {
+      "enum": [
+        "active",
+        "install-ready",
+        "planned",
+        "ignored",
+        "retired"
+      ]
+    },
+    "site": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]*$"
+    },
+    "arch": {
+      "enum": [
+        "amd64",
+        "arm64"
+      ]
+    },
+    "ssh": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "host",
+        "user",
+        "port"
+      ],
+      "properties": {
+        "host": {
+          "type": "string",
+          "minLength": 1
+        },
+        "user": {
+          "type": "string",
+          "minLength": 1
+        },
+        "port": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        }
+      }
+    },
+    "roles": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9][a-z0-9._-]*$"
+      }
+    },
+    "capacity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cpu_millicores",
+        "memory_mib"
+      ],
+      "properties": {
+        "cpu_millicores": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "memory_mib": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "gpus": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "vendor",
+          "model",
+          "class",
+          "memory_mib",
+          "count"
+        ],
+        "properties": {
+          "vendor": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]*$"
+          },
+          "model": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]*$"
+          },
+          "class": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]*$"
+          },
+          "memory_mib": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "resource_name": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "capabilities": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9][a-z0-9._-]*$"
+      }
+    },
+    "labels": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "taints": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "effect"
+        ],
+        "properties": {
+          "key": {
+            "type": "string",
+            "minLength": 1
+          },
+          "value": {
+            "type": "string"
+          },
+          "effect": {
+            "enum": [
+              "NoSchedule",
+              "PreferNoSchedule",
+              "NoExecute"
+            ]
+          }
+        }
+      }
+    },
+    "schedulability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "enabled",
+        "reason"
+      ],
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "storage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "longhorn",
+        "disks"
+      ],
+      "properties": {
+        "longhorn": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "eligible"
+          ],
+          "properties": {
+            "eligible": {
+              "type": "boolean"
+            },
+            "role": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9._-]*$"
+            },
+            "node_tags": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9._-]*$"
+              }
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "disks": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "path",
+              "media",
+              "usable_gib",
+              "reserved_gib",
+              "roles",
+              "longhorn"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9._-]*$"
+              },
+              "path": {
+                "type": "string",
+                "pattern": "^/"
+              },
+              "media": {
+                "enum": [
+                  "nvme",
+                  "ssd",
+                  "hdd",
+                  "sdcard"
+                ]
+              },
+              "usable_gib": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "reserved_gib": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "roles": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                }
+              },
+              "longhorn": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "enabled"
+                ],
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "allow_scheduling": {
+                    "type": "boolean"
+                  },
+                  "disk_type": {
+                    "enum": [
+                      "filesystem",
+                      "block"
+                    ]
+                  },
+                  "tags": {
+                    "type": "array",
+                    "uniqueItems": true,
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+};
+
 export const nodeContractJsonSchema = {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.jorisjonkers.dev/node-contract.schema.json",
@@ -5437,13 +6212,33 @@ export const nodeContractJsonSchema = {
           "labels": {
             "type": "object",
             "required": [
-              "platform.jorisjonkers.dev/site",
-              "platform.jorisjonkers.dev/node-id",
               "kubernetes.io/arch"
             ],
             "additionalProperties": {
               "type": "string",
               "minLength": 1
+            }
+          },
+          "annotations": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "roles": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9._-]*$"
+            }
+          },
+          "capabilities": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9._-]*$"
             }
           },
           "taints": {
@@ -5560,6 +6355,22 @@ export const nodeContractJsonSchema = {
                           "type": "string",
                           "pattern": "^/"
                         },
+                        "media": {
+                          "enum": [
+                            "nvme",
+                            "ssd",
+                            "hdd",
+                            "sdcard"
+                          ]
+                        },
+                        "usableGiB": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "reservedGiB": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
                         "tags": {
                           "type": "array",
                           "uniqueItems": true,
@@ -5574,6 +6385,10 @@ export const nodeContractJsonSchema = {
                 }
               }
             }
+          },
+          "observed": {
+            "type": "object",
+            "additionalProperties": true
           }
         }
       }
@@ -6821,6 +7636,104 @@ export const collectionJsonSchema = {
               "grants": {
                 "type": "object",
                 "additionalProperties": true
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+};
+
+export const collectionIndexJsonSchema = {
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.jorisjonkers.dev/collection-index.schema.json",
+  "title": "Collection Index",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "apiVersion",
+    "kind",
+    "metadata",
+    "collections"
+  ],
+  "properties": {
+    "apiVersion": {
+      "const": "deployment.jorisjonkers.dev/collection-index"
+    },
+    "kind": {
+      "const": "CollectionIndex"
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "root",
+        "generatedAt"
+      ],
+      "properties": {
+        "root": {
+          "type": "string",
+          "minLength": 1
+        },
+        "generatedAt": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "collections": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "path",
+          "digest"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]*$"
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "not": {
+              "pattern": "^/"
+            }
+          },
+          "digest": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          },
+          "env": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "name",
+                "path",
+                "digest"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                },
+                "path": {
+                  "type": "string",
+                  "minLength": 1,
+                  "not": {
+                    "pattern": "^/"
+                  }
+                },
+                "digest": {
+                  "type": "string",
+                  "pattern": "^sha256:[a-f0-9]{64}$"
+                }
               }
             }
           }

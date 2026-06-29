@@ -18,12 +18,16 @@ import { fleetToDeployConfig } from "./fleet-to-deploy-config.js";
 import { HostEnvError, hostEnvLines } from "./host-env.js";
 import {
   runBundle,
+  runCollections,
   runCompile,
+  runCutover,
+  runHosts,
   runImportLiveFleet,
   runLock,
   runParity,
   runRenderFlux,
   runResolveSources,
+  runState,
 } from "./deployment/commands.js";
 
 const allAdapters = new Set(adapterNames());
@@ -60,6 +64,12 @@ export async function runCli(args, streams = { stdout: process.stdout, stderr: p
   if (command === "bundle") {
     return runBundle(rest, streams, parseOptions);
   }
+  if (command === "hosts") {
+    return runHosts(rest, streams, parseOptions);
+  }
+  if (command === "collections") {
+    return runCollections(rest, streams, parseOptions);
+  }
   if (command === "resolve-sources") {
     return runResolveSources(rest, streams, parseOptions);
   }
@@ -77,6 +87,12 @@ export async function runCli(args, streams = { stdout: process.stdout, stderr: p
   }
   if (command === "parity") {
     return runParity(rest, streams, parseOptions);
+  }
+  if (command === "state") {
+    return runState(rest, streams, parseOptions);
+  }
+  if (command === "cutover") {
+    return runCutover(rest, streams, parseOptions);
   }
   if (command === "show-host-env") {
     return runShowHostEnv(rest, streams, { install: false });
@@ -422,6 +438,7 @@ function inferValidationKindFromPath(path) {
   const normalized = path.replaceAll("\\", "/").split("/").at(-1) ?? path;
   if (/platform\.ya?ml$|platform\.json$/i.test(normalized)) return "platform";
   if (/deploy-config\.ya?ml$|deploy-config\.json$/i.test(normalized)) return "deploy-config";
+  if (/fleet\.ya?ml$|fleet\.json$/i.test(normalized)) return "host-inventory";
   for (const kind of artifactKinds) {
     const escaped = kind.replaceAll("-", "[-_]");
     if (new RegExp(`${escaped}(\\.sample)?\\.(ya?ml|json)$`, "i").test(normalized)) return kind;
@@ -435,8 +452,11 @@ function inferValidationKindFromDocument(document) {
   if (document?.apiVersion === "deployment.jorisjonkers.dev/env") return "deployment-env";
   if (document?.apiVersion === "deployment.jorisjonkers.dev/sources") return "deployment-sources";
   if (document?.apiVersion === "deployment.jorisjonkers.dev/lock") return "deployment-lock";
+  if (document?.kind === "FleetInventory" || document?.kind === "SiteInventory") return "host-inventory";
+  if (document?.kind === "NodeInventory") return "node-inventory";
   if (document?.apiVersion === "deployment.jorisjonkers.dev/node-contract") return "node-contract";
   if (document?.apiVersion === "deployment.jorisjonkers.dev/collection") return "collection";
+  if (document?.apiVersion === "deployment.jorisjonkers.dev/collection-index") return "collection-index";
   if (document?.apiVersion === "deployment.jorisjonkers.dev/reachability") return "reachability";
   if (document?.apiVersion === "deployment.jorisjonkers.dev/state-move-plan") return "state-move-plan";
   if (document?.vault) return "vault-dynamic-secrets";
@@ -673,6 +693,54 @@ function parseOptions(args) {
         appendOption(options, "collection", value);
         index += 1;
       }
+    } else if (arg === "--collections") {
+      const value = args[index + 1];
+      if (!value) {
+        diagnostics.push({ code: "E_USAGE", message: "--collections requires a path", path: "/" });
+      } else {
+        appendOption(options, "collection", value);
+        index += 1;
+      }
+    } else if (arg === "--inventory") {
+      const value = args[index + 1];
+      if (!value) {
+        diagnostics.push({ code: "E_USAGE", message: "--inventory requires a path", path: "/" });
+      } else {
+        options.inventory = value;
+        index += 1;
+      }
+    } else if (arg === "--contract") {
+      const value = args[index + 1];
+      if (!value) {
+        diagnostics.push({ code: "E_USAGE", message: "--contract requires a path", path: "/" });
+      } else {
+        options.contract = value;
+        index += 1;
+      }
+    } else if (arg === "--labels-out") {
+      const value = args[index + 1];
+      if (!value) {
+        diagnostics.push({ code: "E_USAGE", message: "--labels-out requires a path", path: "/" });
+      } else {
+        options.labelsOut = value;
+        index += 1;
+      }
+    } else if (arg === "--label-prefix") {
+      const value = args[index + 1];
+      if (!value) {
+        diagnostics.push({ code: "E_USAGE", message: "--label-prefix requires a value", path: "/" });
+      } else {
+        appendOption(options, "labelPrefix", value);
+        index += 1;
+      }
+    } else if (arg === "--root") {
+      const value = args[index + 1];
+      if (!value) {
+        diagnostics.push({ code: "E_USAGE", message: "--root requires a directory", path: "/" });
+      } else {
+        options.root = value;
+        index += 1;
+      }
     } else if (arg === "--fleet") {
       const value = args[index + 1];
       if (!value) {
@@ -705,6 +773,38 @@ function parseOptions(args) {
         options.rendered = value;
         index += 1;
       }
+    } else if (arg === "--compiled") {
+      const value = args[index + 1];
+      if (!value) {
+        diagnostics.push({ code: "E_USAGE", message: "--compiled requires a directory", path: "/" });
+      } else {
+        options.compiled = value;
+        index += 1;
+      }
+    } else if (arg === "--candidate") {
+      const value = args[index + 1];
+      if (!value) {
+        diagnostics.push({ code: "E_USAGE", message: "--candidate requires a directory", path: "/" });
+      } else {
+        options.candidate = value;
+        index += 1;
+      }
+    } else if (arg === "--profile") {
+      const value = args[index + 1];
+      if (!value) {
+        diagnostics.push({ code: "E_USAGE", message: "--profile requires a value", path: "/" });
+      } else {
+        options.profile = value;
+        index += 1;
+      }
+    } else if (arg === "--generated-at") {
+      const value = args[index + 1];
+      if (!value) {
+        diagnostics.push({ code: "E_USAGE", message: "--generated-at requires a value", path: "/" });
+      } else {
+        options.generatedAt = value;
+        index += 1;
+      }
     } else if (arg === "--allow-flux-source-diff") {
       const value = args[index + 1];
       if (!["true", "false"].includes(value)) {
@@ -723,6 +823,8 @@ function parseOptions(args) {
       options.check = true;
     } else if (arg === "--update") {
       options.update = true;
+    } else if (arg === "--reject-latest") {
+      options.rejectLatest = true;
     } else if (arg.startsWith("--")) {
       diagnostics.push({
         code: "E_USAGE",
@@ -823,13 +925,20 @@ function usage() {
     "  deploy-config-schema render <adapter> <config> [--input deploy-config|service-intent] [--output <path>]",
     "  deploy-config-schema fleet-to-deploy-config <fleet.yaml>",
     "  deploy-config-schema bundle pack --deploy-dir <dir> --images <file> --repo <repo> --git-sha <sha> --version <version> --out <file>",
+    "  deploy-config-schema hosts validate --inventory inventory/fleet.yml",
+    "  deploy-config-schema hosts render-node-contract --inventory inventory/fleet.yml --out generated/node-contract.lock.yml [--labels-out generated/k3s-labels.yml]",
+    "  deploy-config-schema hosts check-node-contract --inventory inventory/fleet.yml --contract generated/node-contract.lock.yml",
+    "  deploy-config-schema collections validate --root collections",
+    "  deploy-config-schema collections index --root collections --out generated/collections.lock.yml",
     "  deploy-config-schema resolve-sources --sources deployment-sources.yml --lock deployment.lock.yml [--check]",
     "  deploy-config-schema lock --sources deployment-sources.yml --lock deployment.lock.yml [--update]",
-    "  deploy-config-schema lock images --lock deployment.lock.yml --format image-tags",
-    "  deploy-config-schema compile --env <name> --sources <path> --lock <path> --node-contract <path> --reachability <path> --out <dir> [--check]",
+    "  deploy-config-schema lock images --lock deployment.lock.yml --format image-tags [--reject-latest]",
+    "  deploy-config-schema compile --env <name> --sources <path> --lock <path> --node-contract <path> --reachability <path> --out <dir> [--collections <path>] [--check]",
     "  deploy-config-schema render-flux --repo <repo> --env <name> [--check]",
     "  deploy-config-schema import-live-fleet --fleet <fleet.yaml> --flux-tree <dir> --out <dir>",
-    "  deploy-config-schema parity --current <old-tree> --rendered <new-tree> --allow-flux-source-diff true|false",
+    "  deploy-config-schema parity check --rendered <current-tree> --compiled <compiled-tree> [--profile flux]",
+    "  deploy-config-schema state move-plan validate <state/move-plan.yml>",
+    "  deploy-config-schema cutover plan --current <current-tree> --candidate <candidate-tree> [--out state/cutover-plan.yml]",
     "  deploy-config-schema show-host-env <fleet.yaml> <node>",
     "  deploy-config-schema show-install-host-env <fleet.yaml> <node>",
     "  deploy-config-schema adapter-contract",

@@ -146,7 +146,15 @@ function deploymentPaths(options: CompileOptions): string[] {
 
 function collectionPaths(options: CompileOptions): string[] {
   const path = join(dirname(options.sourcesPath), "collection.yml");
-  return options.collectionPaths ?? (existsSync(path) ? [path] : []);
+  const paths = options.collectionPaths ?? (existsSync(path) ? [path] : []);
+  return paths.flatMap((entry) => expandCollectionPath(entry));
+}
+
+function expandCollectionPath(path: string): string[] {
+  const document = loadYamlDocument(path) as any;
+  if (document?.kind !== "CollectionIndex") return [path];
+  const root = dirname(path);
+  return (document.collections ?? []).map((entry: { path: string }) => join(root, entry.path));
 }
 
 function sha256(value: string): string {

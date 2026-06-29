@@ -92,13 +92,33 @@
           "labels": {
             "type": "object",
             "required": [
-              "platform.jorisjonkers.dev/site",
-              "platform.jorisjonkers.dev/node-id",
               "kubernetes.io/arch"
             ],
             "additionalProperties": {
               "type": "string",
               "minLength": 1
+            }
+          },
+          "annotations": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "roles": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9._-]*$"
+            }
+          },
+          "capabilities": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9._-]*$"
             }
           },
           "taints": {
@@ -215,6 +235,22 @@
                           "type": "string",
                           "pattern": "^/"
                         },
+                        "media": {
+                          "enum": [
+                            "nvme",
+                            "ssd",
+                            "hdd",
+                            "sdcard"
+                          ]
+                        },
+                        "usableGiB": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "reservedGiB": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
                         "tags": {
                           "type": "array",
                           "uniqueItems": true,
@@ -229,6 +265,10 @@
                 }
               }
             }
+          },
+          "observed": {
+            "type": "object",
+            "additionalProperties": true
           }
         }
       }

@@ -26,6 +26,12 @@ const objectMap = (valueSchema: Record<string, unknown>, minProperties = 0) => (
   additionalProperties: valueSchema,
 });
 
+const relativePath = {
+  type: "string",
+  minLength: 1,
+  not: { pattern: "^/" },
+};
+
 const imageRef = {
   type: "string",
   pattern: "^[^\\s]+@sha256:[a-f0-9]{64}$|^[^\\s]+:[^\\s]+$",
@@ -743,6 +749,246 @@ export const deploymentLockJsonSchema = {
   },
 } as const;
 
+const inventoryReference = {
+  type: "object",
+  additionalProperties: false,
+  required: ["path"],
+  properties: {
+    path: relativePath,
+  },
+};
+
+const nodeInventoryDocument = {
+  type: "object",
+  additionalProperties: false,
+  required: [
+    "kind",
+    "metadata",
+    "status",
+    "site",
+    "arch",
+    "roles",
+    "capacity",
+    "gpus",
+    "capabilities",
+    "labels",
+    "taints",
+    "schedulability",
+    "storage",
+  ],
+  properties: {
+    kind: { const: "NodeInventory" },
+    metadata: {
+      type: "object",
+      additionalProperties: false,
+      required: ["name"],
+      properties: {
+        name: identifier,
+      },
+    },
+    status: { enum: ["active", "install-ready", "planned", "ignored", "retired"] },
+    site: identifier,
+    arch: { enum: ["amd64", "arm64"] },
+    ssh: {
+      type: "object",
+      additionalProperties: false,
+      required: ["host", "user", "port"],
+      properties: {
+        host: nonEmptyString,
+        user: nonEmptyString,
+        port: { type: "integer", minimum: 1, maximum: 65535 },
+      },
+    },
+    roles: {
+      type: "array",
+      minItems: 1,
+      uniqueItems: true,
+      items: identifier,
+    },
+    capacity: {
+      type: "object",
+      additionalProperties: false,
+      required: ["cpu_millicores", "memory_mib"],
+      properties: {
+        cpu_millicores: { type: "integer", minimum: 1 },
+        memory_mib: { type: "integer", minimum: 1 },
+      },
+    },
+    gpus: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["vendor", "model", "class", "memory_mib", "count"],
+        properties: {
+          vendor: identifier,
+          model: identifier,
+          class: identifier,
+          memory_mib: { type: "integer", minimum: 1 },
+          count: { type: "integer", minimum: 1 },
+          resource_name: nonEmptyString,
+        },
+      },
+    },
+    capabilities: {
+      type: "array",
+      uniqueItems: true,
+      items: identifier,
+    },
+    labels: {
+      type: "object",
+      additionalProperties: nonEmptyString,
+    },
+    taints: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["key", "effect"],
+        properties: {
+          key: nonEmptyString,
+          value: { type: "string" },
+          effect: { enum: ["NoSchedule", "PreferNoSchedule", "NoExecute"] },
+        },
+      },
+    },
+    schedulability: {
+      type: "object",
+      additionalProperties: false,
+      required: ["enabled", "reason"],
+      properties: {
+        enabled: { type: "boolean" },
+        reason: nonEmptyString,
+      },
+    },
+    storage: {
+      type: "object",
+      additionalProperties: false,
+      required: ["longhorn", "disks"],
+      properties: {
+        longhorn: {
+          type: "object",
+          additionalProperties: false,
+          required: ["eligible"],
+          properties: {
+            eligible: { type: "boolean" },
+            role: identifier,
+            node_tags: {
+              type: "array",
+              uniqueItems: true,
+              items: identifier,
+            },
+            reason: nonEmptyString,
+          },
+        },
+        disks: {
+          type: "array",
+          minItems: 1,
+          items: {
+            type: "object",
+            additionalProperties: false,
+            required: ["name", "path", "media", "usable_gib", "reserved_gib", "roles", "longhorn"],
+            properties: {
+              name: identifier,
+              path: { type: "string", pattern: "^/" },
+              media: { enum: ["nvme", "ssd", "hdd", "sdcard"] },
+              usable_gib: { type: "integer", minimum: 1 },
+              reserved_gib: { type: "integer", minimum: 0 },
+              roles: {
+                type: "array",
+                minItems: 1,
+                uniqueItems: true,
+                items: identifier,
+              },
+              longhorn: {
+                type: "object",
+                additionalProperties: false,
+                required: ["enabled"],
+                properties: {
+                  enabled: { type: "boolean" },
+                  allow_scheduling: { type: "boolean" },
+                  disk_type: { enum: ["filesystem", "block"] },
+                  tags: {
+                    type: "array",
+                    uniqueItems: true,
+                    items: identifier,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+};
+
+export const nodeInventoryJsonSchema = {
+  $schema: "https://json-schema.org/draft/2020-12/schema",
+  $id: "https://schemas.jorisjonkers.dev/node-inventory.schema.json",
+  title: "Node Inventory",
+  ...nodeInventoryDocument,
+} as const;
+
+export const hostInventoryJsonSchema = {
+  $schema: "https://json-schema.org/draft/2020-12/schema",
+  $id: "https://schemas.jorisjonkers.dev/host-inventory.schema.json",
+  title: "Host Inventory Documents",
+  anyOf: [
+    {
+      type: "object",
+      additionalProperties: false,
+      required: ["kind", "metadata", "sites", "nodes"],
+      properties: {
+        kind: { const: "FleetInventory" },
+        metadata: {
+          type: "object",
+          additionalProperties: true,
+        },
+        sites: {
+          type: "array",
+          items: inventoryReference,
+        },
+        nodes: {
+          type: "array",
+          items: inventoryReference,
+        },
+      },
+    },
+    {
+      type: "object",
+      additionalProperties: false,
+      required: ["kind", "metadata", "site"],
+      properties: {
+        kind: { const: "SiteInventory" },
+        metadata: {
+          type: "object",
+          additionalProperties: false,
+          required: ["name"],
+          properties: {
+            name: identifier,
+          },
+        },
+        site: {
+          type: "object",
+          additionalProperties: true,
+          required: ["kind", "purpose"],
+          properties: {
+            kind: identifier,
+            purpose: identifier,
+            region: identifier,
+            labels: {
+              type: "object",
+              additionalProperties: nonEmptyString,
+            },
+          },
+        },
+      },
+    },
+    nodeInventoryDocument,
+  ],
+} as const;
+
 export const nodeContractJsonSchema = {
   $schema: "https://json-schema.org/draft/2020-12/schema",
   $id: "https://schemas.jorisjonkers.dev/node-contract.schema.json",
@@ -798,12 +1044,22 @@ export const nodeContractJsonSchema = {
         },
         labels: {
           type: "object",
-          required: [
-            "platform.jorisjonkers.dev/site",
-            "platform.jorisjonkers.dev/node-id",
-            "kubernetes.io/arch",
-          ],
+          required: ["kubernetes.io/arch"],
           additionalProperties: nonEmptyString,
+        },
+        annotations: {
+          type: "object",
+          additionalProperties: { type: "string" },
+        },
+        roles: {
+          type: "array",
+          uniqueItems: true,
+          items: identifier,
+        },
+        capabilities: {
+          type: "array",
+          uniqueItems: true,
+          items: identifier,
         },
         taints: {
           type: "array",
@@ -872,6 +1128,15 @@ export const nodeContractJsonSchema = {
                         type: "string",
                         pattern: "^/",
                       },
+                      media: { enum: ["nvme", "ssd", "hdd", "sdcard"] },
+                      usableGiB: {
+                        type: "integer",
+                        minimum: 1,
+                      },
+                      reservedGiB: {
+                        type: "integer",
+                        minimum: 0,
+                      },
                       tags: {
                         type: "array",
                         uniqueItems: true,
@@ -883,6 +1148,10 @@ export const nodeContractJsonSchema = {
               },
             },
           },
+        },
+        observed: {
+          type: "object",
+          additionalProperties: true,
         },
       },
     }, 1),
@@ -944,6 +1213,54 @@ export const collectionJsonSchema = {
               grants: {
                 type: "object",
                 additionalProperties: true,
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+} as const;
+
+export const collectionIndexJsonSchema = {
+  $schema: "https://json-schema.org/draft/2020-12/schema",
+  $id: "https://schemas.jorisjonkers.dev/collection-index.schema.json",
+  title: "Collection Index",
+  type: "object",
+  additionalProperties: false,
+  required: ["apiVersion", "kind", "metadata", "collections"],
+  properties: {
+    apiVersion: apiVersion("deployment.jorisjonkers.dev/collection-index"),
+    kind: { const: "CollectionIndex" },
+    metadata: {
+      type: "object",
+      additionalProperties: false,
+      required: ["root", "generatedAt"],
+      properties: {
+        root: nonEmptyString,
+        generatedAt: nonEmptyString,
+      },
+    },
+    collections: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["name", "path", "digest"],
+        properties: {
+          name: identifier,
+          path: relativePath,
+          digest,
+          env: {
+            type: "array",
+            items: {
+              type: "object",
+              additionalProperties: false,
+              required: ["name", "path", "digest"],
+              properties: {
+                name: identifier,
+                path: relativePath,
+                digest,
               },
             },
           },
@@ -1045,8 +1362,11 @@ export const deploymentSchema = jsonSchemaBackedZodSchema(deploymentJsonSchema);
 export const deploymentEnvSchema = jsonSchemaBackedZodSchema(deploymentEnvJsonSchema);
 export const deploymentSourcesSchema = jsonSchemaBackedZodSchema(deploymentSourcesJsonSchema);
 export const deploymentLockSchema = jsonSchemaBackedZodSchema(deploymentLockJsonSchema);
+export const hostInventorySchema = jsonSchemaBackedZodSchema(hostInventoryJsonSchema);
+export const nodeInventorySchema = jsonSchemaBackedZodSchema(nodeInventoryJsonSchema);
 export const nodeContractSchema = jsonSchemaBackedZodSchema(nodeContractJsonSchema);
 export const collectionSchema = jsonSchemaBackedZodSchema(collectionJsonSchema);
+export const collectionIndexSchema = jsonSchemaBackedZodSchema(collectionIndexJsonSchema);
 export const reachabilitySchema = jsonSchemaBackedZodSchema(reachabilityJsonSchema);
 export const stateMovePlanSchema = jsonSchemaBackedZodSchema(stateMovePlanJsonSchema);
 
@@ -1054,7 +1374,10 @@ export type DeploymentSchemaInput = unknown;
 export type DeploymentEnvSchemaInput = unknown;
 export type DeploymentSourcesSchemaInput = unknown;
 export type DeploymentLockSchemaInput = unknown;
+export type HostInventorySchemaInput = unknown;
+export type NodeInventorySchemaInput = unknown;
 export type NodeContractSchemaInput = unknown;
 export type CollectionSchemaInput = unknown;
+export type CollectionIndexSchemaInput = unknown;
 export type ReachabilitySchemaInput = unknown;
 export type StateMovePlanSchemaInput = unknown;

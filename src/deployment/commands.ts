@@ -5,7 +5,17 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSy
 import { dirname, join, relative } from "node:path";
 import YAML from "yaml";
 import { validateArtifact } from "../artifact-validator.js";
+import { buildCollectionIndex, validateCollectionTree } from "../collections/index.js";
+import {
+  readHostInventory,
+  renderNodeContract,
+  renderNodeLabelsManifest,
+  stringifyHostYaml,
+  validateHostInventory,
+} from "../hosts/inventory.js";
 import { compileProject } from "./compiler.js";
+import { createCutoverPlan } from "./cutover.js";
+import { validateImageTags } from "./image-tags.js";
 import { importLiveFleet } from "./import/live-fleet.js";
 import { loadYamlDocument } from "./io.js";
 import { extractLockedImages, readDeploymentLock, updateDeploymentLock } from "./lockfile.js";
@@ -130,6 +140,108 @@ export function runCompile(args, streams, parseOptions) {
   return result.ok ? 0 : 1;
 }
 
+export function runHosts(args, streams, parseOptions) {
+  const [subcommand, ...rest] = args;
+  if (subcommand === "validate" || subcommand === "render-node-contract" || subcommand === "check-node-contract") {
+    const { options, diagnostics } = parseOptions(rest);
+    if (diagnostics.length > 0 || !options.inventory) {
+      writeDiagnostics(streams.stderr, diagnostics.length > 0 ? diagnostics : usageDiagnostic("hosts validate|render-node-contract|check-node-contract --inventory inventory/fleet.yml"));
+      return 2;
+    }
+    if (subcommand === "render-node-contract") {
+      if (!options.out) {
+        writeDiagnostics(streams.stderr, usageDiagnostic("hosts render-node-contract --inventory inventory/fleet.yml --out generated/node-contract.lock.yml [--labels-out generated/k3s-labels.yml]"));
+        return 2;
+      }
+      const validation = validateHostInventory(options.inventory);
+      if (!validation.valid) {
+        writeDiagnostics(streams.stderr, validation.diagnostics);
+        return 1;
+      }
+      const inventory = readHostInventory(options.inventory);
+      const contract = renderNodeContract(inventory, { labelPrefixes: optionList(options.labelPrefix) });
+      mkdirSync(dirname(options.out), { recursive: true });
+      writeFileSync(options.out, stringifyHostYaml(contract));
+      if (options.labelsOut) {
+        mkdirSync(dirname(options.labelsOut), { recursive: true });
+        writeFileSync(options.labelsOut, stringifyHostYaml(renderNodeLabelsManifest(contract)));
+      }
+      streams.stdout.write(`${JSON.stringify({
+        out: options.out,
+        labelsOut: options.labelsOut,
+        nodes: Object.keys(contract.nodes).sort(),
+      }, null, 2)}\n`);
+      return 0;
+    }
+    if (subcommand === "check-node-contract") {
+      if (!options.contract) {
+        writeDiagnostics(streams.stderr, usageDiagnostic("hosts check-node-contract --inventory inventory/fleet.yml --contract generated/node-contract.lock.yml"));
+        return 2;
+      }
+      const validation = validateHostInventory(options.inventory);
+      if (!validation.valid) {
+        writeDiagnostics(streams.stderr, validation.diagnostics);
+        return 1;
+      }
+      const expected = stringifyHostYaml(renderNodeContract(readHostInventory(options.inventory), { labelPrefixes: optionList(options.labelPrefix) }));
+      const actual = readFileSync(options.contract, "utf8");
+      const valid = actual === expected;
+      streams.stdout.write(`${JSON.stringify({
+        valid,
+        diagnostics: valid ? [] : [{
+          code: "E_NODE_CONTRACT_STALE",
+          path: options.contract,
+          message: "node contract is stale; rerun hosts render-node-contract",
+        }],
+      }, null, 2)}\n`);
+      return valid ? 0 : 1;
+    }
+    const validation = validateHostInventory(options.inventory);
+    streams.stdout.write(`${JSON.stringify({
+      valid: validation.valid,
+      diagnostics: validation.diagnostics,
+      files: validation.inventory ? {
+        fleet: validation.inventory.fleetPath,
+        sites: validation.inventory.sitePaths,
+        nodes: validation.inventory.nodePaths,
+      } : undefined,
+    }, null, 2)}\n`);
+    return validation.valid ? 0 : 1;
+  }
+  writeDiagnostics(streams.stderr, usageDiagnostic("hosts validate|render-node-contract|check-node-contract --inventory inventory/fleet.yml"));
+  return 2;
+}
+
+export function runCollections(args, streams, parseOptions) {
+  const [subcommand, ...rest] = args;
+  const { options, diagnostics } = parseOptions(rest);
+  if (diagnostics.length > 0 || !options.root || !["validate", "index"].includes(subcommand)) {
+    writeDiagnostics(streams.stderr, diagnostics.length > 0 ? diagnostics : usageDiagnostic("collections validate|index --root collections [--out generated/collections.lock.yml]"));
+    return 2;
+  }
+  if (subcommand === "validate") {
+    const validation = validateCollectionTree(options.root);
+    streams.stdout.write(`${JSON.stringify(validation, null, 2)}\n`);
+    return validation.valid ? 0 : 1;
+  }
+  try {
+    const index = buildCollectionIndex(options.root, { generatedAt: options.generatedAt });
+    if (options.out) {
+      mkdirSync(dirname(options.out), { recursive: true });
+      writeFileSync(options.out, stringifyDocument(options.out, index));
+    }
+    streams.stdout.write(`${JSON.stringify(index, null, 2)}\n`);
+    return 0;
+  } catch (error) {
+    writeDiagnostics(streams.stderr, (error as { diagnostics?: any[] }).diagnostics ?? [{
+      code: "E_COLLECTION_INDEX",
+      path: "/",
+      message: error instanceof Error ? error.message : String(error),
+    }]);
+    return 1;
+  }
+}
+
 export function runRenderFlux(args, streams, parseOptions) {
   const { options, diagnostics } = parseOptions(args);
   const repo = options.repo ?? ".";
@@ -172,14 +284,52 @@ export function runImportLiveFleet(args, streams, parseOptions) {
 }
 
 export function runParity(args, streams, parseOptions) {
-  const { options, diagnostics } = parseOptions(args);
-  if (diagnostics.length > 0 || !options.current || !options.rendered) {
-    writeDiagnostics(streams.stderr, diagnostics.length > 0 ? diagnostics : usageDiagnostic("parity --current <old-tree> --rendered <new-tree>"));
+  const checkMode = args[0] === "check";
+  const rest = checkMode ? args.slice(1) : args;
+  const { options, diagnostics } = parseOptions(rest);
+  const current = options.current ?? options.rendered;
+  const rendered = options.compiled ?? options.candidate ?? options.rendered;
+  if (diagnostics.length > 0 || !current || !rendered || (checkMode && !options.compiled)) {
+    writeDiagnostics(streams.stderr, diagnostics.length > 0 ? diagnostics : usageDiagnostic("parity check --rendered <current-tree> --compiled <compiled-tree> [--profile flux]"));
     return 2;
   }
-  const report = compareParityTrees({ current: options.current, rendered: options.rendered });
+  const report = compareParityTrees({ current, rendered });
   streams.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
   return report.ok ? 0 : 1;
+}
+
+export function runState(args, streams, parseOptions) {
+  if (args[0] !== "move-plan" || args[1] !== "validate") {
+    writeDiagnostics(streams.stderr, usageDiagnostic("state move-plan validate <state/move-plan.yml>"));
+    return 2;
+  }
+  const { positionals, diagnostics } = parseOptions(args.slice(2));
+  if (diagnostics.length > 0 || positionals.length !== 1) {
+    writeDiagnostics(streams.stderr, diagnostics.length > 0 ? diagnostics : usageDiagnostic("state move-plan validate <state/move-plan.yml>"));
+    return 2;
+  }
+  const validation = validateNamedInputs([["state-move-plan", positionals[0]]]);
+  streams.stdout.write(`${JSON.stringify(validation, null, 2)}\n`);
+  return validation.valid ? 0 : 1;
+}
+
+export function runCutover(args, streams, parseOptions) {
+  if (args[0] !== "plan") {
+    writeDiagnostics(streams.stderr, usageDiagnostic("cutover plan --current cluster/flux --candidate build/flux [--out state/cutover-plan.yml]"));
+    return 2;
+  }
+  const { options, diagnostics } = parseOptions(args.slice(1));
+  if (diagnostics.length > 0 || !options.current || !options.candidate) {
+    writeDiagnostics(streams.stderr, diagnostics.length > 0 ? diagnostics : usageDiagnostic("cutover plan --current cluster/flux --candidate build/flux [--out state/cutover-plan.yml]"));
+    return 2;
+  }
+  const plan = createCutoverPlan({ current: options.current, candidate: options.candidate, profile: options.profile });
+  if (options.out) {
+    mkdirSync(dirname(options.out), { recursive: true });
+    writeFileSync(options.out, stringifyDocument(options.out, plan));
+  }
+  streams.stdout.write(`${JSON.stringify(plan, null, 2)}\n`);
+  return plan.diagnostics.length === 0 ? 0 : 1;
 }
 
 function runLockImages(args, streams, parseOptions) {
@@ -194,6 +344,13 @@ function runLockImages(args, streams, parseOptions) {
     return 1;
   }
   const tags = extractLockedImages(readDeploymentLock(loadYamlDocument(options.lock)));
+  if (options.rejectLatest) {
+    const validation = validateImageTags(tags, { rejectLatest: true });
+    if (!validation.valid) {
+      writeDiagnostics(streams.stderr, validation.diagnostics);
+      return 1;
+    }
+  }
   if (options.format === "image-tags") {
     streams.stdout.write(`${tags.join("\n")}${tags.length > 0 ? "\n" : ""}`);
   } else {

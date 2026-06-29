@@ -22,8 +22,11 @@
     "./schemas/deployment-env": "./dist/schemas/deployment-env.schema.json",
     "./schemas/deployment-sources": "./dist/schemas/deployment-sources.schema.json",
     "./schemas/deployment-lock": "./dist/schemas/deployment-lock.schema.json",
+    "./schemas/host-inventory": "./dist/schemas/host-inventory.schema.json",
+    "./schemas/node-inventory": "./dist/schemas/node-inventory.schema.json",
     "./schemas/node-contract": "./dist/schemas/node-contract.schema.json",
     "./schemas/collection": "./dist/schemas/collection.schema.json",
+    "./schemas/collection-index": "./dist/schemas/collection-index.schema.json",
     "./schemas/reachability": "./dist/schemas/reachability.schema.json",
     "./schemas/state-move-plan": "./dist/schemas/state-move-plan.schema.json"
   },
