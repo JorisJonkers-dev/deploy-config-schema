@@ -6,16 +6,16 @@ import { createRequire } from "node:module";
 import type { Ajv2020 as Ajv2020Class } from "ajv/dist/2020.js";
 import { validateConfig } from "./validator.js";
 import {
-  collectionV1JsonSchema,
-  deploymentEnvV1JsonSchema,
-  deploymentLockV1JsonSchema,
-  deploymentSourcesV1JsonSchema,
-  deploymentV2JsonSchema,
+  collectionJsonSchema,
+  deploymentEnvJsonSchema,
+  deploymentLockJsonSchema,
+  deploymentSourcesJsonSchema,
+  deploymentJsonSchema,
   fleetInventoryJsonSchema,
-  nodeContractV1JsonSchema,
-  reachabilityV1JsonSchema,
+  nodeContractJsonSchema,
+  reachabilityJsonSchema,
   serviceIntentJsonSchema,
-  stateMovePlanV1JsonSchema,
+  stateMovePlanJsonSchema,
   vaultDynamicSecretsJsonSchema,
 } from "./schemas/generated-json.js";
 
@@ -23,14 +23,14 @@ const artifactSchemas = {
   "service-intent": serviceIntentJsonSchema,
   "fleet-inventory": fleetInventoryJsonSchema,
   "vault-dynamic-secrets": vaultDynamicSecretsJsonSchema,
-  "deployment-v2": deploymentV2JsonSchema,
-  "deployment-env-v1": deploymentEnvV1JsonSchema,
-  "deployment-sources-v1": deploymentSourcesV1JsonSchema,
-  "deployment-lock-v1": deploymentLockV1JsonSchema,
-  "node-contract-v1": nodeContractV1JsonSchema,
-  "collection-v1": collectionV1JsonSchema,
-  "reachability-v1": reachabilityV1JsonSchema,
-  "state-move-plan-v1": stateMovePlanV1JsonSchema,
+  "deployment": deploymentJsonSchema,
+  "deployment-env": deploymentEnvJsonSchema,
+  "deployment-sources": deploymentSourcesJsonSchema,
+  "deployment-lock": deploymentLockJsonSchema,
+  "node-contract": nodeContractJsonSchema,
+  "collection": collectionJsonSchema,
+  "reachability": reachabilityJsonSchema,
+  "state-move-plan": stateMovePlanJsonSchema,
 };
 
 const require = createRequire(import.meta.url);

@@ -52,41 +52,41 @@ export {
   type RendererResult,
   type RouteModel as RouteModelType,
   type WorkloadModel as WorkloadModelType,
-} from "./deployment-v2/model.js";
+} from "./deployment/model.js";
 export {
   compileProject,
-  renderManagedDeployV2Content,
+  renderManagedDeploymentContent,
   renderProject,
-  writeDeployV2Files,
+  writeDeploymentFiles,
   type CompileOptions,
   type CompileResult,
-} from "./deployment-v2/compiler.js";
+} from "./deployment/compiler.js";
 export {
   loadYamlDocument,
   loadYamlDocuments,
   writeYamlDocument,
-} from "./deployment-v2/io.js";
+} from "./deployment/io.js";
 export {
   applyEnvironment,
   loadEnvironmentFiles,
-} from "./deployment-v2/env.js";
+} from "./deployment/env.js";
 export {
   resolveSources,
-} from "./deployment-v2/source-resolver.js";
+} from "./deployment/source-resolver.js";
 export {
   extractLockedImages,
   readDeploymentLock,
   updateDeploymentLock,
-} from "./deployment-v2/lockfile.js";
+} from "./deployment/lockfile.js";
 export {
   normalizeParityTree,
   compareParityTrees,
   unifiedDiff,
   type ParityObject,
   type ParityReport,
-} from "./deployment-v2/parity.js";
+} from "./deployment/parity.js";
 export {
-  importFleetV1,
-  type ImportFleetV1Options,
-  type ImportFleetV1Result,
-} from "./deployment-v2/import/fleet-v1.js";
+  importLiveFleet,
+  type ImportLiveFleetOptions,
+  type ImportLiveFleetResult,
+} from "./deployment/import/live-fleet.js";

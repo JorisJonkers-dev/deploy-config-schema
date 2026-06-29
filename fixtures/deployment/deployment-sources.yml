@@ -1,0 +1,28 @@
+apiVersion: deployment.jorisjonkers.dev/sources
+kind: DeploymentSources
+spec:
+  environments:
+    - runtime
+    - development
+    - staging
+    - production
+  firstParty:
+    assistant-api:
+      bundle: ghcr.io/jorisjonkers-dev/assistant-api-deploy-bundle:v1.2.3@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+      repo: JorisJonkers-dev/assistant-api
+      policy: locked
+  collections:
+    data:
+      repo: JorisJonkers-dev/homelab-collections
+      ref: main
+      sha: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+      paths:
+        - collections/data
+  hosts:
+    repo: JorisJonkers-dev/homelab-hosts
+    ref: main
+    sha: cccccccccccccccccccccccccccccccccccccccc
+  platformBlueprints:
+    repo: JorisJonkers-dev/platform-blueprints
+    ref: v0.8.0
+  policies: {}

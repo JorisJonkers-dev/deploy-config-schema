@@ -1,0 +1,11 @@
+apiVersion: deployment.jorisjonkers.dev/reachability
+kind: Reachability
+channels:
+  public-frankfurt:
+    hosts:
+      - agents.example.com
+    auth:
+      defaultScope: application
+  lan:
+    hosts:
+      - agents.lan.example.com

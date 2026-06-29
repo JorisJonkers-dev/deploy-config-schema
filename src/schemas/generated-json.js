@@ -3746,10 +3746,10 @@ export const vaultDynamicSecretsJsonSchema = {
   }
 };
 
-export const deploymentV2JsonSchema = {
+export const deploymentJsonSchema = {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://schemas.jorisjonkers.dev/deployment/v2.schema.json",
-  "title": "JorisJonkers-dev Deployment v2",
+  "$id": "https://schemas.jorisjonkers.dev/deployment.schema.json",
+  "title": "JorisJonkers-dev Deployment",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -3760,7 +3760,7 @@ export const deploymentV2JsonSchema = {
   ],
   "properties": {
     "apiVersion": {
-      "const": "deployment.jorisjonkers.dev/v2"
+      "const": "deployment.jorisjonkers.dev"
     },
     "kind": {
       "const": "Deployment"
@@ -4470,6 +4470,37 @@ export const deploymentV2JsonSchema = {
                       "pattern": "^[a-z0-9][a-z0-9._-]*$"
                     }
                   },
+                  "gpu": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "count": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "default": 1
+                      },
+                      "vendor": {
+                        "type": "string",
+                        "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                      },
+                      "model": {
+                        "type": "string",
+                        "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                      },
+                      "class": {
+                        "type": "string",
+                        "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                      },
+                      "minMemoryMiB": {
+                        "type": "integer",
+                        "minimum": 1
+                      },
+                      "resourceName": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    }
+                  },
                   "tolerations": {
                     "type": "array",
                     "items": {
@@ -4856,10 +4887,10 @@ export const deploymentV2JsonSchema = {
   }
 };
 
-export const deploymentEnvV1JsonSchema = {
+export const deploymentEnvJsonSchema = {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://schemas.jorisjonkers.dev/deployment-env/v1.schema.json",
-  "title": "JorisJonkers-dev Deployment Environment v1",
+  "$id": "https://schemas.jorisjonkers.dev/deployment-env.schema.json",
+  "title": "JorisJonkers-dev Deployment Environment",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -4870,7 +4901,7 @@ export const deploymentEnvV1JsonSchema = {
   ],
   "properties": {
     "apiVersion": {
-      "const": "deployment.jorisjonkers.dev/env/v1"
+      "const": "deployment.jorisjonkers.dev/env"
     },
     "kind": {
       "const": "DeploymentEnvironment"
@@ -4909,10 +4940,10 @@ export const deploymentEnvV1JsonSchema = {
   }
 };
 
-export const deploymentSourcesV1JsonSchema = {
+export const deploymentSourcesJsonSchema = {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://schemas.jorisjonkers.dev/deployment-sources/v1.schema.json",
-  "title": "JorisJonkers-dev Deployment Sources v1",
+  "$id": "https://schemas.jorisjonkers.dev/deployment-sources.schema.json",
+  "title": "JorisJonkers-dev Deployment Sources",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -4922,7 +4953,7 @@ export const deploymentSourcesV1JsonSchema = {
   ],
   "properties": {
     "apiVersion": {
-      "const": "deployment.jorisjonkers.dev/sources/v1"
+      "const": "deployment.jorisjonkers.dev/sources"
     },
     "kind": {
       "const": "DeploymentSources"
@@ -5088,10 +5119,10 @@ export const deploymentSourcesV1JsonSchema = {
   }
 };
 
-export const deploymentLockV1JsonSchema = {
+export const deploymentLockJsonSchema = {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://schemas.jorisjonkers.dev/deployment-lock/v1.schema.json",
-  "title": "JorisJonkers-dev Deployment Lock v1",
+  "$id": "https://schemas.jorisjonkers.dev/deployment-lock.schema.json",
+  "title": "JorisJonkers-dev Deployment Lock",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -5102,7 +5133,7 @@ export const deploymentLockV1JsonSchema = {
   ],
   "properties": {
     "apiVersion": {
-      "const": "deployment.jorisjonkers.dev/lock/v1"
+      "const": "deployment.jorisjonkers.dev/lock"
     },
     "kind": {
       "const": "DeploymentLock"
@@ -5312,10 +5343,10 @@ export const deploymentLockV1JsonSchema = {
   }
 };
 
-export const nodeContractV1JsonSchema = {
+export const nodeContractJsonSchema = {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://schemas.jorisjonkers.dev/node-contract/v1.schema.json",
-  "title": "JorisJonkers-dev Node Contract v1",
+  "$id": "https://schemas.jorisjonkers.dev/node-contract.schema.json",
+  "title": "JorisJonkers-dev Node Contract",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -5326,7 +5357,7 @@ export const nodeContractV1JsonSchema = {
   ],
   "properties": {
     "apiVersion": {
-      "const": "deployment.jorisjonkers.dev/node-contract/v1"
+      "const": "deployment.jorisjonkers.dev/node-contract"
     },
     "kind": {
       "const": "NodeContract"
@@ -5359,7 +5390,9 @@ export const nodeContractV1JsonSchema = {
           "schedulable",
           "site",
           "arch",
+          "capacity",
           "labels",
+          "gpus",
           "storage"
         ],
         "properties": {
@@ -5383,6 +5416,23 @@ export const nodeContractV1JsonSchema = {
               "amd64",
               "arm64"
             ]
+          },
+          "capacity": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "memoryMiB"
+            ],
+            "properties": {
+              "cpuMillicores": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "memoryMiB": {
+                "type": "integer",
+                "minimum": 1
+              }
+            }
           },
           "labels": {
             "type": "object",
@@ -5420,6 +5470,46 @@ export const nodeContractV1JsonSchema = {
                     "PreferNoSchedule",
                     "NoExecute"
                   ]
+                }
+              }
+            }
+          },
+          "gpus": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "vendor",
+                "model",
+                "class",
+                "memoryMiB",
+                "count"
+              ],
+              "properties": {
+                "vendor": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                },
+                "model": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                },
+                "class": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                },
+                "memoryMiB": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "count": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "resourceName": {
+                  "type": "string",
+                  "minLength": 1
                 }
               }
             }
@@ -5491,10 +5581,10 @@ export const nodeContractV1JsonSchema = {
   }
 };
 
-export const collectionV1JsonSchema = {
+export const collectionJsonSchema = {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://schemas.jorisjonkers.dev/collection/v1.schema.json",
-  "title": "JorisJonkers-dev Collection v1",
+  "$id": "https://schemas.jorisjonkers.dev/collection.schema.json",
+  "title": "JorisJonkers-dev Collection",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -5505,7 +5595,7 @@ export const collectionV1JsonSchema = {
   ],
   "properties": {
     "apiVersion": {
-      "const": "deployment.jorisjonkers.dev/collection/v1"
+      "const": "deployment.jorisjonkers.dev/collection"
     },
     "kind": {
       "const": "Collection"
@@ -5539,8 +5629,8 @@ export const collectionV1JsonSchema = {
           "minItems": 1,
           "items": {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
-            "$id": "https://schemas.jorisjonkers.dev/deployment/v2.schema.json",
-            "title": "JorisJonkers-dev Deployment v2",
+            "$id": "https://schemas.jorisjonkers.dev/deployment.schema.json",
+            "title": "JorisJonkers-dev Deployment",
             "type": "object",
             "additionalProperties": false,
             "required": [
@@ -5551,7 +5641,7 @@ export const collectionV1JsonSchema = {
             ],
             "properties": {
               "apiVersion": {
-                "const": "deployment.jorisjonkers.dev/v2"
+                "const": "deployment.jorisjonkers.dev"
               },
               "kind": {
                 "const": "Deployment"
@@ -6261,6 +6351,37 @@ export const collectionV1JsonSchema = {
                                 "pattern": "^[a-z0-9][a-z0-9._-]*$"
                               }
                             },
+                            "gpu": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "properties": {
+                                "count": {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "default": 1
+                                },
+                                "vendor": {
+                                  "type": "string",
+                                  "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                                },
+                                "model": {
+                                  "type": "string",
+                                  "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                                },
+                                "class": {
+                                  "type": "string",
+                                  "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                                },
+                                "minMemoryMiB": {
+                                  "type": "integer",
+                                  "minimum": 1
+                                },
+                                "resourceName": {
+                                  "type": "string",
+                                  "minLength": 1
+                                }
+                              }
+                            },
                             "tolerations": {
                               "type": "array",
                               "items": {
@@ -6709,10 +6830,10 @@ export const collectionV1JsonSchema = {
   }
 };
 
-export const reachabilityV1JsonSchema = {
+export const reachabilityJsonSchema = {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://schemas.jorisjonkers.dev/reachability/v1.schema.json",
-  "title": "JorisJonkers-dev Reachability v1",
+  "$id": "https://schemas.jorisjonkers.dev/reachability.schema.json",
+  "title": "JorisJonkers-dev Reachability",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -6722,7 +6843,7 @@ export const reachabilityV1JsonSchema = {
   ],
   "properties": {
     "apiVersion": {
-      "const": "deployment.jorisjonkers.dev/reachability/v1"
+      "const": "deployment.jorisjonkers.dev/reachability"
     },
     "kind": {
       "const": "Reachability"
@@ -6758,10 +6879,10 @@ export const reachabilityV1JsonSchema = {
   }
 };
 
-export const stateMovePlanV1JsonSchema = {
+export const stateMovePlanJsonSchema = {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://schemas.jorisjonkers.dev/state-move-plan/v1.schema.json",
-  "title": "JorisJonkers-dev State Move Plan v1",
+  "$id": "https://schemas.jorisjonkers.dev/state-move-plan.schema.json",
+  "title": "JorisJonkers-dev State Move Plan",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -6772,7 +6893,7 @@ export const stateMovePlanV1JsonSchema = {
   ],
   "properties": {
     "apiVersion": {
-      "const": "deployment.jorisjonkers.dev/state-move-plan/v1"
+      "const": "deployment.jorisjonkers.dev/state-move-plan"
     },
     "kind": {
       "const": "StateMovePlan"

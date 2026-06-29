@@ -1,0 +1,12 @@
+apiVersion: deployment.jorisjonkers.dev/sources
+kind: DeploymentSources
+spec:
+  environments:
+    - runtime
+    - development
+    - staging
+    - production
+  firstParty: {}
+  collections: {}
+  policies:
+    importedFrom: live-fleet

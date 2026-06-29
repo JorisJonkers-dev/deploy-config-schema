@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.jorisjonkers.dev/reachability.schema.json",
+  "title": "JorisJonkers-dev Reachability",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "apiVersion",
+    "kind",
+    "channels"
+  ],
+  "properties": {
+    "apiVersion": {
+      "const": "deployment.jorisjonkers.dev/reachability"
+    },
+    "kind": {
+      "const": "Reachability"
+    },
+    "channels": {
+      "type": "object",
+      "required": [
+        "public-frankfurt",
+        "lan"
+      ],
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "hosts"
+        ],
+        "properties": {
+          "hosts": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "auth": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    }
+  }
+}

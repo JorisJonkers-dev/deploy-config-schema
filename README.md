@@ -46,19 +46,19 @@ npx deploy-config-schema validate fleet-inventory fixtures/round3/fleet-inventor
 npx deploy-config-schema validate vault-dynamic-secrets fixtures/round3/vault-dynamic-secrets.sample.yaml
 ```
 
-Validate Deploy v2 inputs:
+Validate Deployment inputs:
 
 ```bash
-npx deploy-config-schema validate deployment-v2 fixtures/deployment-v2/deployment.yml
-npx deploy-config-schema validate deployment-sources-v1 fixtures/deployment-v2/deployment-sources.yml
-npx deploy-config-schema validate deployment-lock-v1 fixtures/deployment-v2/deployment.lock.yml
-npx deploy-config-schema validate node-contract-v1 fixtures/deployment-v2/node-contract.lock.yml
-npx deploy-config-schema validate collection-v1 fixtures/deployment-v2/collection.yml
-npx deploy-config-schema validate reachability-v1 fixtures/deployment-v2/reachability.yml
-npx deploy-config-schema validate state-move-plan-v1 fixtures/deployment-v2/state-move-plan.yml
+npx deploy-config-schema validate deployment fixtures/deployment/deployment.yml
+npx deploy-config-schema validate deployment-sources fixtures/deployment/deployment-sources.yml
+npx deploy-config-schema validate deployment-lock fixtures/deployment/deployment.lock.yml
+npx deploy-config-schema validate node-contract fixtures/deployment/node-contract.lock.yml
+npx deploy-config-schema validate collection fixtures/deployment/collection.yml
+npx deploy-config-schema validate reachability fixtures/deployment/reachability.yml
+npx deploy-config-schema validate state-move-plan fixtures/deployment/state-move-plan.yml
 ```
 
-Deploy v2 command contracts are available for source resolution, lock image
+Deployment command contracts are available for source resolution, lock image
 extraction, bundle packing, compiler scaffolding, import, render, and parity:
 
 ```bash
@@ -128,7 +128,7 @@ This repository defines versioned schemas and command surfaces. It does not
 apply generated manifests, operate a cluster, manage secrets, or perform the
 owner-gated production Flux source switch.
 
-Deploy v2 compiler work has begun with schemas, validation, source/lock helpers,
+Deployment compiler work has begun with schemas, validation, source/lock helpers,
 bundle manifests, compile scaffolding, and parity normalization. Full Flux,
 Kubernetes, Traefik, Gatus, VSO, NetworkPolicy, and Longhorn renderers remain
 follow-up implementation work.

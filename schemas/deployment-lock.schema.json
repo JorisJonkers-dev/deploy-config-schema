@@ -1,0 +1,223 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.jorisjonkers.dev/deployment-lock.schema.json",
+  "title": "JorisJonkers-dev Deployment Lock",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "apiVersion",
+    "kind",
+    "metadata",
+    "inputs"
+  ],
+  "properties": {
+    "apiVersion": {
+      "const": "deployment.jorisjonkers.dev/lock"
+    },
+    "kind": {
+      "const": "DeploymentLock"
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "generatedAt"
+      ],
+      "properties": {
+        "generatedAt": {
+          "type": "string",
+          "minLength": 1
+        },
+        "renderedRootDigest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        }
+      }
+    },
+    "inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "firstParty": {
+          "type": "object",
+          "minProperties": 0,
+          "propertyNames": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]*$"
+          },
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "bundle",
+              "manifestDigest",
+              "repoSha",
+              "images"
+            ],
+            "properties": {
+              "bundle": {
+                "type": "string",
+                "minLength": 1
+              },
+              "manifestDigest": {
+                "type": "string",
+                "pattern": "^sha256:[a-f0-9]{64}$"
+              },
+              "repoSha": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{40}$"
+              },
+              "images": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "pattern": "^[^\\s]+@sha256:[a-f0-9]{64}$|^[^\\s]+:[^\\s]+$"
+                }
+              }
+            }
+          }
+        },
+        "collections": {
+          "type": "object",
+          "minProperties": 0,
+          "propertyNames": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]*$"
+          },
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "repo",
+              "ref"
+            ],
+            "properties": {
+              "repo": {
+                "type": "string",
+                "minLength": 1
+              },
+              "ref": {
+                "type": "string",
+                "minLength": 1
+              },
+              "sha": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{40}$"
+              },
+              "paths": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          }
+        },
+        "homelabHosts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "repo",
+            "ref"
+          ],
+          "properties": {
+            "repo": {
+              "type": "string",
+              "minLength": 1
+            },
+            "ref": {
+              "type": "string",
+              "minLength": 1
+            },
+            "sha": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{40}$"
+            },
+            "paths": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        "platformBlueprints": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "repo",
+            "ref"
+          ],
+          "properties": {
+            "repo": {
+              "type": "string",
+              "minLength": 1
+            },
+            "ref": {
+              "type": "string",
+              "minLength": 1
+            },
+            "sha": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{40}$"
+            },
+            "paths": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        "charts": {
+          "type": "object",
+          "minProperties": 0,
+          "propertyNames": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]*$"
+          },
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "version",
+              "digest"
+            ],
+            "properties": {
+              "version": {
+                "type": "string",
+                "minLength": 1
+              },
+              "digest": {
+                "type": "string",
+                "pattern": "^sha256:[a-f0-9]{64}$"
+              }
+            }
+          }
+        },
+        "images": {
+          "type": "object",
+          "minProperties": 0,
+          "propertyNames": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]*$"
+          },
+          "additionalProperties": {
+            "type": "string",
+            "pattern": "^[^\\s]+@sha256:[a-f0-9]{64}$|^[^\\s]+:[^\\s]+$"
+          }
+        }
+      }
+    }
+  }
+}
