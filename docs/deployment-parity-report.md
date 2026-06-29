@@ -1,6 +1,6 @@
 # Deployment Parity Report
 
-Generated for C3 on 2026-06-29. Updated on 2026-06-29 after imported live Flux files were given explicit provenance classifications.
+Generated for C3 on 2026-06-29. Updated on 2026-06-29 after imported live Flux files were given explicit provenance classifications and unmatched platform manifests were moved into platform-blueprints packs.
 
 ## Fixture
 
@@ -102,24 +102,33 @@ The remaining duplicates are already present in the live source tree, not emitte
 
 ## Provenance Breakdown
 
-Object counts are computed by parsing every YAML/JSON document in the 271 imported live Flux files after source classification:
+Object counts are computed by parsing every YAML/JSON document in the 271 imported live Flux files after source classification. The carried object count moved from 186 to 180 by moving previously unmatched Flux core/NVIDIA platform manifests into `platform-blueprints`:
+
+| Live path | Source path |
+| --- | --- |
+| `apps/core/kustomization.yaml` | `packs/flux-core/kustomization.yaml` |
+| `apps/core/nvidia-device-plugin/kustomization.yaml` | `packs/flux-core/nvidia-device-plugin/kustomization.yaml` |
+| `apps/core/nvidia-device-plugin/namespace.yaml` | `packs/flux-core/nvidia-device-plugin/namespace.yaml` |
+| `apps/core/nvidia-device-plugin/release.yaml` | `packs/flux-core/nvidia-device-plugin/release.yaml` exists as the shared pack source; the compiler retains embedded fallback for this file because the live Helm values contain consumer-local comments inside a block scalar, which are part of the object value. |
+| `apps/core/nvidia-device-plugin/runtime-class.yaml` | `packs/flux-core/nvidia-device-plugin/runtime-class.yaml` |
+| `apps/core/nvidia-device-plugin/source.yaml` | `packs/flux-core/nvidia-device-plugin/source.yaml` |
 
 | Source classification | Files | Objects |
 | --- | ---: | ---: |
 | model-rendered | 0 | 0 |
-| pack-sourced | 105 | 170 |
+| pack-sourced | 111 | 176 |
 | collection-sourced | 60 | 90 |
-| carried | 106 | 186 |
+| carried | 100 | 180 |
 | total | 271 | 446 |
 
-The carried bucket is not silent. Current reasons:
+The remaining carried bucket is not silent. Current reasons:
 
-| Carried area | Reason |
-| --- | --- |
-| `apps/stateless/**`, `apps/knowledge/**`, `apps/agents/**` | First-party workload/support manifests are carried only until the deployment model renderer covers the exact live shape. |
-| `clusters/**` | Flux bootstrap/root state is cluster bootstrap state rather than an application support pack. |
-| `apps/vso-secrets/**` | Consumer-specific Vault secret sync manifests are carried until VSO source modeling is byte-identical. |
-| unmatched paths | No source ownership rule matched the live parity manifest. |
+| Carried area | Files | Objects | Reason |
+| --- | ---: | ---: | --- |
+| `apps/stateless/**`, `apps/knowledge/**`, `apps/agents/**` | 88 | 118 | First-party workload/support manifests are carried only until the deployment model renderer covers the exact live shape. |
+| `clusters/**` | 5 | 50 | Flux bootstrap/root state is cluster bootstrap state rather than an application support pack. |
+| `apps/vso-secrets/**` | 5 | 9 | Consumer-specific Vault secret sync manifests are carried until VSO source modeling is byte-identical. |
+| `apps/metallb-config/**` | 2 | 3 | Site-specific MetalLB address pool configuration is carried because it contains consumer-local network allocation. |
 
 ## Remaining Diffs
 
