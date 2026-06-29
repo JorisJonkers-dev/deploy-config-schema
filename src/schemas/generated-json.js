@@ -4338,7 +4338,7 @@ export const deploymentJsonSchema = {
                       "uniqueItems": true,
                       "items": {
                         "type": "string",
-                        "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                        "pattern": "^[A-Za-z0-9._-]+$"
                       }
                     }
                   }
@@ -7034,7 +7034,7 @@ export const collectionJsonSchema = {
                                 "uniqueItems": true,
                                 "items": {
                                   "type": "string",
-                                  "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                                  "pattern": "^[A-Za-z0-9._-]+$"
                                 }
                               }
                             }
