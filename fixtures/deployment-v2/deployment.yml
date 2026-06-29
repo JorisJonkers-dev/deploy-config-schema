@@ -1,0 +1,47 @@
+apiVersion: deployment.jorisjonkers.dev/v2
+kind: Deployment
+metadata:
+  name: assistant-api
+spec:
+  services:
+    assistant-api:
+      image: ghcr.io/jorisjonkers-dev/assistant-api:v1.2.3
+      namespace: agents
+      account: assistant-api
+      ports:
+        - name: http
+          containerPort: 8080
+      placement:
+        site: homelab
+        requiredCapabilities:
+          - platform
+      autoscaling:
+        minReplicas: 1
+        maxReplicas: 2
+      credentials:
+        - name: postgres
+          claim: data.platform-postgres.assistant-api
+          destinationSecret: assistant-api-postgres
+      observability:
+        metrics:
+          - port: http
+            path: /actuator/prometheus
+        gatus:
+          - name: health
+            url: https://agents.example.com/health
+      routes:
+        - host: agents.example.com
+          expose:
+            tier: public-frankfurt
+          rules:
+            - path: /
+              port: http
+              operation: prefix
+              auth:
+                scope: authenticated
+      hooks:
+        pre:
+          - migrate-db
+      safety:
+        gateOn:
+          - parity

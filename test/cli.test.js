@@ -187,7 +187,7 @@ test("usage errors are reported for invalid commands and options", async () => {
   assert.equal(unknownCommandExitCode, 1);
   assert.equal(parseDiagnostic(unknownCommandStderr.text()).message, "unknown command: unknown");
   assert.equal(badFormatExitCode, 1);
-  assert.equal(parseDiagnostic(badFormatStderr.text()).message, "--format must be json or text");
+  assert.equal(parseDiagnostic(badFormatStderr.text()).message, "--format must be json, text, or image-tags");
   assert.equal(missingOutputExitCode, 1);
   assert.equal(parseDiagnostic(missingOutputStderr.text()).message, "--output requires a path");
   assert.equal(unknownOptionExitCode, 1);

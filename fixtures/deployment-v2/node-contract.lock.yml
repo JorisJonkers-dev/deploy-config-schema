@@ -1,0 +1,20 @@
+apiVersion: deployment.jorisjonkers.dev/node-contract/v1
+kind: NodeContract
+metadata:
+  sourceSha: cccccccccccccccccccccccccccccccccccccccc
+nodes:
+  k3s-01:
+    status: active
+    schedulable: true
+    site: homelab
+    arch: amd64
+    labels:
+      platform.jorisjonkers.dev/site: homelab
+      platform.jorisjonkers.dev/node-id: k3s-01
+      platform.jorisjonkers.dev/capability-platform: 'true'
+      kubernetes.io/arch: amd64
+    storage:
+      longhorn:
+        eligible: false
+        nodeTags: []
+        disks: []

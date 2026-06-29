@@ -1,76 +1,82 @@
-name: CI
+'name': 'CI'
 
-on:
-  pull_request:
-  push:
-    branches: [main]
-  workflow_dispatch:
+'on':
+  'pull_request':
+  'push':
+    'branches':
+      - 'main'
+  'workflow_dispatch':
 
-concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+'concurrency':
+  'group': 'ci-${{ github.workflow }}-${{ github.ref }}'
+  'cancel-in-progress': '${{ github.ref != ''refs/heads/main'' }}'
 
-permissions:
-  contents: read
+'permissions':
+  'contents': 'read'
 
-jobs:
-  test:
-    name: Test and Coverage
-    runs-on: ubuntu-latest
-    env:
-      NODE_AUTH_TOKEN: ${{ github.token }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-      - run: npm ci
-      - run: npm test
+'jobs':
+  'test':
+    'name': 'Test and Coverage'
+    'runs-on': 'ubuntu-latest'
+    'env':
+      'NODE_AUTH_TOKEN': '${{ github.token }}'
+    'steps':
+      - 'uses': 'actions/checkout@v6'
+      - 'uses': 'actions/setup-node@v6'
+        'with':
+          'node-version': '20'
+          'cache': 'npm'
+      - 'run': 'npm ci'
+      - 'run': 'npm test'
 
-  schema-and-cli:
-    name: Schema and CLI
-    runs-on: ubuntu-latest
-    env:
-      NODE_AUTH_TOKEN: ${{ github.token }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-      - run: npm ci
-      - run: npm run build
-      - run: npm run validate:schema
-      - run: npm run validate:sample
-      - run: npm run render:sample > /tmp/traefik-ingressroutes.yaml
-      - run: test -s /tmp/traefik-ingressroutes.yaml
-      - run: node dist/bin/deploy-config-schema.js render traefik-lan samples/deploy-config.yaml > /tmp/traefik-lan-ingressroutes.yaml
-      - run: node dist/bin/deploy-config-schema.js render gatus samples/deploy-config.yaml > /tmp/gatus-endpoints-configmap.yaml
-      - run: node dist/bin/deploy-config-schema.js render edge-catalog samples/deploy-config.yaml > /tmp/edge-catalog-configmap.yaml
-      - run: node dist/bin/deploy-config-schema.js render edge-route-catalog samples/deploy-config.yaml > /tmp/edge-route-catalog-configmap.yaml
-      - run: node dist/bin/deploy-config-schema.js render image-metadata samples/deploy-config.yaml > /tmp/image-metadata.yaml
+  'schema-and-cli':
+    'name': 'Schema and CLI'
+    'runs-on': 'ubuntu-latest'
+    'env':
+      'NODE_AUTH_TOKEN': '${{ github.token }}'
+    'steps':
+      - 'uses': 'actions/checkout@v6'
+      - 'uses': 'actions/setup-node@v6'
+        'with':
+          'node-version': '20'
+          'cache': 'npm'
+      - 'run': 'npm ci'
+      - 'run': 'npm run build'
+      - 'run': 'npm run validate:schema'
+      - 'run': 'npm run validate:sample'
+      - 'run': 'npm run render:sample > /tmp/traefik-ingressroutes.yaml'
+      - 'run': 'test -s /tmp/traefik-ingressroutes.yaml'
+      - 'run': 'node dist/bin/deploy-config-schema.js render traefik-lan samples/deploy-config.yaml > /tmp/traefik-lan-ingressroutes.yaml'
+      - 'run': 'node dist/bin/deploy-config-schema.js render gatus samples/deploy-config.yaml > /tmp/gatus-endpoints-configmap.yaml'
+      - 'run': 'node dist/bin/deploy-config-schema.js render edge-catalog samples/deploy-config.yaml > /tmp/edge-catalog-configmap.yaml'
+      - 'run': 'node dist/bin/deploy-config-schema.js render edge-route-catalog samples/deploy-config.yaml > /tmp/edge-route-catalog-configmap.yaml'
+      - 'run': 'node dist/bin/deploy-config-schema.js render image-metadata samples/deploy-config.yaml > /tmp/image-metadata.yaml'
+      - 'run': 'node dist/bin/deploy-config-schema.js validate auto fixtures/deployment-v2/*.yml'
+      - 'run': 'node dist/bin/deploy-config-schema.js lock images --lock fixtures/deployment-v2/deployment.lock.yml --format image-tags'
 
-  workflow-lint:
-    name: Workflow Lint
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Download actionlint
-        id: actionlint
-        shell: bash
-        run: bash <(curl --fail --silent --show-error --location https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash)
-      - name: Lint GitHub Actions workflows
-        shell: bash
-        run: |
+  'workflow-lint':
+    'name': 'Workflow Lint'
+    'runs-on': 'ubuntu-latest'
+    'steps':
+      - 'uses': 'actions/checkout@v6'
+      - 'name': 'Download actionlint'
+        'id': 'actionlint'
+        'shell': 'bash'
+        'run': 'bash <(curl --fail --silent --show-error --location https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash)'
+      - 'name': 'Lint GitHub Actions workflows'
+        'shell': 'bash'
+        'run': |
           "${{ steps.actionlint.outputs.executable }}" -color .github/workflows/*.yml
 
-  pipeline-complete:
-    name: Pipeline Complete
-    if: always()
-    needs: [test, schema-and-cli, workflow-lint]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: re-actors/alls-green@release/v1
-        with:
-          jobs: ${{ toJSON(needs) }}
+  'pipeline-complete':
+    'name': 'Pipeline Complete'
+    'if': 'always()'
+    'needs':
+      - 'test'
+      - 'schema-and-cli'
+      - 'workflow-lint'
+    'runs-on': 'ubuntu-latest'
+    'steps':
+      - 'uses': 're-actors/alls-green@release/v1'
+        'with':
+          'jobs': '${{ toJSON(needs) }}'

@@ -1,6 +1,12 @@
 # deploy-config-schema
 
-`@jorisjonkers-dev/deploy-config-schema` provides a JSON Schema and CLI contract for deploy and infrastructure config documents. The Round-2 MVP validates YAML or JSON config and renders deterministic Traefik IngressRoutes, edge catalogs, Gatus endpoints, and image metadata audit output for the common Kubernetes platform case.
+JSON Schemas and CLI tooling for JorisJonkers-dev deployment configuration.
+
+## What It Is
+
+`deploy-config-schema` provides the internal TypeScript package, public JSON
+Schemas, validators, render helpers, and command contracts used by deployment
+and infrastructure repositories.
 
 ## Install
 
@@ -38,6 +44,26 @@ Validate standalone generated artifacts explicitly:
 npx deploy-config-schema validate service-intent fixtures/round4/service-intent-renderable.sample.yaml
 npx deploy-config-schema validate fleet-inventory fixtures/round3/fleet-inventory.sample.yaml
 npx deploy-config-schema validate vault-dynamic-secrets fixtures/round3/vault-dynamic-secrets.sample.yaml
+```
+
+Validate Deploy v2 inputs:
+
+```bash
+npx deploy-config-schema validate deployment-v2 fixtures/deployment-v2/deployment.yml
+npx deploy-config-schema validate deployment-sources-v1 fixtures/deployment-v2/deployment-sources.yml
+npx deploy-config-schema validate deployment-lock-v1 fixtures/deployment-v2/deployment.lock.yml
+npx deploy-config-schema validate node-contract-v1 fixtures/deployment-v2/node-contract.lock.yml
+npx deploy-config-schema validate collection-v1 fixtures/deployment-v2/collection.yml
+npx deploy-config-schema validate reachability-v1 fixtures/deployment-v2/reachability.yml
+npx deploy-config-schema validate state-move-plan-v1 fixtures/deployment-v2/state-move-plan.yml
+```
+
+Deploy v2 command contracts are available for source resolution, lock image
+extraction, bundle packing, compiler scaffolding, import, render, and parity:
+
+```bash
+npx deploy-config-schema lock images --lock deployment.lock.yml --format image-tags
+npx deploy-config-schema compile --env production --sources deployment-sources.yml --lock deployment.lock.yml --node-contract inventory/node-contract.lock.yml --reachability catalog/reachability.yml --out cluster/flux --check
 ```
 
 Render a full generated tree from `platform.yaml`:
@@ -98,6 +124,22 @@ npm run render:sample
 
 ## Boundaries
 
-This repository defines a versioned schema and command surface. It does not apply generated manifests, modify personal-stack or website, operate a cluster, manage secrets, or render Nomad jobs. personal-stack and website are first-class optional consumers that can adopt pinned package versions when their own repositories opt in.
+This repository defines versioned schemas and command surfaces. It does not
+apply generated manifests, operate a cluster, manage secrets, or perform the
+owner-gated production Flux source switch.
 
-Round 4 keeps Nomad contract-only: service-intent and fleet-inventory files may validate future Nomad input skeletons, but no Nomad renderer adapter is exposed. Vault dynamic-secret files are validated as compiler inputs only; policy compilation remains outside this package.
+Deploy v2 compiler work has begun with schemas, validation, source/lock helpers,
+bundle manifests, compile scaffolding, and parity normalization. Full Flux,
+Kubernetes, Traefik, Gatus, VSO, NetworkPolicy, and Longhorn renderers remain
+follow-up implementation work.
+
+## Links
+
+- [Organization profile](https://github.com/JorisJonkers-dev)
+- [Security policy](https://github.com/JorisJonkers-dev/.github/security/policy)
+- [Changelog](./CHANGELOG.md)
+- [License](./LICENSE)
+
+Copyright (c) Joris Jonkers. Source available for viewing only; use, copying,
+modification, redistribution, deployment, or reuse is not licensed. See
+[LICENSE](./LICENSE).

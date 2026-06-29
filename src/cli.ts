@@ -16,6 +16,15 @@ import { writeGeneratedFiles } from "./render-plan/writer.js";
 import { normalizeServiceIntentForRender } from "./service-intent-normalizer.js";
 import { fleetToDeployConfig } from "./fleet-to-deploy-config.js";
 import { HostEnvError, hostEnvLines } from "./host-env.js";
+import {
+  runBundle,
+  runCompile,
+  runImportFleetV1,
+  runLock,
+  runParity,
+  runRenderFlux,
+  runResolveSources,
+} from "./deployment-v2/commands.js";
 
 const allAdapters = new Set(adapterNames());
 const platformTemplatePaths = {
@@ -47,6 +56,27 @@ export async function runCli(args, streams = { stdout: process.stdout, stderr: p
   }
   if (command === "fleet-to-deploy-config") {
     return runFleetToDeployConfig(rest, streams);
+  }
+  if (command === "bundle") {
+    return runBundle(rest, streams, parseOptions);
+  }
+  if (command === "resolve-sources") {
+    return runResolveSources(rest, streams, parseOptions);
+  }
+  if (command === "lock") {
+    return runLock(rest, streams, parseOptions);
+  }
+  if (command === "compile") {
+    return runCompile(rest, streams, parseOptions);
+  }
+  if (command === "render-flux") {
+    return runRenderFlux(rest, streams, parseOptions);
+  }
+  if (command === "import-fleet-v1") {
+    return runImportFleetV1(rest, streams, parseOptions);
+  }
+  if (command === "parity") {
+    return runParity(rest, streams, parseOptions);
   }
   if (command === "show-host-env") {
     return runShowHostEnv(rest, streams, { install: false });
@@ -401,6 +431,14 @@ function inferValidationKindFromPath(path) {
 
 function inferValidationKindFromDocument(document) {
   if (document?.fleet) return "fleet-inventory";
+  if (document?.apiVersion === "deployment.jorisjonkers.dev/v2") return "deployment-v2";
+  if (document?.apiVersion === "deployment.jorisjonkers.dev/env/v1") return "deployment-env-v1";
+  if (document?.apiVersion === "deployment.jorisjonkers.dev/sources/v1") return "deployment-sources-v1";
+  if (document?.apiVersion === "deployment.jorisjonkers.dev/lock/v1") return "deployment-lock-v1";
+  if (document?.apiVersion === "deployment.jorisjonkers.dev/node-contract/v1") return "node-contract-v1";
+  if (document?.apiVersion === "deployment.jorisjonkers.dev/collection/v1") return "collection-v1";
+  if (document?.apiVersion === "deployment.jorisjonkers.dev/reachability/v1") return "reachability-v1";
+  if (document?.apiVersion === "deployment.jorisjonkers.dev/state-move-plan/v1") return "state-move-plan-v1";
   if (document?.vault) return "vault-dynamic-secrets";
   if (document?.cluster && document?.service_intent) return "deploy-config";
   if (document?.name && document?.domain) return "platform";
@@ -461,10 +499,10 @@ function parseOptions(args) {
       }
     } else if (arg === "--format") {
       const value = args[index + 1];
-      if (!["json", "text"].includes(value)) {
+      if (!["json", "text", "image-tags"].includes(value)) {
         diagnostics.push({
           code: "E_USAGE",
-          message: "--format must be json or text",
+          message: "--format must be json, text, or image-tags",
           path: "/",
         });
       } else {
@@ -531,6 +569,134 @@ function parseOptions(args) {
         options.blueprintsVersion = value;
         index += 1;
       }
+    } else if (arg === "--deploy-dir") {
+      const value = args[index + 1];
+      if (!value) {
+        diagnostics.push({ code: "E_USAGE", message: "--deploy-dir requires a directory", path: "/" });
+      } else {
+        options.deployDir = value;
+        index += 1;
+      }
+    } else if (arg === "--images") {
+      const value = args[index + 1];
+      if (!value) {
+        diagnostics.push({ code: "E_USAGE", message: "--images requires a path", path: "/" });
+      } else {
+        options.images = value;
+        index += 1;
+      }
+    } else if (arg === "--repo") {
+      const value = args[index + 1];
+      if (!value) {
+        diagnostics.push({ code: "E_USAGE", message: "--repo requires a value", path: "/" });
+      } else {
+        options.repo = value;
+        index += 1;
+      }
+    } else if (arg === "--git-sha") {
+      const value = args[index + 1];
+      if (!value) {
+        diagnostics.push({ code: "E_USAGE", message: "--git-sha requires a value", path: "/" });
+      } else {
+        options.gitSha = value;
+        index += 1;
+      }
+    } else if (arg === "--version") {
+      const value = args[index + 1];
+      if (!value) {
+        diagnostics.push({ code: "E_USAGE", message: "--version requires a value", path: "/" });
+      } else {
+        options.version = value;
+        index += 1;
+      }
+    } else if (arg === "--out") {
+      const value = args[index + 1];
+      if (!value) {
+        diagnostics.push({ code: "E_USAGE", message: "--out requires a path", path: "/" });
+      } else {
+        options.out = value;
+        index += 1;
+      }
+    } else if (arg === "--sources") {
+      const value = args[index + 1];
+      if (!value) {
+        diagnostics.push({ code: "E_USAGE", message: "--sources requires a path", path: "/" });
+      } else {
+        options.sources = value;
+        index += 1;
+      }
+    } else if (arg === "--lock") {
+      const value = args[index + 1];
+      if (!value) {
+        diagnostics.push({ code: "E_USAGE", message: "--lock requires a path", path: "/" });
+      } else {
+        options.lock = value;
+        index += 1;
+      }
+    } else if (arg === "--env") {
+      const value = args[index + 1];
+      if (!value) {
+        diagnostics.push({ code: "E_USAGE", message: "--env requires a value", path: "/" });
+      } else {
+        options.env = value;
+        index += 1;
+      }
+    } else if (arg === "--node-contract") {
+      const value = args[index + 1];
+      if (!value) {
+        diagnostics.push({ code: "E_USAGE", message: "--node-contract requires a path", path: "/" });
+      } else {
+        options.nodeContract = value;
+        index += 1;
+      }
+    } else if (arg === "--reachability") {
+      const value = args[index + 1];
+      if (!value) {
+        diagnostics.push({ code: "E_USAGE", message: "--reachability requires a path", path: "/" });
+      } else {
+        options.reachability = value;
+        index += 1;
+      }
+    } else if (arg === "--fleet") {
+      const value = args[index + 1];
+      if (!value) {
+        diagnostics.push({ code: "E_USAGE", message: "--fleet requires a path", path: "/" });
+      } else {
+        options.fleet = value;
+        index += 1;
+      }
+    } else if (arg === "--flux-tree") {
+      const value = args[index + 1];
+      if (!value) {
+        diagnostics.push({ code: "E_USAGE", message: "--flux-tree requires a directory", path: "/" });
+      } else {
+        options.fluxTree = value;
+        index += 1;
+      }
+    } else if (arg === "--current") {
+      const value = args[index + 1];
+      if (!value) {
+        diagnostics.push({ code: "E_USAGE", message: "--current requires a directory", path: "/" });
+      } else {
+        options.current = value;
+        index += 1;
+      }
+    } else if (arg === "--rendered") {
+      const value = args[index + 1];
+      if (!value) {
+        diagnostics.push({ code: "E_USAGE", message: "--rendered requires a directory", path: "/" });
+      } else {
+        options.rendered = value;
+        index += 1;
+      }
+    } else if (arg === "--allow-flux-source-diff") {
+      const value = args[index + 1];
+      if (!["true", "false"].includes(value)) {
+        diagnostics.push({ code: "E_USAGE", message: "--allow-flux-source-diff must be true or false", path: "/" });
+      } else {
+        options.allowFluxSourceDiff = value;
+        index += 1;
+      }
     } else if (arg === "--force") {
       options.force = true;
     } else if (arg === "--dry-run") {
@@ -539,6 +705,8 @@ function parseOptions(args) {
       options.diff = true;
     } else if (arg === "--check") {
       options.check = true;
+    } else if (arg === "--update") {
+      options.update = true;
     } else if (arg.startsWith("--")) {
       diagnostics.push({
         code: "E_USAGE",
@@ -628,6 +796,14 @@ function usage() {
     "  deploy-config-schema render-tree <platform.yaml> --output <root> [--target edge|adapter] [--dry-run|--diff|--check|--force] [--blueprints-root <dir>] [--blueprints-version <tag>]",
     "  deploy-config-schema render <adapter> <config> [--input deploy-config|service-intent] [--output <path>]",
     "  deploy-config-schema fleet-to-deploy-config <fleet.yaml>",
+    "  deploy-config-schema bundle pack --deploy-dir <dir> --images <file> --repo <repo> --git-sha <sha> --version <version> --out <file>",
+    "  deploy-config-schema resolve-sources --sources deployment-sources.yml --lock deployment.lock.yml [--check]",
+    "  deploy-config-schema lock --sources deployment-sources.yml --lock deployment.lock.yml [--update]",
+    "  deploy-config-schema lock images --lock deployment.lock.yml --format image-tags",
+    "  deploy-config-schema compile --env <name> --sources <path> --lock <path> --node-contract <path> --reachability <path> --out <dir> [--check]",
+    "  deploy-config-schema render-flux --repo <repo> --env <name> [--check]",
+    "  deploy-config-schema import-fleet-v1 --fleet <fleet.yaml> --flux-tree <dir> --out <dir>",
+    "  deploy-config-schema parity --current <old-tree> --rendered <new-tree> --allow-flux-source-diff true|false",
     "  deploy-config-schema show-host-env <fleet.yaml> <node>",
     "  deploy-config-schema show-install-host-env <fleet.yaml> <node>",
     "  deploy-config-schema adapter-contract",
