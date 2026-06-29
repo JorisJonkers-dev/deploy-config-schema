@@ -1,0 +1,12 @@
+apiVersion: deployment.jorisjonkers.dev/sources/v1
+kind: DeploymentSources
+spec:
+  environments:
+    - runtime
+    - development
+    - staging
+    - production
+  firstParty: {}
+  collections: {}
+  policies:
+    importedFrom: fleet-v1
