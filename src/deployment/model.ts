@@ -405,10 +405,21 @@ export type FluxLayerModel = {
   healthChecks: FluxWait[];
 };
 
+export type ParityImportSource =
+  | { kind: "model-rendered"; reason?: string }
+  | { kind: "pack-sourced"; pack: string; path?: string; reason?: string }
+  | { kind: "collection-sourced"; collection: string; path?: string; reason?: string }
+  | { kind: "carried"; reason: string };
+
+export type ParityImportFile = Omit<RenderFile, "content"> & {
+  content?: string;
+  source: ParityImportSource;
+};
+
 export type ParityImportModel = {
   networkPolicies: KubernetesObject[];
   extraObjects: KubernetesObject[];
-  existingFiles: RenderFile[];
+  existingFiles: ParityImportFile[];
 };
 
 export type AdapterArtifactsModel = {
@@ -890,7 +901,7 @@ export function buildProjectModel(input: CompilerInputSet): ProjectModel {
 
 function parityImportsFromDeployments(deployments: unknown[]): ParityImportModel | undefined {
   const existingFiles = deployments.flatMap((deployment) => {
-    const value = deployment as { spec?: { parityImports?: { existingFiles?: RenderFile[] } } };
+    const value = deployment as { spec?: { parityImports?: { existingFiles?: ParityImportFile[] } } };
     return value.spec?.parityImports?.existingFiles ?? [];
   });
   return existingFiles.length > 0 ? { networkPolicies: [], extraObjects: [], existingFiles } : undefined;

@@ -4893,7 +4893,7 @@ export const deploymentJsonSchema = {
                 "additionalProperties": false,
                 "required": [
                   "path",
-                  "content"
+                  "source"
                 ],
                 "properties": {
                   "path": {
@@ -4909,6 +4909,99 @@ export const deploymentJsonSchema = {
                   "adapter": {
                     "type": "string",
                     "minLength": 1
+                  },
+                  "source": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "kind"
+                        ],
+                        "properties": {
+                          "kind": {
+                            "const": "model-rendered"
+                          },
+                          "reason": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        }
+                      },
+                      {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "kind",
+                          "pack"
+                        ],
+                        "properties": {
+                          "kind": {
+                            "const": "pack-sourced"
+                          },
+                          "pack": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "path": {
+                            "type": "string",
+                            "minLength": 1,
+                            "not": {
+                              "pattern": "^/"
+                            }
+                          },
+                          "reason": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        }
+                      },
+                      {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "kind",
+                          "collection"
+                        ],
+                        "properties": {
+                          "kind": {
+                            "const": "collection-sourced"
+                          },
+                          "collection": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "path": {
+                            "type": "string",
+                            "minLength": 1,
+                            "not": {
+                              "pattern": "^/"
+                            }
+                          },
+                          "reason": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        }
+                      },
+                      {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "kind",
+                          "reason"
+                        ],
+                        "properties": {
+                          "kind": {
+                            "const": "carried"
+                          },
+                          "reason": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        }
+                      }
+                    ]
                   }
                 }
               }
@@ -7622,7 +7715,7 @@ export const collectionJsonSchema = {
                           "additionalProperties": false,
                           "required": [
                             "path",
-                            "content"
+                            "source"
                           ],
                           "properties": {
                             "path": {
@@ -7638,6 +7731,99 @@ export const collectionJsonSchema = {
                             "adapter": {
                               "type": "string",
                               "minLength": 1
+                            },
+                            "source": {
+                              "oneOf": [
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": [
+                                    "kind"
+                                  ],
+                                  "properties": {
+                                    "kind": {
+                                      "const": "model-rendered"
+                                    },
+                                    "reason": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    }
+                                  }
+                                },
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": [
+                                    "kind",
+                                    "pack"
+                                  ],
+                                  "properties": {
+                                    "kind": {
+                                      "const": "pack-sourced"
+                                    },
+                                    "pack": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "path": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "not": {
+                                        "pattern": "^/"
+                                      }
+                                    },
+                                    "reason": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    }
+                                  }
+                                },
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": [
+                                    "kind",
+                                    "collection"
+                                  ],
+                                  "properties": {
+                                    "kind": {
+                                      "const": "collection-sourced"
+                                    },
+                                    "collection": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "path": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "not": {
+                                        "pattern": "^/"
+                                      }
+                                    },
+                                    "reason": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    }
+                                  }
+                                },
+                                {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": [
+                                    "kind",
+                                    "reason"
+                                  ],
+                                  "properties": {
+                                    "kind": {
+                                      "const": "carried"
+                                    },
+                                    "reason": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    }
+                                  }
+                                }
+                              ]
                             }
                           }
                         }

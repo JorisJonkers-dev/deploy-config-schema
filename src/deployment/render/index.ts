@@ -13,9 +13,6 @@ import { renderVso } from "./vso.js";
 export type Renderer = (model: ProjectModel) => RendererResult;
 
 export function renderProject(model: ProjectModel): RenderFile[] {
-  const importedParityFiles = renderImportedParityFiles(model);
-  if (importedParityFiles) return sortRenderFiles(importedParityFiles);
-
   const waits: FluxWait[] = [];
   const files: RenderFile[] = [];
   for (const result of [
@@ -32,5 +29,7 @@ export function renderProject(model: ProjectModel): RenderFile[] {
   }
   const fluxRoot = renderFluxRoot(model, waits);
   files.push(...fluxRoot.files);
+  const importedParityFiles = renderImportedParityFiles(model, files);
+  if (importedParityFiles) return sortRenderFiles(importedParityFiles);
   return sortRenderFiles(files);
 }
