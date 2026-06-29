@@ -1,0 +1,31 @@
+apiVersion: deployment.jorisjonkers.dev/lock
+kind: DeploymentLock
+metadata:
+  generatedAt: '2026-06-29T00:00:00.000Z'
+  renderedRootDigest: sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+inputs:
+  firstParty:
+    assistant-api:
+      bundle: ghcr.io/jorisjonkers-dev/assistant-api-deploy-bundle:v1.2.3@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+      manifestDigest: sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+      repoSha: ffffffffffffffffffffffffffffffffffffffff
+      images:
+        - ghcr.io/jorisjonkers-dev/assistant-api:v1.2.3
+        - ghcr.io/jorisjonkers-dev/platform-postgres:v16
+  collections:
+    data:
+      repo: JorisJonkers-dev/homelab-collections
+      ref: main
+      sha: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+      paths:
+        - collections/data
+  homelabHosts:
+    repo: JorisJonkers-dev/homelab-hosts
+    ref: main
+    sha: cccccccccccccccccccccccccccccccccccccccc
+  platformBlueprints:
+    repo: JorisJonkers-dev/platform-blueprints
+    ref: v0.8.0
+  charts: {}
+  images:
+    gatus: ghcr.io/twin/gatus:v5.20.0

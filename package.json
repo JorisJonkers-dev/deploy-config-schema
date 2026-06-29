@@ -18,14 +18,14 @@
     "./schemas/round3/service-intent": "./dist/schemas/round3/service-intent.schema.json",
     "./schemas/round3/fleet-inventory": "./dist/schemas/round3/fleet-inventory.schema.json",
     "./schemas/round3/vault-dynamic-secrets": "./dist/schemas/round3/vault-dynamic-secrets.schema.json",
-    "./schemas/deployment/v2": "./dist/schemas/deployment/v2.schema.json",
-    "./schemas/deployment-env/v1": "./dist/schemas/deployment-env/v1.schema.json",
-    "./schemas/deployment-sources/v1": "./dist/schemas/deployment-sources/v1.schema.json",
-    "./schemas/deployment-lock/v1": "./dist/schemas/deployment-lock/v1.schema.json",
-    "./schemas/node-contract/v1": "./dist/schemas/node-contract/v1.schema.json",
-    "./schemas/collection/v1": "./dist/schemas/collection/v1.schema.json",
-    "./schemas/reachability/v1": "./dist/schemas/reachability/v1.schema.json",
-    "./schemas/state-move-plan/v1": "./dist/schemas/state-move-plan/v1.schema.json"
+    "./schemas/deployment": "./dist/schemas/deployment.schema.json",
+    "./schemas/deployment-env": "./dist/schemas/deployment-env.schema.json",
+    "./schemas/deployment-sources": "./dist/schemas/deployment-sources.schema.json",
+    "./schemas/deployment-lock": "./dist/schemas/deployment-lock.schema.json",
+    "./schemas/node-contract": "./dist/schemas/node-contract.schema.json",
+    "./schemas/collection": "./dist/schemas/collection.schema.json",
+    "./schemas/reachability": "./dist/schemas/reachability.schema.json",
+    "./schemas/state-move-plan": "./dist/schemas/state-move-plan.schema.json"
   },
   "files": [
     "dist/",

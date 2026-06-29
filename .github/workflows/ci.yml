@@ -51,8 +51,8 @@
       - 'run': 'node dist/bin/deploy-config-schema.js render edge-catalog samples/deploy-config.yaml > /tmp/edge-catalog-configmap.yaml'
       - 'run': 'node dist/bin/deploy-config-schema.js render edge-route-catalog samples/deploy-config.yaml > /tmp/edge-route-catalog-configmap.yaml'
       - 'run': 'node dist/bin/deploy-config-schema.js render image-metadata samples/deploy-config.yaml > /tmp/image-metadata.yaml'
-      - 'run': 'node dist/bin/deploy-config-schema.js validate auto fixtures/deployment-v2/*.yml'
-      - 'run': 'node dist/bin/deploy-config-schema.js lock images --lock fixtures/deployment-v2/deployment.lock.yml --format image-tags'
+      - 'run': 'node dist/bin/deploy-config-schema.js validate auto fixtures/deployment/*.yml'
+      - 'run': 'node dist/bin/deploy-config-schema.js lock images --lock fixtures/deployment/deployment.lock.yml --format image-tags'
 
   'workflow-lint':
     'name': 'Workflow Lint'

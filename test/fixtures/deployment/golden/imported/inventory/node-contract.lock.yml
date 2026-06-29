@@ -1,0 +1,29 @@
+apiVersion: deployment.jorisjonkers.dev/node-contract
+kind: NodeContract
+metadata:
+  sourceSha: "1111111111111111111111111111111111111111"
+nodes:
+  k3s-01:
+    status: active
+    schedulable: true
+    site: frankfurt
+    arch: amd64
+    capacity:
+      memoryMiB: 1
+    labels:
+      platform.jorisjonkers.dev/site: frankfurt
+      platform.jorisjonkers.dev/node-id: k3s-01
+      kubernetes.io/arch: amd64
+      platform.jorisjonkers.dev/capability-platform: "true"
+    gpus: []
+    taints: []
+    storage:
+      longhorn:
+        eligible: true
+        nodeTags:
+          - fast
+        disks:
+          - name: nvme
+            path: /var/lib/longhorn
+            tags:
+              - fast

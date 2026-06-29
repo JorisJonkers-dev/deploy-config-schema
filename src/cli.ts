@@ -19,12 +19,12 @@ import { HostEnvError, hostEnvLines } from "./host-env.js";
 import {
   runBundle,
   runCompile,
-  runImportFleetV1,
+  runImportLiveFleet,
   runLock,
   runParity,
   runRenderFlux,
   runResolveSources,
-} from "./deployment-v2/commands.js";
+} from "./deployment/commands.js";
 
 const allAdapters = new Set(adapterNames());
 const platformTemplatePaths = {
@@ -72,8 +72,8 @@ export async function runCli(args, streams = { stdout: process.stdout, stderr: p
   if (command === "render-flux") {
     return runRenderFlux(rest, streams, parseOptions);
   }
-  if (command === "import-fleet-v1") {
-    return runImportFleetV1(rest, streams, parseOptions);
+  if (command === "import-live-fleet") {
+    return runImportLiveFleet(rest, streams, parseOptions);
   }
   if (command === "parity") {
     return runParity(rest, streams, parseOptions);
@@ -431,14 +431,14 @@ function inferValidationKindFromPath(path) {
 
 function inferValidationKindFromDocument(document) {
   if (document?.fleet) return "fleet-inventory";
-  if (document?.apiVersion === "deployment.jorisjonkers.dev/v2") return "deployment-v2";
-  if (document?.apiVersion === "deployment.jorisjonkers.dev/env/v1") return "deployment-env-v1";
-  if (document?.apiVersion === "deployment.jorisjonkers.dev/sources/v1") return "deployment-sources-v1";
-  if (document?.apiVersion === "deployment.jorisjonkers.dev/lock/v1") return "deployment-lock-v1";
-  if (document?.apiVersion === "deployment.jorisjonkers.dev/node-contract/v1") return "node-contract-v1";
-  if (document?.apiVersion === "deployment.jorisjonkers.dev/collection/v1") return "collection-v1";
-  if (document?.apiVersion === "deployment.jorisjonkers.dev/reachability/v1") return "reachability-v1";
-  if (document?.apiVersion === "deployment.jorisjonkers.dev/state-move-plan/v1") return "state-move-plan-v1";
+  if (document?.apiVersion === "deployment.jorisjonkers.dev") return "deployment";
+  if (document?.apiVersion === "deployment.jorisjonkers.dev/env") return "deployment-env";
+  if (document?.apiVersion === "deployment.jorisjonkers.dev/sources") return "deployment-sources";
+  if (document?.apiVersion === "deployment.jorisjonkers.dev/lock") return "deployment-lock";
+  if (document?.apiVersion === "deployment.jorisjonkers.dev/node-contract") return "node-contract";
+  if (document?.apiVersion === "deployment.jorisjonkers.dev/collection") return "collection";
+  if (document?.apiVersion === "deployment.jorisjonkers.dev/reachability") return "reachability";
+  if (document?.apiVersion === "deployment.jorisjonkers.dev/state-move-plan") return "state-move-plan";
   if (document?.vault) return "vault-dynamic-secrets";
   if (document?.cluster && document?.service_intent) return "deploy-config";
   if (document?.name && document?.domain) return "platform";
@@ -828,7 +828,7 @@ function usage() {
     "  deploy-config-schema lock images --lock deployment.lock.yml --format image-tags",
     "  deploy-config-schema compile --env <name> --sources <path> --lock <path> --node-contract <path> --reachability <path> --out <dir> [--check]",
     "  deploy-config-schema render-flux --repo <repo> --env <name> [--check]",
-    "  deploy-config-schema import-fleet-v1 --fleet <fleet.yaml> --flux-tree <dir> --out <dir>",
+    "  deploy-config-schema import-live-fleet --fleet <fleet.yaml> --flux-tree <dir> --out <dir>",
     "  deploy-config-schema parity --current <old-tree> --rendered <new-tree> --allow-flux-source-diff true|false",
     "  deploy-config-schema show-host-env <fleet.yaml> <node>",
     "  deploy-config-schema show-install-host-env <fleet.yaml> <node>",
