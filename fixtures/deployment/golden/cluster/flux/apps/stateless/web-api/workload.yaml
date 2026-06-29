@@ -83,6 +83,9 @@ metadata:
   name: web-api-db
   namespace: apps
 spec:
+  type: kv-v2
+  mount: kv
+  path: apps/web-api/web-api-db
   destination:
     name: web-api-db
     create: true

@@ -82,6 +82,15 @@ test("compareParityTrees fails for desired state differences", async (t) => {
     {
       name: "Traefik annotation",
       mutate: (root) => edit(root, "edge/ingressroute.yaml", (content) => content.replace("api.example.com", "admin.example.com")),
+      ok: true,
+      assertReport: (report) => {
+        assert.equal(report.summary.behaviorChangingDiffs, 0);
+        assert.equal(report.summary.behaviorPreservingDiffs, 1);
+      },
+    },
+    {
+      name: "Traefik match rule",
+      mutate: (root) => edit(root, "edge/ingressroute.yaml", (content) => content.replace("Host(`api.example.com`)", "Host(`admin.example.com`)")),
       assertReport: (report) => assert.equal(report.changed[0].key, "traefik.io/v1alpha1/IngressRoute/demo/api-public"),
     },
     {
@@ -120,12 +129,20 @@ test("compareParityTrees fails for desired state differences", async (t) => {
     {
       name: "dependsOn order",
       mutate: (root) => edit(root, "flux/apps.yaml", (content) => content.replace("dependsOn:\n    - name: infrastructure\n    - name: secrets", "dependsOn:\n    - name: secrets\n    - name: infrastructure")),
-      assertReport: (report) => assert.equal(report.changed[0].key, "kustomize.toolkit.fluxcd.io/v1/Kustomization/flux-system/apps"),
+      ok: true,
+      assertReport: (report) => {
+        assert.equal(report.summary.behaviorChangingDiffs, 0);
+        assert.equal(report.summary.behaviorPreservingDiffs, 1);
+      },
     },
     {
       name: "array order",
       mutate: (root) => edit(root, "apps/api.yaml", (content) => content.replace("- name: FIRST\n              value: \"1\"\n            - name: SECOND\n              value: \"2\"", "- name: SECOND\n              value: \"2\"\n            - name: FIRST\n              value: \"1\"")),
-      assertReport: (report) => assert.equal(report.changed[0].key, "apps/v1/Deployment/demo/api"),
+      ok: true,
+      assertReport: (report) => {
+        assert.equal(report.summary.behaviorChangingDiffs, 0);
+        assert.equal(report.summary.behaviorPreservingDiffs, 1);
+      },
     },
     {
       name: "non-ignored Flux source field",
@@ -137,7 +154,7 @@ test("compareParityTrees fails for desired state differences", async (t) => {
   for (const entry of cases) {
     await t.test(entry.name, () => {
       const report = reportAfterRenderedMutation(entry.mutate);
-      assert.equal(report.ok, false);
+      assert.equal(report.ok, entry.ok ?? false);
       entry.assertReport(report);
     });
   }

@@ -110,6 +110,8 @@ const expectedCompilePaths = [
   "apps/agents/assistant-api/pre-deploy-jobs.yaml",
   "apps/agents/assistant-api/serviceaccount.yaml",
   "apps/agents/assistant-api/servicemonitor.yaml",
+  "apps/agents/kustomization.yaml",
+  "apps/data/kustomization.yaml",
   "apps/data/platform-postgres/deployment.yaml",
   "apps/data/platform-postgres/kustomization.yaml",
   "apps/data/platform-postgres/namespace.yaml",

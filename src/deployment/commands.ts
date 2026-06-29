@@ -295,7 +295,7 @@ export function runParity(args, streams, parseOptions) {
     writeDiagnostics(streams.stderr, diagnostics.length > 0 ? diagnostics : usageDiagnostic("parity check --rendered <current-tree> --compiled <compiled-tree> [--profile flux]"));
     return 2;
   }
-  const report = compareParityTrees({ current, rendered });
+  const report = compareParityTrees({ current, rendered, mode: options.mode ?? "behavioral" });
   streams.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
   return report.ok ? 0 : 1;
 }

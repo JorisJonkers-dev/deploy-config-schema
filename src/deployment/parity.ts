@@ -1,31 +1,63 @@
-import { existsSync, lstatSync, readdirSync, realpathSync, statSync } from "node:fs";
+import { existsSync, lstatSync, readFileSync, readdirSync, realpathSync, statSync } from "node:fs";
 import { dirname, relative, resolve, sep } from "node:path";
 import YAML from "yaml";
 import { loadYamlDocuments } from "./io.js";
 import type { Diagnostic, KubernetesObject } from "./model.js";
+import { deploymentSourceHeaderPrefix, type RenderSourceKind } from "./render/files.js";
+
+export type ParityComparisonMode = "byte" | "behavioral";
+export type BehaviorDiffClassification = "behavior-preserving" | "behavior-changing";
 
 export type ParityObject = {
   key: string;
   path: string;
   documentIndex: number;
+  value: KubernetesObject;
   normalized: string;
+  behavior: string;
+  source?: RenderSourceKind;
+};
+
+export type BehaviorDiff = {
+  classification: BehaviorDiffClassification;
+  summary: string;
+  diff?: string;
+};
+
+export type ParityObjectComparison = {
+  key: string;
+  currentPath?: string;
+  renderedPath?: string;
+  behaviorEquivalent: boolean;
+  diffs: BehaviorDiff[];
+};
+
+export type SourceBreakdown = Record<RenderSourceKind, number>;
+
+export type ParitySummary = {
+  mode: ParityComparisonMode;
+  currentObjects: number;
+  renderedObjects: number;
+  missing: number;
+  extra: number;
+  changed: number;
+  duplicates: number;
+  behaviorEquivalent: number;
+  behaviorPreservingDiffs: number;
+  behaviorChangingDiffs: number;
+  sourceBreakdown: SourceBreakdown;
 };
 
 export type ParityReport = {
   ok: boolean;
+  mode: ParityComparisonMode;
   currentRoot: string;
   renderedRoot: string;
-  summary: {
-    currentObjects: number;
-    renderedObjects: number;
-    missing: number;
-    extra: number;
-    changed: number;
-    duplicates: number;
-  };
+  summary: ParitySummary;
   missing: string[];
   extra: string[];
   changed: Array<{ key: string; currentPath: string; renderedPath: string; diff: string }>;
+  comparisons: ParityObjectComparison[];
   duplicates: Array<{ key: string; paths: string[] }>;
   diagnostics: Diagnostic[];
 };
@@ -79,7 +111,8 @@ export function normalizeParityTree(root: string): Map<string, ParityObject> {
   return collectParityTree(root).objects;
 }
 
-export function compareParityTrees(options: { current: string; rendered: string }): ParityReport {
+export function compareParityTrees(options: { current: string; rendered: string; mode?: ParityComparisonMode }): ParityReport {
+  const mode = options.mode ?? "behavioral";
   const current = collectParityTree(options.current, "current");
   const rendered = collectParityTree(options.rendered, "rendered");
 
@@ -101,25 +134,38 @@ export function compareParityTrees(options: { current: string; rendered: string 
         diff: unifiedDiff(currentObject.normalized, renderedObject.normalized, `current/${currentObject.path}`, `rendered/${renderedObject.path}`),
       };
     });
+  const comparisons = compareBehavior(current.objects, rendered.objects, missing, extra);
   const duplicates = [...current.duplicates, ...rendered.duplicates].sort((left, right) => left.key.localeCompare(right.key));
   const diagnostics = [...current.diagnostics, ...rendered.diagnostics];
-  const ok = missing.length === 0 && extra.length === 0 && changed.length === 0 && duplicates.length === 0 && diagnostics.length === 0;
+  const behaviorPreservingDiffs = comparisons.reduce((count, comparison) => count + comparison.diffs.filter((diff) => diff.classification === "behavior-preserving").length, 0);
+  const behaviorChangingDiffs = comparisons.reduce((count, comparison) => count + comparison.diffs.filter((diff) => diff.classification === "behavior-changing").length, 0) + duplicates.length;
+  const noIdentityFailures = missing.length === 0 && extra.length === 0 && duplicates.length === 0 && diagnostics.length === 0;
+  const ok = mode === "byte"
+    ? noIdentityFailures && changed.length === 0
+    : noIdentityFailures && behaviorChangingDiffs === 0;
 
   return {
     ok,
+    mode,
     currentRoot: current.root,
     renderedRoot: rendered.root,
     summary: {
+      mode,
       currentObjects: current.objects.size,
       renderedObjects: rendered.objects.size,
       missing: missing.length,
       extra: extra.length,
       changed: changed.length,
       duplicates: duplicates.length,
+      behaviorEquivalent: comparisons.filter((comparison) => comparison.behaviorEquivalent).length,
+      behaviorPreservingDiffs,
+      behaviorChangingDiffs,
+      sourceBreakdown: sourceBreakdown(rendered.objects),
     },
     missing,
     extra,
     changed,
+    comparisons,
     duplicates,
     diagnostics,
   };
@@ -187,6 +233,7 @@ function collectParityTree(root: string, label?: "current" | "rendered"): Collec
   for (const path of files) {
     const relativePath = slashPath(relative(baseDir, path));
     let documents: unknown[];
+    const source = sourceKindFromContent(readFileSync(path, "utf8"));
     try {
       documents = loadYamlDocuments(path);
     } catch (error) {
@@ -205,7 +252,10 @@ function collectParityTree(root: string, label?: "current" | "rendered"): Collec
         key,
         path: relativePath,
         documentIndex,
+        value: normalized,
         normalized: canonicalYaml(normalized),
+        behavior: canonicalYaml(behaviorProjection(normalized)),
+        source,
       };
       const duplicatePath = `${label ? `${label}/` : ""}${relativePath}#${documentIndex}`;
       if (objects.has(key)) {
@@ -256,6 +306,73 @@ function listManifestFiles(root: string, directory: string, diagnostics: Diagnos
   return files.sort();
 }
 
+function compareBehavior(
+  currentObjects: Map<string, ParityObject>,
+  renderedObjects: Map<string, ParityObject>,
+  missing: string[],
+  extra: string[],
+): ParityObjectComparison[] {
+  const comparisons: ParityObjectComparison[] = [];
+  for (const key of missing) {
+    const current = currentObjects.get(key);
+    comparisons.push({
+      key,
+      currentPath: current?.path,
+      behaviorEquivalent: false,
+      diffs: [{ classification: "behavior-changing", summary: "object is missing from the rendered tree" }],
+    });
+  }
+  for (const key of extra) {
+    const rendered = renderedObjects.get(key);
+    comparisons.push({
+      key,
+      renderedPath: rendered?.path,
+      behaviorEquivalent: false,
+      diffs: [{ classification: "behavior-changing", summary: "object is extra in the rendered tree" }],
+    });
+  }
+  for (const key of [...currentObjects.keys()].filter((candidate) => renderedObjects.has(candidate)).sort()) {
+    const current = currentObjects.get(key);
+    const rendered = renderedObjects.get(key);
+    if (!current || !rendered) continue;
+    const diffs: BehaviorDiff[] = [];
+    if (current.behavior !== rendered.behavior) {
+      diffs.push({
+        classification: "behavior-changing",
+        summary: `substantive ${kindName(current.value)} fields differ`,
+        diff: unifiedDiff(current.behavior, rendered.behavior, `current/${current.path}#behavior`, `rendered/${rendered.path}#behavior`),
+      });
+    } else if (current.normalized !== rendered.normalized) {
+      diffs.push({
+        classification: "behavior-preserving",
+        summary: "only cosmetic, defaulted, or semantically irrelevant fields differ",
+        diff: unifiedDiff(current.normalized, rendered.normalized, `current/${current.path}`, `rendered/${rendered.path}`),
+      });
+    }
+    comparisons.push({
+      key,
+      currentPath: current.path,
+      renderedPath: rendered.path,
+      behaviorEquivalent: diffs.every((diff) => diff.classification !== "behavior-changing"),
+      diffs,
+    });
+  }
+  return comparisons.sort((left, right) => left.key.localeCompare(right.key));
+}
+
+function sourceBreakdown(objects: Map<string, ParityObject>): SourceBreakdown {
+  const breakdown: SourceBreakdown = {
+    "model-rendered": 0,
+    "pack-sourced": 0,
+    "collection-sourced": 0,
+    carried: 0,
+  };
+  for (const object of objects.values()) {
+    if (object.source) breakdown[object.source] += 1;
+  }
+  return breakdown;
+}
+
 function normalizeKubernetesObject(value: KubernetesObject): KubernetesObject {
   const copy = structuredClone(value) as KubernetesObject;
   const metadata = recordValue(copy.metadata);
@@ -297,6 +414,237 @@ function applyDesiredStateIgnores(value: KubernetesObject): void {
   }
 }
 
+function behaviorProjection(value: KubernetesObject): KubernetesObject {
+  const kind = kindName(value);
+  if (["Deployment", "StatefulSet", "DaemonSet", "ReplicaSet", "Job", "CronJob"].includes(kind)) {
+    return sortKeys(workloadProjection(value)) as KubernetesObject;
+  }
+  if (kind === "Service") {
+    return sortKeys({
+      ...identity(value),
+      spec: {
+        type: stringValue(recordValue(value.spec)?.type) ?? "ClusterIP",
+        ports: sortedByCanonical(arrayValue(recordValue(value.spec)?.ports).map(normalizeServicePort)),
+      },
+    }) as KubernetesObject;
+  }
+  if (value.apiVersion === "kustomize.config.k8s.io/v1beta1" && kind === "Kustomization") {
+    return sortKeys(identity(value)) as KubernetesObject;
+  }
+  if (kind === "IngressRoute") {
+    return sortKeys({
+      ...identity(value),
+      spec: {
+        routes: sortedByCanonical(arrayValue(recordValue(value.spec)?.routes).map((route) => {
+          const item = recordValue(route) ?? {};
+          return {
+            match: item.match,
+            kind: item.kind,
+            services: sortedByCanonical(arrayValue(item.services).map(normalizeTraefikService)),
+            middlewares: arrayValue(item.middlewares).map(normalizeNameNamespaceRef),
+          };
+        })),
+        tls: normalizeValue(recordValue(value.spec)?.tls),
+      },
+    }) as KubernetesObject;
+  }
+  if (kind === "Middleware") {
+    return sortKeys({ ...identity(value), spec: normalizeValue(recordValue(value.spec)) }) as KubernetesObject;
+  }
+  if (kind === "VaultStaticSecret" || kind === "VaultDynamicSecret") {
+    return sortKeys(vsoProjection(value)) as KubernetesObject;
+  }
+  if (kind === "ServiceMonitor" || kind === "PodMonitor") {
+    return sortKeys(monitorProjection(value)) as KubernetesObject;
+  }
+  if (kind === "ConfigMap" && isGatusConfigMap(value)) {
+    return sortKeys(gatusProjection(value)) as KubernetesObject;
+  }
+  if (kind === "GitRepository") {
+    const spec = recordValue(value.spec) ?? {};
+    return sortKeys({ ...identity(value), spec: pickDefined({ url: spec.url, ref: normalizeValue(spec.ref), interval: spec.interval }) }) as KubernetesObject;
+  }
+  if (kind === "Kustomization") {
+    const spec = recordValue(value.spec) ?? {};
+    return sortKeys({
+      ...identity(value),
+      spec: pickDefined({
+        path: spec.path,
+        interval: spec.interval,
+        dependsOn: sortedByCanonical(arrayValue(spec.dependsOn).map(normalizeNameNamespaceRef)),
+        healthChecks: sortedByCanonical(arrayValue(spec.healthChecks).map(normalizeNameNamespaceRef)),
+      }),
+    }) as KubernetesObject;
+  }
+  return value;
+}
+
+function workloadProjection(value: KubernetesObject): Record<string, unknown> {
+  const spec = recordValue(value.spec) ?? {};
+  const template = podTemplateSpec(value);
+  const podSpec = recordValue(template?.spec) ?? {};
+  return {
+    ...identity(value),
+    spec: pickDefined({
+      replicas: kindName(value) === "DaemonSet" ? undefined : spec.replicas ?? 1,
+      serviceAccount: podSpec.serviceAccountName ?? podSpec.serviceAccount ?? "default",
+      securityContext: normalizeValue(podSpec.securityContext),
+      containers: sortedByName(arrayValue(podSpec.containers).map(normalizeContainer)),
+      initContainers: sortedByName(arrayValue(podSpec.initContainers).map(normalizeContainer)),
+    }),
+  };
+}
+
+function podTemplateSpec(value: KubernetesObject): Record<string, unknown> | undefined {
+  const spec = recordValue(value.spec) ?? {};
+  if (kindName(value) === "CronJob") {
+    return recordValue(recordValue(recordValue(spec.jobTemplate)?.spec)?.template);
+  }
+  return recordValue(spec.template);
+}
+
+function normalizeContainer(value: unknown): Record<string, unknown> {
+  const container = recordValue(value) ?? {};
+  return pickDefined({
+    name: container.name,
+    image: container.image,
+    imagePullPolicy: container.imagePullPolicy,
+    command: container.command,
+    args: container.args,
+    ports: sortedByCanonical(arrayValue(container.ports).map(normalizeContainerPort)),
+    env: sortedByName(arrayValue(container.env).map(normalizeEnv)),
+    envFrom: sortedByCanonical(arrayValue(container.envFrom).map(normalizeValue)),
+    resources: normalizeValue(container.resources),
+    volumeMounts: sortedByCanonical(arrayValue(container.volumeMounts).map(normalizeVolumeMount)),
+    startupProbe: normalizeValue(container.startupProbe),
+    readinessProbe: normalizeValue(container.readinessProbe),
+    livenessProbe: normalizeValue(container.livenessProbe),
+    securityContext: normalizeValue(container.securityContext),
+  });
+}
+
+function normalizeServicePort(value: unknown): Record<string, unknown> {
+  const port = recordValue(value) ?? {};
+  return pickDefined({
+    name: port.name,
+    protocol: port.protocol ?? "TCP",
+    port: port.port,
+    targetPort: port.targetPort ?? port.port,
+  });
+}
+
+function normalizeContainerPort(value: unknown): Record<string, unknown> {
+  const port = recordValue(value) ?? {};
+  return pickDefined({
+    name: port.name,
+    protocol: port.protocol ?? "TCP",
+    containerPort: port.containerPort,
+  });
+}
+
+function normalizeEnv(value: unknown): Record<string, unknown> {
+  const env = recordValue(value) ?? {};
+  return pickDefined({ name: env.name, value: env.value, valueFrom: normalizeValue(env.valueFrom) });
+}
+
+function normalizeVolumeMount(value: unknown): Record<string, unknown> {
+  const mount = recordValue(value) ?? {};
+  return pickDefined({
+    name: mount.name,
+    mountPath: mount.mountPath,
+    subPath: mount.subPath,
+    readOnly: mount.readOnly ?? false,
+  });
+}
+
+function normalizeTraefikService(value: unknown): Record<string, unknown> {
+  const service = recordValue(value) ?? {};
+  return pickDefined({
+    name: service.name,
+    namespace: service.namespace,
+    port: service.port,
+    scheme: service.scheme,
+    weight: service.weight,
+  });
+}
+
+function vsoProjection(value: KubernetesObject): Record<string, unknown> {
+  const spec = recordValue(value.spec) ?? {};
+  const destination = recordValue(spec.destination) ?? {};
+  const transformation = recordValue(destination.transformation) ?? recordValue(spec.transformation);
+  return {
+    ...identity(value),
+    spec: pickDefined({
+      mount: spec.mount,
+      path: spec.path,
+      type: spec.type,
+      destination: pickDefined({
+        name: destination.name,
+        namespace: destination.namespace ?? recordValue(value.metadata)?.namespace,
+      }),
+      templates: normalizeValue(recordValue(spec.templates) ?? recordValue(transformation?.templates)),
+    }),
+  };
+}
+
+function monitorProjection(value: KubernetesObject): Record<string, unknown> {
+  const spec = recordValue(value.spec) ?? {};
+  const endpoints = arrayValue(spec.endpoints ?? spec.podMetricsEndpoints).map((endpoint) => {
+    const item = recordValue(endpoint) ?? {};
+    return pickDefined({
+      port: item.port,
+      path: item.path ?? "/metrics",
+      interval: item.interval ?? "30s",
+    });
+  });
+  return {
+    ...identity(value),
+    spec: {
+      endpoints: sortedByCanonical(endpoints),
+    },
+  };
+}
+
+function isGatusConfigMap(value: KubernetesObject): boolean {
+  const metadata = recordValue(value.metadata);
+  const name = stringValue(metadata?.name) ?? "";
+  const data = recordValue(value.data);
+  return name.includes("gatus") && typeof data?.["endpoints.yaml"] === "string";
+}
+
+function gatusProjection(value: KubernetesObject): Record<string, unknown> {
+  const data = recordValue(value.data) ?? {};
+  const parsed = parseEmbeddedYaml(data["endpoints.yaml"]);
+  const endpoints = arrayValue(recordValue(parsed)?.endpoints).map((endpoint) => {
+    const item = recordValue(endpoint) ?? {};
+    return pickDefined({
+      name: item.name,
+      group: item.group,
+      url: item.url,
+      interval: item.interval ?? "60s",
+      conditions: [...arrayValue(item.conditions)].sort(),
+    });
+  });
+  return {
+    ...identity(value),
+    data: {
+      endpoints: sortedByCanonical(endpoints),
+    },
+  };
+}
+
+function identity(value: KubernetesObject): Record<string, unknown> {
+  const metadata = recordValue(value.metadata) ?? {};
+  return {
+    apiVersion: value.apiVersion,
+    kind: value.kind,
+    metadata: pickDefined({
+      name: metadata.name,
+      namespace: metadata.namespace,
+    }),
+  };
+}
+
 export function parityObjectKey(value: KubernetesObject, path: string, documentIndex: number): string {
   const apiVersion = stringValue(value.apiVersion);
   const kind = stringValue(value.kind);
@@ -315,6 +663,47 @@ function isClusterScoped(kind: string): boolean {
 
 function canonicalYaml(value: KubernetesObject): string {
   return YAML.stringify(value, { indent: 2, lineWidth: 0, sortMapEntries: false, singleQuote: true }).trimEnd();
+}
+
+function normalizeValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(normalizeValue);
+  if (!isRecord(value)) return value;
+  return sortKeys(pickDefined(Object.fromEntries(Object.entries(value).map(([key, item]) => [key, normalizeValue(item)]))));
+}
+
+function pickDefined(value: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(Object.entries(value).filter(([, item]) => item !== undefined));
+}
+
+function sortedByName(values: Array<Record<string, unknown>>): Array<Record<string, unknown>> {
+  return [...values].sort((left, right) => String(left.name ?? "").localeCompare(String(right.name ?? "")) || canonicalSortKey(left).localeCompare(canonicalSortKey(right)));
+}
+
+function sortedByCanonical<T>(values: T[]): T[] {
+  return [...values].sort((left, right) => canonicalSortKey(left).localeCompare(canonicalSortKey(right)));
+}
+
+function canonicalSortKey(value: unknown): string {
+  return JSON.stringify(sortKeys(value));
+}
+
+function normalizeNameNamespaceRef(value: unknown): Record<string, unknown> {
+  const ref = recordValue(value) ?? {};
+  return pickDefined({
+    name: ref.name,
+    namespace: ref.namespace,
+    kind: ref.kind,
+    apiVersion: ref.apiVersion,
+  });
+}
+
+function parseEmbeddedYaml(value: unknown): unknown {
+  if (typeof value !== "string") return undefined;
+  try {
+    return YAML.parse(value);
+  } catch {
+    return undefined;
+  }
 }
 
 function sortKeys(value: unknown): unknown {
@@ -365,8 +754,16 @@ function recordValue(value: unknown): Record<string, unknown> | undefined {
   return isRecord(value) ? value : undefined;
 }
 
+function arrayValue(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : [];
+}
+
 function stringValue(value: unknown): string | undefined {
   return typeof value === "string" && value.length > 0 ? value : undefined;
+}
+
+function kindName(value: KubernetesObject): string {
+  return stringValue(value.kind) ?? "object";
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -379,6 +776,12 @@ function diagnostic(code: string, message: string, path: string): Diagnostic {
 
 function slashPath(path: string): string {
   return path.replaceAll("\\", "/");
+}
+
+function sourceKindFromContent(content: string): RenderSourceKind | undefined {
+  const escapedPrefix = deploymentSourceHeaderPrefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = content.match(new RegExp(`^${escapedPrefix}(model-rendered|pack-sourced|collection-sourced|carried)\\s*$`, "m"));
+  return match?.[1] as RenderSourceKind | undefined;
 }
 
 function errorMessage(error: unknown): string {
