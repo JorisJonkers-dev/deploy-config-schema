@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.0](https://github.com/JorisJonkers-dev/deploy-config-schema/compare/v0.11.0...v0.12.0) (2026-06-29)
+
+
+### Features
+
+* unversion deployment contract ([#14](https://github.com/JorisJonkers-dev/deploy-config-schema/issues/14)) ([f784ab7](https://github.com/JorisJonkers-dev/deploy-config-schema/commit/f784ab7b9bfd4c751d3c9cf58a2698da98fcebdc))
+
 ## [0.11.0](https://github.com/JorisJonkers-dev/deploy-config-schema/compare/v0.10.0...v0.11.0) (2026-06-29)
 
 
