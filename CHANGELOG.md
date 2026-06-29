@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.3](https://github.com/JorisJonkers-dev/deploy-config-schema/compare/v0.13.2...v0.13.3) (2026-06-29)
+
+
+### Bug Fixes
+
+* reduce carried parity imports ([d5d8588](https://github.com/JorisJonkers-dev/deploy-config-schema/commit/d5d85888385c2e00dc9a8762cadd3ca6f64f31e3))
+
 ## [0.13.2](https://github.com/JorisJonkers-dev/deploy-config-schema/compare/v0.13.1...v0.13.2) (2026-06-29)
 
 
