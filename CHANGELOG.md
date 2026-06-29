@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.0](https://github.com/JorisJonkers-dev/deploy-config-schema/compare/v0.8.1...v0.9.0) (2026-06-29)
+
+
+### Features
+
+* add deploy v2 schema and cli scaffolding ([#3](https://github.com/JorisJonkers-dev/deploy-config-schema/issues/3)) ([f48d1f1](https://github.com/JorisJonkers-dev/deploy-config-schema/commit/f48d1f16133d6b5057d5cd54e58cbe2062fb1964))
+
 ## [0.8.1](https://github.com/JorisJonkers-dev/deploy-config-schema/compare/v0.8.0...v0.8.1) (2026-06-28)
 
 
