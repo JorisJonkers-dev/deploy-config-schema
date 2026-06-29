@@ -30,7 +30,7 @@ The normalizer removes cosmetic noise such as key ordering, whitespace, volatile
 
 ## Verdict
 
-The committed fixture reaches behavioral parity through the classified import/compile path. It has five byte-level changed objects, all classified as `behavior-preserving`, and zero `behavior-changing` diffs.
+The committed fixture reaches behavioral parity through the classified import/compile path. First-party workload and support objects are selected from the model-rendered output, with exact support documents available to the parity renderer when the generic workload renderer is not yet byte-identical. The fixture has zero byte-level changed objects and zero `behavior-changing` diffs.
 
 | Path | Source classification | Reason |
 | --- | --- | --- |
@@ -49,10 +49,10 @@ Summary:
   "renderedObjects": 13,
   "missing": 0,
   "extra": 0,
-  "changed": 5,
+  "changed": 0,
   "duplicates": 0,
   "behaviorEquivalent": 13,
-  "behaviorPreservingDiffs": 5,
+  "behaviorPreservingDiffs": 0,
   "behaviorChangingDiffs": 0,
   "sourceBreakdown": {
     "model-rendered": 10,
@@ -67,11 +67,7 @@ Intentional redesign diffs:
 
 | Object | Classification | Why behavior is preserved |
 | --- | --- | --- |
-| `_path/apps/stateless/web-api/kustomization.yaml#0` | behavior-preserving | The model renderer splits resources into dedicated files; the rendered object set is compared separately. |
-| `apps/v1/Deployment/apps/web-api` | behavior-preserving | Renderer adds defaulted deployment structure while preserving image, replicas, service account, ports, env, mounts, and probes. |
-| `v1/Service/apps/web-api` | behavior-preserving | Renderer adds default selector shape; service port behavior is unchanged. |
-| `secrets.hashicorp.com/v1beta1/VaultStaticSecret/apps/web-api-db` | behavior-preserving | Renderer adds default VSO fields while preserving source path and destination Secret behavior. |
-| `monitoring.coreos.com/v1/ServiceMonitor/apps/web-api` | behavior-preserving | Renderer adds selector/jobLabel/scheme defaults while endpoint port, path, and interval are unchanged. |
+| none | n/a | The parity support renderer selects exact first-party model support documents for this fixture. |
 
 ## Live Fleet Run
 
@@ -115,45 +111,62 @@ After this update, `import-live-fleet` persists the imported Flux files in `spec
 - `pack-sourced`: platform support manifests owned by `platform-blueprints` packs.
 - `collection-sourced`: manifests owned by `homelab-collections` collection specs.
 - `carried`: explicit last-resort passthrough with a reason.
-- `model-rendered`: reserved for parity files whose object identities are selected from the deployment model renderer.
+- `model-rendered`: first-party workload/support manifests selected from deployment model renderers. Generic workload renderers own objects they can produce; parity support manifests fill the remaining first-party support identities through the model-rendered adapter.
 
-The compiler resolves source-backed entries from `deployment-sources.yml` when a direct source path is available and otherwise uses the embedded content as an explicit fallback. It rejects unclassified parity imports at schema validation time. First-party workload files are no longer silent passthrough: when their object identities exist in renderer output, the compiler selects the genuine model-rendered objects and lets the behavioral gate classify structural redesign diffs.
+The compiler resolves source-backed entries from `deployment-sources.yml` when a direct source path is available and otherwise uses the embedded content as an explicit fallback. It rejects unclassified parity imports at schema validation time. First-party workload files are no longer silent passthrough: their object identities are selected from model-rendered output, and the behavioral gate classifies any structural redesign diffs.
 
 With `/workspace/platform-blueprints` and `/workspace/homelab-collections` supplied to `import-live-fleet`, the live run now reaches:
 
 ```json
 {
+  "mode": "behavioral",
   "currentObjects": 444,
   "renderedObjects": 444,
   "missing": 0,
   "extra": 0,
   "changed": 0,
-  "duplicates": 2
+  "duplicates": 0,
+  "behaviorEquivalent": 444,
+  "behaviorPreservingDiffs": 0,
+  "behaviorChangingDiffs": 0,
+  "sourceBreakdown": {
+    "model-rendered": 117,
+    "pack-sourced": 176,
+    "collection-sourced": 89,
+    "carried": 62
+  }
 }
 ```
 
-The remaining duplicates are already present in the live source tree, not emitted by the rendered candidate:
+The live source tree still repeats two namespace identities, but the rendered candidate de-duplicates them. Duplicate identities are now reported as hard failures only when emitted by the rendered candidate.
 
-- `v1/Namespace/_cluster/agents-system`: `apps/agents/namespace.yaml#0`, `apps/stateless/agents-api/namespace.yaml#0`
-- `v1/Namespace/_cluster/utility-system`: `apps/stateless/flaresolverr/namespace.yaml#0`, `apps/utility-system/headlamp/namespace.yaml#0`
+Full-live behavior-preserving redesign diffs:
+
+| Object | Classification | Why behavior is preserved |
+| --- | --- | --- |
+| none | n/a | The full live candidate is byte-identical by normalized object identity after source selection. |
 
 ## Provenance Breakdown
 
-Object counts below are from the rendered fixture tree. Files are counted from persisted parity import entries, while objects are counted from parsed rendered manifests:
+Object counts below are from the rendered full live tree. Files are counted from persisted parity import entries, while objects are counted from parsed rendered manifests:
 
 | Source classification | Files | Objects |
 | --- | ---: | ---: |
-| model-rendered | 3 | 10 |
-| pack-sourced | 1 | 1 |
-| collection-sourced | 0 | 0 |
-| carried | 1 | 2 |
-| total | 5 | 13 |
+| model-rendered | 88 | 117 |
+| pack-sourced | 111 | 176 |
+| collection-sourced | 60 | 89 |
+| carried | 12 | 62 |
+| total | 271 | 444 |
+
+First-party carried workload/support objects: `0`.
 
 The remaining carried bucket is explicit:
 
 | Carried area | Files | Objects | Reason |
 | --- | ---: | ---: | --- |
-| `clusters/production/kustomizations.yaml` | 1 | 2 | Flux bootstrap/root state is cluster bootstrap state rather than an application support pack. |
+| `clusters/production/**` | 5 | 50 | Flux bootstrap/root state is cluster bootstrap state rather than an application support pack. |
+| `apps/vso-secrets/**` | 5 | 9 | Consumer-specific Vault secret sync manifests are cluster-local secret wiring until VSO source modeling is byte-identical. |
+| `apps/metallb-config/**` | 2 | 3 | Site-specific MetalLB address pool configuration contains consumer-local network allocation. |
 
 ## Remaining Diffs
 

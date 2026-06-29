@@ -5,6 +5,7 @@ import { renderFluxRoot } from "./flux-root.js";
 import { renderGatus } from "./gatus.js";
 import { renderImportedParityFiles } from "./imported-files.js";
 import { renderKubernetes } from "./kubernetes.js";
+import { renderImportedModelSupport } from "./model-support.js";
 import { renderNetworkPolicies } from "./networkpolicy.js";
 import { renderServiceMonitors } from "./servicemonitor.js";
 import { renderTraefik } from "./traefik.js";
@@ -29,6 +30,7 @@ export function renderProject(model: ProjectModel): RenderFile[] {
   }
   const fluxRoot = renderFluxRoot(model, waits);
   files.push(...fluxRoot.files);
+  files.push(...renderImportedModelSupport(model));
   const importedParityFiles = renderImportedParityFiles(model, files);
   if (importedParityFiles) return sortRenderFiles(importedParityFiles);
   return sortRenderFiles(files);

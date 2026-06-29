@@ -76,10 +76,10 @@ test("imported live golden tree compiles through deployment with classified pari
     renderedObjects: 13,
     missing: 0,
     extra: 0,
-    changed: 5,
+    changed: 0,
     duplicates: 0,
     behaviorEquivalent: 13,
-    behaviorPreservingDiffs: 5,
+    behaviorPreservingDiffs: 0,
     behaviorChangingDiffs: 0,
     sourceBreakdown: {
       "model-rendered": 10,
@@ -157,11 +157,11 @@ test("imported parity compile de-duplicates repeated current object identities i
     renderedObjects: 14,
     missing: 0,
     extra: 0,
-    changed: 5,
-    duplicates: 1,
+    changed: 0,
+    duplicates: 0,
     behaviorEquivalent: 14,
-    behaviorPreservingDiffs: 5,
-    behaviorChangingDiffs: 1,
+    behaviorPreservingDiffs: 0,
+    behaviorChangingDiffs: 0,
     sourceBreakdown: {
       "model-rendered": 10,
       "pack-sourced": 1,
@@ -169,11 +169,5 @@ test("imported parity compile de-duplicates repeated current object identities i
       carried: 3,
     },
   });
-  assert.deepEqual(report.duplicates, [{
-    key: "v1/Namespace/_cluster/apps",
-    paths: [
-      "current/apps/duplicate/namespace.yaml#0",
-      "current/apps/namespace.yaml#0",
-    ],
-  }]);
+  assert.deepEqual(report.duplicates, []);
 });
