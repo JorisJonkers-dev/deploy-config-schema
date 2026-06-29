@@ -135,7 +135,7 @@ export function compareParityTrees(options: { current: string; rendered: string;
       };
     });
   const comparisons = compareBehavior(current.objects, rendered.objects, missing, extra);
-  const duplicates = [...current.duplicates, ...rendered.duplicates].sort((left, right) => left.key.localeCompare(right.key));
+  const duplicates = rendered.duplicates.sort((left, right) => left.key.localeCompare(right.key));
   const diagnostics = [...current.diagnostics, ...rendered.diagnostics];
   const behaviorPreservingDiffs = comparisons.reduce((count, comparison) => count + comparison.diffs.filter((diff) => diff.classification === "behavior-preserving").length, 0);
   const behaviorChangingDiffs = comparisons.reduce((count, comparison) => count + comparison.diffs.filter((diff) => diff.classification === "behavior-changing").length, 0) + duplicates.length;
