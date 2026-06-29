@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.14.0](https://github.com/JorisJonkers-dev/deploy-config-schema/compare/v0.13.3...v0.14.0) (2026-06-29)
+
+
+### Features
+
+* gate deployment parity by behavior ([#26](https://github.com/JorisJonkers-dev/deploy-config-schema/issues/26)) ([2da75f6](https://github.com/JorisJonkers-dev/deploy-config-schema/commit/2da75f6142b016035394994ca28044a282a19afd))
+
 ## [0.13.3](https://github.com/JorisJonkers-dev/deploy-config-schema/compare/v0.13.2...v0.13.3) (2026-06-29)
 
 
