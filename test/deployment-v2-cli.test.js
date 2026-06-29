@@ -148,8 +148,19 @@ test("compile usage errors are structured", async () => {
   const exitCode = await runCli(["compile", "--env", "production"], io);
   const result = JSON.parse(io.stderr.text());
 
-  assert.equal(exitCode, 1);
+  assert.equal(exitCode, 2);
   assert.equal(result.diagnostics[0].code, "E_USAGE");
+});
+
+test("render-flux and parity usage errors return usage exit code", async () => {
+  const renderFluxIo = streams();
+  const parityIo = streams();
+
+  assert.equal(await runCli(["render-flux", "--unexpected"], renderFluxIo), 2);
+  assert.equal(JSON.parse(renderFluxIo.stderr.text()).diagnostics[0].code, "E_USAGE");
+
+  assert.equal(await runCli(["parity", "--current", fixture("deployment.yml")], parityIo), 2);
+  assert.equal(JSON.parse(parityIo.stderr.text()).diagnostics[0].code, "E_USAGE");
 });
 
 test("bundle pack writes a deterministic manifest file", async () => {

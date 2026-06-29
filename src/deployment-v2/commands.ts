@@ -2,12 +2,14 @@
 // bag produced by src/cli.ts and route it into typed deployment-v2 modules.
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
-import { basename, dirname, join, relative } from "node:path";
+import { dirname, join, relative } from "node:path";
 import YAML from "yaml";
 import { validateArtifact } from "../artifact-validator.js";
 import { compileProject } from "./compiler.js";
+import { importFleetV1 } from "./import/fleet-v1.js";
 import { loadYamlDocument } from "./io.js";
 import { extractLockedImages, readDeploymentLock, updateDeploymentLock } from "./lockfile.js";
+import { compareParityTrees } from "./parity.js";
 import { resolveSources } from "./source-resolver.js";
 
 export function runBundle(args, streams, parseOptions) {
@@ -106,9 +108,9 @@ export function runCompile(args, streams, parseOptions) {
   const { options, diagnostics } = parseOptions(args);
   if (diagnostics.length > 0 || !options.env || !options.sources || !options.lock || !options.nodeContract || !options.reachability || !options.out) {
     writeDiagnostics(streams.stderr, diagnostics.length > 0 ? diagnostics : usageDiagnostic("compile --env <name> --sources <path> --lock <path> --node-contract <path> --reachability <path> --out <dir> [--deployment <path>] [--collection <path>] [--check]"));
-    return 1;
+    return 2;
   }
-  const result = compileProject({
+  const result = compileProjectResult(() => compileProject({
     environment: options.env,
     sourcesPath: options.sources,
     lockPath: options.lock,
@@ -118,7 +120,7 @@ export function runCompile(args, streams, parseOptions) {
     collectionPaths: optionList(options.collection),
     outDir: options.out,
     check: Boolean(options.check),
-  });
+  }));
   streams.stdout.write(`${JSON.stringify({
     ok: result.ok,
     files: result.files.map((file) => file.path),
@@ -134,7 +136,7 @@ export function runRenderFlux(args, streams, parseOptions) {
   const env = options.env ?? "production";
   if (diagnostics.length > 0) {
     writeDiagnostics(streams.stderr, diagnostics);
-    return 1;
+    return 2;
   }
   return runCompile([
     "--env", env,
@@ -143,7 +145,7 @@ export function runRenderFlux(args, streams, parseOptions) {
     "--node-contract", join(repo, "inventory/node-contract.lock.yml"),
     "--reachability", join(repo, "catalog/reachability.yml"),
     "--deployment", join(repo, "deployment.yml"),
-    "--collection", join(repo, "collection.yml"),
+    ...(existsSync(join(repo, "collection.yml")) ? ["--collection", join(repo, "collection.yml")] : []),
     "--out", join(repo, "cluster/flux"),
     ...(options.check ? ["--check"] : []),
   ], streams, parseOptions);
@@ -155,26 +157,16 @@ export function runImportFleetV1(args, streams, parseOptions) {
     writeDiagnostics(streams.stderr, diagnostics.length > 0 ? diagnostics : usageDiagnostic("import-fleet-v1 --fleet <fleet.yaml> --flux-tree <dir> --out <dir>"));
     return 1;
   }
-  const fleet = loadYamlDocument(options.fleet);
-  const imported = {
-    apiVersion: "deployment.jorisjonkers.dev/v2",
-    kind: "Deployment",
-    metadata: {
-      name: basename(options.out).replace(/[^a-z0-9._-]/g, "-") || "imported-fleet",
-      labels: {
-        "deployment.jorisjonkers.dev/imported-from": "fleet-v1",
-      },
-    },
-    spec: {
-      workloads: importedServices(fleet, options.fluxTree),
-    },
-  };
-  mkdirSync(options.out, { recursive: true });
-  const deploymentPath = join(options.out, "deployment.yml");
-  writeFileSync(deploymentPath, YAML.stringify(imported, { lineWidth: 0 }));
+  const result = importFleetV1({
+    fleetPath: options.fleet,
+    fluxTreePath: options.fluxTree,
+    outDir: options.out,
+    deploymentName: options.deploymentName,
+  });
   streams.stdout.write(`${JSON.stringify({
-    out: deploymentPath,
-    services: Object.keys(imported.spec.workloads).length,
+    out: options.out,
+    files: result.files.map((file) => file.path),
+    services: Object.keys(result.model.workloads).length,
   }, null, 2)}\n`);
   return 0;
 }
@@ -183,16 +175,11 @@ export function runParity(args, streams, parseOptions) {
   const { options, diagnostics } = parseOptions(args);
   if (diagnostics.length > 0 || !options.current || !options.rendered) {
     writeDiagnostics(streams.stderr, diagnostics.length > 0 ? diagnostics : usageDiagnostic("parity --current <old-tree> --rendered <new-tree>"));
-    return 1;
+    return 2;
   }
-  const current = normalizedObjectMap(options.current);
-  const rendered = normalizedObjectMap(options.rendered);
-  const missing = [...current.keys()].filter((key) => !rendered.has(key)).sort();
-  const extra = [...rendered.keys()].filter((key) => !current.has(key)).sort();
-  const changed = [...current.keys()].filter((key) => rendered.has(key) && current.get(key) !== rendered.get(key)).sort();
-  const ok = missing.length === 0 && extra.length === 0 && changed.length === 0;
-  streams.stdout.write(`${JSON.stringify({ ok, missing, extra, changed }, null, 2)}\n`);
-  return ok ? 0 : 1;
+  const report = compareParityTrees({ current: options.current, rendered: options.rendered });
+  streams.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+  return report.ok ? 0 : 1;
 }
 
 function runLockImages(args, streams, parseOptions) {
@@ -249,64 +236,6 @@ function validateNamedInputs(inputs) {
   };
 }
 
-function importedServices(fleet, fluxTree) {
-  const names = new Set();
-  collectNames(fleet?.fleet?.exposure?.services ?? {}, names);
-  for (const path of listFiles(fluxTree)) {
-    if (!/\.(ya?ml|json)$/.test(path)) continue;
-    try {
-      const docs = YAML.parseAllDocuments(readFileSync(path, "utf8")).map((doc) => doc.toJSON()).filter(Boolean);
-      for (const doc of docs) {
-        if (doc?.metadata?.name) names.add(doc.metadata.name);
-      }
-    } catch {
-      // Import remains best-effort until Wave C owns the full importer.
-    }
-  }
-  if (names.size === 0) names.add("imported-service");
-  return Object.fromEntries([...names].sort().map((name) => [slug(name), {
-    image: "ghcr.io/jorisjonkers-dev/import-placeholder:latest",
-    containers: [{ name: slug(name) }],
-    routes: [],
-    observability: {
-      status: [],
-    },
-  }]));
-}
-
-function normalizedObjectMap(root) {
-  const objects = new Map();
-  for (const path of listFiles(root).filter((item) => /\.(json|ya?ml)$/.test(item))) {
-    const docs = YAML.parseAllDocuments(readFileSync(path, "utf8")).map((doc) => doc.toJSON()).filter(Boolean);
-    for (const doc of docs) {
-      const normalized = normalizeKubernetesObject(doc);
-      const key = [
-        normalized.apiVersion ?? "",
-        normalized.kind ?? "",
-        normalized.metadata?.namespace ?? "default",
-        normalized.metadata?.name ?? relative(root, path),
-      ].join("/");
-      objects.set(key, JSON.stringify(sortKeys(normalized)));
-    }
-  }
-  return objects;
-}
-
-function normalizeKubernetesObject(value) {
-  const copy = structuredClone(value);
-  delete copy.metadata?.creationTimestamp;
-  delete copy.metadata?.resourceVersion;
-  delete copy.metadata?.uid;
-  if (copy.kind === "GitRepository" && copy.metadata?.name === "flux-system" && copy.metadata?.namespace === "flux-system") {
-    delete copy.spec?.url;
-    delete copy.spec?.ref?.branch;
-  }
-  if (copy.kind === "Kustomization" && copy.metadata?.name === "flux-system" && copy.metadata?.namespace === "flux-system") {
-    delete copy.spec?.path;
-  }
-  return copy;
-}
-
 function stringifyDocument(path, value) {
   return path.endsWith(".json") ? `${JSON.stringify(value, null, 2)}\n` : YAML.stringify(value, { lineWidth: 0 });
 }
@@ -330,20 +259,6 @@ function listFiles(root) {
   }).sort();
 }
 
-function sortKeys(value) {
-  if (Array.isArray(value)) return value.map(sortKeys);
-  if (!value || typeof value !== "object") return value;
-  return Object.fromEntries(Object.entries(value).sort(([left], [right]) => left.localeCompare(right)).map(([key, item]) => [key, sortKeys(item)]));
-}
-
-function collectNames(value, target) {
-  for (const key of Object.keys(value)) target.add(key);
-}
-
-function slug(value) {
-  return String(value).toLowerCase().replace(/[^a-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "") || "imported-service";
-}
-
 function optionName(value) {
   return value.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`);
 }
@@ -357,6 +272,22 @@ function writeDiagnostics(stream, diagnostics) {
     valid: false,
     diagnostics,
   });
+}
+
+function compileProjectResult(build) {
+  try {
+    return build();
+  } catch (error) {
+    return {
+      ok: false,
+      files: [],
+      diagnostics: [{
+        code: "E_COMPILE",
+        path: "/",
+        message: error instanceof Error ? error.message : String(error),
+      }],
+    };
+  }
 }
 
 function usageDiagnostic(command) {

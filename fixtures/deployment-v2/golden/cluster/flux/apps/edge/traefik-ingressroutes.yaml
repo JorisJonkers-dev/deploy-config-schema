@@ -1,0 +1,13 @@
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: web-api
+  namespace: edge
+spec:
+  routes:
+    - kind: Rule
+      match: Host(`api.example.test`) && PathPrefix(`/api`)
+      services:
+        - name: web-api
+          namespace: apps
+          port: 80
