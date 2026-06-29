@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.10.0](https://github.com/JorisJonkers-dev/deploy-config-schema/compare/v0.9.0...v0.10.0) (2026-06-29)
+
+
+### Features
+
+* add deploy v2 compiler contract ([#5](https://github.com/JorisJonkers-dev/deploy-config-schema/issues/5)) ([e6255b5](https://github.com/JorisJonkers-dev/deploy-config-schema/commit/e6255b504da94ea19aa0eab44bba9314fcb4f44b))
+* **deploy-v2:** add parity comparison engine ([#8](https://github.com/JorisJonkers-dev/deploy-config-schema/issues/8)) ([84b5cf1](https://github.com/JorisJonkers-dev/deploy-config-schema/commit/84b5cf1c2d4d99adf9044eca2f61b155fc390ecd))
+* **deploy-v2:** render flux assembly and root ([#7](https://github.com/JorisJonkers-dev/deploy-config-schema/issues/7)) ([b78773a](https://github.com/JorisJonkers-dev/deploy-config-schema/commit/b78773ab1995b59cd2b1e5f9c5546f8bcb52d1da))
+* **deploy-v2:** render kubernetes workloads ([#11](https://github.com/JorisJonkers-dev/deploy-config-schema/issues/11)) ([988bab4](https://github.com/JorisJonkers-dev/deploy-config-schema/commit/988bab4d06e4e8b71859aabdbedd77d601826552))
+* implement deploy v2 edge renderers ([#9](https://github.com/JorisJonkers-dev/deploy-config-schema/issues/9)) ([1f27dc4](https://github.com/JorisJonkers-dev/deploy-config-schema/commit/1f27dc4e860bf3665012cab3d6df54c72036b6a3))
+* import fleet v1 into deploy v2 ([#10](https://github.com/JorisJonkers-dev/deploy-config-schema/issues/10)) ([f62c8b8](https://github.com/JorisJonkers-dev/deploy-config-schema/commit/f62c8b83c8165e1c47b5d70c422f3ba1e1a83bc9))
+
 ## [0.9.0](https://github.com/JorisJonkers-dev/deploy-config-schema/compare/v0.8.1...v0.9.0) (2026-06-29)
 
 
