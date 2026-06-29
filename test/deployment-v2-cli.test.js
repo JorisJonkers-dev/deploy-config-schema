@@ -32,15 +32,6 @@ function tempDir() {
 
 const fixture = (name) => `fixtures/deployment-v2/${name}`;
 
-const expectedCompilePaths = [
-  "apps/agents/assistant-api/servicemonitor.yaml",
-  "apps/edge/traefik-ingressroutes.yaml",
-  "apps/observability/gatus/gatus-endpoints-configmap.yaml",
-  "apps/vso-secrets/kustomization.yaml",
-  "apps/vso-secrets/vault-auth.yaml",
-  "apps/vso-secrets/vault-connection.yaml",
-];
-
 test("validate accepts every deploy-v2 artifact kind", async () => {
   const cases = [
     ["deployment-v2", "deployment.yml"],
@@ -111,7 +102,28 @@ test("resolve-sources reports unlocked source entries", async () => {
   assert.deepEqual(result.diagnostics.map((diagnostic) => diagnostic.path), ["/firstParty/assistant-api"]);
 });
 
-test("compile validates inputs and writes B2 deployment-v2 files", async () => {
+const expectedCompilePaths = [
+  "apps/agents/assistant-api/deployment.yaml",
+  "apps/agents/assistant-api/hpa.yaml",
+  "apps/agents/assistant-api/kustomization.yaml",
+  "apps/agents/assistant-api/namespace.yaml",
+  "apps/agents/assistant-api/pre-deploy-jobs.yaml",
+  "apps/agents/assistant-api/serviceaccount.yaml",
+  "apps/agents/assistant-api/servicemonitor.yaml",
+  "apps/data/platform-postgres/deployment.yaml",
+  "apps/data/platform-postgres/kustomization.yaml",
+  "apps/data/platform-postgres/namespace.yaml",
+  "apps/edge/traefik-ingressroutes.yaml",
+  "apps/observability/gatus/gatus-endpoints-configmap.yaml",
+  "apps/vso-secrets/kustomization.yaml",
+  "apps/vso-secrets/vault-auth.yaml",
+  "apps/vso-secrets/vault-connection.yaml",
+  "clusters/production/flux-system/gotk-sync.yaml",
+  "clusters/production/kustomization.yaml",
+  "clusters/production/kustomizations.yaml",
+];
+
+test("compile validates inputs and writes implemented deployment-v2 files", async () => {
   const out = tempDir();
   const writeIo = streams();
   const checkIo = streams();

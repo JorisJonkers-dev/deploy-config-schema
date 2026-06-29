@@ -14,15 +14,27 @@ function tempDir() {
 }
 
 const expectedCompilePaths = [
+  "apps/agents/assistant-api/deployment.yaml",
+  "apps/agents/assistant-api/hpa.yaml",
+  "apps/agents/assistant-api/kustomization.yaml",
+  "apps/agents/assistant-api/namespace.yaml",
+  "apps/agents/assistant-api/pre-deploy-jobs.yaml",
+  "apps/agents/assistant-api/serviceaccount.yaml",
   "apps/agents/assistant-api/servicemonitor.yaml",
+  "apps/data/platform-postgres/deployment.yaml",
+  "apps/data/platform-postgres/kustomization.yaml",
+  "apps/data/platform-postgres/namespace.yaml",
   "apps/edge/traefik-ingressroutes.yaml",
   "apps/observability/gatus/gatus-endpoints-configmap.yaml",
   "apps/vso-secrets/kustomization.yaml",
   "apps/vso-secrets/vault-auth.yaml",
   "apps/vso-secrets/vault-connection.yaml",
+  "clusters/production/flux-system/gotk-sync.yaml",
+  "clusters/production/kustomization.yaml",
+  "clusters/production/kustomizations.yaml",
 ];
 
-test("compileProject validates named inputs and renders B2 deployment-v2 files", () => {
+test("compileProject validates named inputs and renders implemented deployment-v2 files", () => {
   const result = compileProject({
     environment: "production",
     sourcesPath: "fixtures/deployment-v2/deployment-sources.yml",
