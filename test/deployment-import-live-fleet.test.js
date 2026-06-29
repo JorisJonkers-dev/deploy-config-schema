@@ -84,7 +84,39 @@ test("importLiveFleet imports fleet intent, workload details, Flux layers, and p
   assert.equal(result.model.parityImports.networkPolicies.length, 1);
   assert.equal(result.model.parityImports.extraObjects.length, 2);
   assert.equal(result.model.parityImports.existingFiles.length, 5);
+  assert.deepEqual(result.model.parityImports.existingFiles.map((file) => [file.path, file.source.kind]), [
+    ["apps/edge/traefik-ingressroutes.yaml", "pack-sourced"],
+    ["apps/stateless/kustomization.yaml", "carried"],
+    ["apps/stateless/web-api/kustomization.yaml", "carried"],
+    ["apps/stateless/web-api/workload.yaml", "carried"],
+    ["clusters/production/kustomizations.yaml", "carried"],
+  ]);
+  assert.ok(result.model.parityImports.existingFiles.every((file) => file.source.reason));
   assert.equal(workload.importedParity.networkPolicies.length, 1);
+});
+
+test("importLiveFleet records external source roots for sourced parity manifests", () => {
+  const result = importLiveFleet({
+    ...options(),
+    platformBlueprintsPath: "vendor/platform-blueprints",
+    collectionsRootPath: "vendor/homelab-collections",
+  });
+
+  assert.deepEqual(result.documents.sources.spec.platformBlueprints, {
+    repo: "JorisJonkers-dev/platform-blueprints",
+    ref: "local-import",
+    sha: "0000000000000000000000000000000000000000",
+    paths: ["vendor/platform-blueprints"],
+  });
+  assert.deepEqual(result.documents.sources.spec.collections.homelab, {
+    repo: "JorisJonkers-dev/homelab-collections",
+    ref: "local-import",
+    sha: "0000000000000000000000000000000000000000",
+    paths: ["vendor/homelab-collections"],
+  });
+  const edge = result.model.parityImports.existingFiles.find((file) => file.path === "apps/edge/traefik-ingressroutes.yaml");
+  assert.equal(edge.source.kind, "pack-sourced");
+  assert.match(edge.source.reason, /platform-blueprints pack/);
 });
 
 test("importLiveFleet falls back to Kubernetes service discovery and defaults optional inputs", () => {

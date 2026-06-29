@@ -274,6 +274,8 @@ export function runImportLiveFleet(args, streams, parseOptions) {
     fluxTreePath: options.fluxTree,
     outDir: options.out,
     deploymentName: options.deploymentName,
+    platformBlueprintsPath: options.platformBlueprints,
+    collectionsRootPath: options.collectionsRoot,
   });
   streams.stdout.write(`${JSON.stringify({
     out: options.out,

@@ -35,7 +35,7 @@ function streams() {
   };
 }
 
-test("imported live golden tree compiles through deployment and replays current parity files", () => {
+test("imported live golden tree compiles through deployment with classified parity files", () => {
   const importedDir = tempDir();
   const renderedDir = tempDir();
 

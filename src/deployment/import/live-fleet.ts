@@ -7,6 +7,8 @@ import {
   type FluxLayerModel,
   type KubernetesObject,
   type NodeContractModel,
+  type ParityImportFile,
+  type ParityImportSource,
   type ProjectModel,
   type ReachabilityModel,
   type RenderFile,
@@ -22,6 +24,8 @@ export type ImportLiveFleetOptions = {
   generatedAt?: string;
   sourceSha?: string;
   environments?: DeploymentEnvironment[];
+  platformBlueprintsPath?: string;
+  collectionsRootPath?: string;
 };
 
 export type ImportLiveFleetResult = {
@@ -64,14 +68,31 @@ export function importLiveFleet(options: ImportLiveFleetOptions): ImportLiveFlee
       labels: { "deployment.jorisjonkers.dev/imported-from": "live-fleet" },
     },
     spec: {
-      parityImports: { existingFiles: existingFiles(options.fluxTreePath) },
+      parityImports: {
+        existingFiles: existingFiles(options.fluxTreePath, {
+          platformBlueprintsPath: options.platformBlueprintsPath,
+          collectionsRootPath: options.collectionsRootPath,
+        }),
+      },
       workloads: Object.fromEntries(serviceNames.map((serviceName) => [serviceName, workloadFor(serviceName, fleet, flux)])),
     },
   };
+  const platformBlueprints: { repo: string; ref: string; sha: string; paths: string[] } | undefined = options.platformBlueprintsPath
+    ? gitRef("JorisJonkers-dev/platform-blueprints", options.platformBlueprintsPath)
+    : undefined;
+  const collections: Record<string, { repo: string; ref: string; sha: string; paths: string[] }> = options.collectionsRootPath ? {
+    homelab: gitRef("JorisJonkers-dev/homelab-collections", options.collectionsRootPath),
+  } : {};
   const sources = {
     apiVersion: "deployment.jorisjonkers.dev/sources",
     kind: "DeploymentSources",
-    spec: { environments, firstParty: {}, collections: {}, policies: { importedFrom: "live-fleet" } },
+    spec: {
+      environments,
+      firstParty: {},
+      collections,
+      ...(platformBlueprints ? { platformBlueprints } : {}),
+      policies: { importedFrom: "live-fleet" },
+    },
   };
   const lock = {
     apiVersion: "deployment.jorisjonkers.dev/lock",
@@ -79,7 +100,8 @@ export function importLiveFleet(options: ImportLiveFleetOptions): ImportLiveFlee
     metadata: { generatedAt: options.generatedAt ?? "1970-01-01T00:00:00.000Z" },
     inputs: {
       firstParty: {},
-      collections: {},
+      collections,
+      ...(platformBlueprints ? { platformBlueprints } : {}),
       charts: {},
       images: Object.fromEntries(Object.entries(deployment.spec.workloads).map(([name, workload]) => [name, (workload as RecordAny).image]).sort()),
     },
@@ -396,12 +418,86 @@ function writeFiles(outDir: string, files: RenderFile[]): void {
   }
 }
 
-function existingFiles(root: string): RenderFile[] {
+function existingFiles(root: string, options: { platformBlueprintsPath?: string; collectionsRootPath?: string } = {}): ParityImportFile[] {
   return listFiles(root).filter((path) => /\.(json|ya?ml)$/i.test(path)).map((path) => ({
     path: relative(root, path).replaceAll("\\", "/"),
     content: readFileSync(path, "utf8"),
     adapter: "import-live-fleet",
+    source: sourceFor(relative(root, path).replaceAll("\\", "/"), options),
   })).sort((left, right) => left.path.localeCompare(right.path));
+}
+
+function sourceFor(path: string, options: { platformBlueprintsPath?: string; collectionsRootPath?: string }): ParityImportSource {
+  const pack = packForPath(path);
+  if (pack) {
+    return {
+      kind: "pack-sourced",
+      pack,
+      reason: options.platformBlueprintsPath
+        ? "Platform support manifest owned by the platform-blueprints pack; embedded content is retained as a parity fallback when the rendered pack output is not byte-identical."
+        : "Platform support manifest should be sourced from platform-blueprints; no pack checkout path was provided during import.",
+    };
+  }
+  const collection = collectionForPath(path);
+  if (collection) {
+    return {
+      kind: "collection-sourced",
+      collection: "homelab",
+      reason: options.collectionsRootPath
+        ? `${collection} workload/support manifest owned by homelab-collections; embedded content is retained as a parity fallback until collection rendering is byte-identical.`
+        : `${collection} workload/support manifest should be sourced from homelab-collections; no collection checkout path was provided during import.`,
+    };
+  }
+  return {
+    kind: "carried",
+    reason: carriedReason(path),
+  };
+}
+
+function packForPath(path: string): string | undefined {
+  const core = path.match(/^apps\/core\/([^/]+)\//)?.[1];
+  if (core) {
+    return ({
+      "cert-manager": "flux-core-cert-manager",
+      "external-dns": "flux-core-external-dns-cloudflare",
+      "ingress-controller": "flux-core-traefik-public",
+      "lan-ingress-controller": "flux-core-traefik-lan",
+      metallb: "flux-core-metallb",
+      vso: "flux-core-vso",
+    } as Record<string, string | undefined>)[core];
+  }
+  if (path.startsWith("apps/edge/")) return "edge-pack";
+  if (path.startsWith("apps/observability/") || path.startsWith("apps/observability-rules/") || path.startsWith("apps/grafana-dashboards/")) return "observability-stack-pack";
+  if (path.startsWith("apps/data/rabbitmq/")) return "rabbitmq-data-service-pack";
+  return undefined;
+}
+
+function collectionForPath(path: string): string | undefined {
+  const group = path.match(/^apps\/([^/]+)\//)?.[1];
+  if (["data", "mail", "media", "utility-system"].includes(group ?? "")) return group;
+  return undefined;
+}
+
+function carriedReason(path: string): string {
+  if (path.startsWith("apps/stateless/") || path.startsWith("apps/knowledge/") || path.startsWith("apps/agents/")) {
+    return "First-party workload/support manifest is carried only until the deployment model renderer covers this exact live shape.";
+  }
+  if (path.startsWith("clusters/")) {
+    return "Flux bootstrap/root manifest is carried because it is cluster bootstrap state rather than an application support pack.";
+  }
+  if (path.startsWith("apps/vso-secrets/")) {
+    return "Consumer-specific Vault secret sync manifest is carried until VSO source modeling is byte-identical.";
+  }
+  return "No source ownership rule matched this live parity manifest.";
+}
+
+function gitRef(repo: string, path: string): { repo: string; ref: string; sha: string; paths: string[] } {
+  return {
+    repo,
+    ref: "local-import",
+    sha: DEFAULT_SHA,
+    paths: [path],
+  };
 }
 
 function clusterEnv(fleet: RecordAny): RecordAny {

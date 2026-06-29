@@ -757,6 +757,22 @@ function parseOptions(args) {
         options.fluxTree = value;
         index += 1;
       }
+    } else if (arg === "--platform-blueprints") {
+      const value = args[index + 1];
+      if (!value) {
+        diagnostics.push({ code: "E_USAGE", message: "--platform-blueprints requires a directory", path: "/" });
+      } else {
+        options.platformBlueprints = value;
+        index += 1;
+      }
+    } else if (arg === "--collections-root") {
+      const value = args[index + 1];
+      if (!value) {
+        diagnostics.push({ code: "E_USAGE", message: "--collections-root requires a directory", path: "/" });
+      } else {
+        options.collectionsRoot = value;
+        index += 1;
+      }
     } else if (arg === "--current") {
       const value = args[index + 1];
       if (!value) {
@@ -935,7 +951,7 @@ function usage() {
     "  deploy-config-schema lock images --lock deployment.lock.yml --format image-tags [--reject-latest]",
     "  deploy-config-schema compile --env <name> --sources <path> --lock <path> --node-contract <path> --reachability <path> --out <dir> [--collections <path>] [--check]",
     "  deploy-config-schema render-flux --repo <repo> --env <name> [--check]",
-    "  deploy-config-schema import-live-fleet --fleet <fleet.yaml> --flux-tree <dir> --out <dir>",
+    "  deploy-config-schema import-live-fleet --fleet <fleet.yaml> --flux-tree <dir> --out <dir> [--platform-blueprints <dir>] [--collections-root <dir>]",
     "  deploy-config-schema parity check --rendered <current-tree> --compiled <compiled-tree> [--profile flux]",
     "  deploy-config-schema state move-plan validate <state/move-plan.yml>",
     "  deploy-config-schema cutover plan --current <current-tree> --candidate <candidate-tree> [--out state/cutover-plan.yml]",

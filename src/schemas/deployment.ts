@@ -609,11 +609,55 @@ export const deploymentJsonSchema = {
               items: {
                 type: "object",
                 additionalProperties: false,
-                required: ["path", "content"],
+                required: ["path", "source"],
                 properties: {
                   path: relativePath,
                   content: { type: "string" },
                   adapter: nonEmptyString,
+                  source: {
+                    oneOf: [
+                      {
+                        type: "object",
+                        additionalProperties: false,
+                        required: ["kind"],
+                        properties: {
+                          kind: { const: "model-rendered" },
+                          reason: nonEmptyString,
+                        },
+                      },
+                      {
+                        type: "object",
+                        additionalProperties: false,
+                        required: ["kind", "pack"],
+                        properties: {
+                          kind: { const: "pack-sourced" },
+                          pack: nonEmptyString,
+                          path: relativePath,
+                          reason: nonEmptyString,
+                        },
+                      },
+                      {
+                        type: "object",
+                        additionalProperties: false,
+                        required: ["kind", "collection"],
+                        properties: {
+                          kind: { const: "collection-sourced" },
+                          collection: nonEmptyString,
+                          path: relativePath,
+                          reason: nonEmptyString,
+                        },
+                      },
+                      {
+                        type: "object",
+                        additionalProperties: false,
+                        required: ["kind", "reason"],
+                        properties: {
+                          kind: { const: "carried" },
+                          reason: nonEmptyString,
+                        },
+                      },
+                    ],
+                  },
                 },
               },
             },
