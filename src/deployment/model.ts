@@ -171,6 +171,7 @@ export type SecretEnvModel = {
   name: string;
   destinationSecretName: string;
   envKeys: string[];
+  env: Record<string, string>;
 };
 
 export type CredentialBindingModel = {
@@ -541,6 +542,7 @@ export const secretEnvModelSchema = z.object({
   name: z.string(),
   destinationSecretName: z.string(),
   envKeys: z.array(z.string()).default([]),
+  env: stringRecordSchema.default({}),
 });
 
 export const credentialBindingModelSchema = z.object({
@@ -1080,6 +1082,7 @@ function normalizeWorkload(name: string, deploymentName: string, input: unknown)
       maxUnavailable: value.rollout?.maxUnavailable,
     },
     rawManifests: value.rawManifests ?? [],
+    importedParity: value.importedParity,
   });
 }
 

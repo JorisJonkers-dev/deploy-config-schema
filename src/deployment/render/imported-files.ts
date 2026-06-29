@@ -51,7 +51,7 @@ function documentsFor(
       const key = parityObjectKey(document, existing.path, index);
       const rendered = modelDocuments.get(key);
       if (!rendered) {
-        throw new Error(`model-rendered parity import ${existing.path} is not produced by the deployment model`);
+        throw new Error(`model-rendered parity import ${existing.path} object ${key} is not produced by the deployment model`);
       }
       return rendered;
     });

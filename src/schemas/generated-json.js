@@ -4340,6 +4340,13 @@ export const deploymentJsonSchema = {
                         "type": "string",
                         "pattern": "^[A-Za-z0-9._-]+$"
                       }
+                    },
+                    "env": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "string",
+                        "pattern": "^[A-Za-z0-9._-]+$"
+                      }
                     }
                   }
                 }
@@ -4861,6 +4868,30 @@ export const deploymentJsonSchema = {
                 "items": {
                   "type": "object",
                   "additionalProperties": true
+                }
+              },
+              "importedParity": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "workloadFileName": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "kedaObjects": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  },
+                  "networkPolicies": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  }
                 }
               }
             }
@@ -7162,6 +7193,13 @@ export const collectionJsonSchema = {
                                   "type": "string",
                                   "pattern": "^[A-Za-z0-9._-]+$"
                                 }
+                              },
+                              "env": {
+                                "type": "object",
+                                "additionalProperties": {
+                                  "type": "string",
+                                  "pattern": "^[A-Za-z0-9._-]+$"
+                                }
                               }
                             }
                           }
@@ -7683,6 +7721,30 @@ export const collectionJsonSchema = {
                           "items": {
                             "type": "object",
                             "additionalProperties": true
+                          }
+                        },
+                        "importedParity": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "properties": {
+                            "workloadFileName": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "kedaObjects": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "additionalProperties": true
+                              }
+                            },
+                            "networkPolicies": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "additionalProperties": true
+                              }
+                            }
                           }
                         }
                       }

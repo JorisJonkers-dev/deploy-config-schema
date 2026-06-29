@@ -303,6 +303,10 @@ const deploymentWorkload = {
             uniqueItems: true,
             items: envKeyIdentifier,
           },
+          env: {
+            type: "object",
+            additionalProperties: envKeyIdentifier,
+          },
         },
       },
     },
@@ -552,6 +556,27 @@ const deploymentWorkload = {
       items: {
         type: "object",
         additionalProperties: true,
+      },
+    },
+    importedParity: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        workloadFileName: nonEmptyString,
+        kedaObjects: {
+          type: "array",
+          items: {
+            type: "object",
+            additionalProperties: true,
+          },
+        },
+        networkPolicies: {
+          type: "array",
+          items: {
+            type: "object",
+            additionalProperties: true,
+          },
+        },
       },
     },
   },

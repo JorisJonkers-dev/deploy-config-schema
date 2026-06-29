@@ -26,6 +26,7 @@ export function renderKubernetes(model: ProjectModel): RendererResult {
     files.push(...rendered.files);
     waits.push(...(rendered.waits ?? []));
   }
+  files.push(...groupKustomizations(model));
   return { files: files.sort(compareFiles), waits };
 }
 
@@ -118,6 +119,24 @@ function file(basePath: string, name: string, documents: KubernetesObject[]): Re
 
 function sortedWorkloads(model: ProjectModel): WorkloadModel[] {
   return Object.values(model.workloads).sort((left, right) => left.name.localeCompare(right.name));
+}
+
+function groupKustomizations(model: ProjectModel): RenderFile[] {
+  const groups = new Map<string, string[]>();
+  for (const workload of sortedWorkloads(model)) {
+    const resources = groups.get(workload.group) ?? [];
+    resources.push(workload.name);
+    groups.set(workload.group, resources);
+  }
+  return [...groups.entries()].map(([group, resources]) => ({
+    path: `${model.cluster.appsRoot}/${group}/kustomization.yaml`,
+    content: renderYamlDocument({
+      apiVersion: "kustomize.config.k8s.io/v1beta1",
+      kind: "Kustomization",
+      resources: [...resources].sort(),
+    }).trimEnd(),
+    adapter: ADAPTER,
+  }));
 }
 
 function compareFiles(left: RenderFile, right: RenderFile): number {

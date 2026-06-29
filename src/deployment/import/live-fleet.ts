@@ -60,6 +60,8 @@ export function importLiveFleet(options: ImportLiveFleetOptions): ImportLiveFlee
   const flux = indexFluxTree(options.fluxTreePath);
   const environments = options.environments ?? ENVIRONMENTS;
   const serviceNames = importedServiceNames(fleet, flux);
+  const networkPolicies = kind(flux, "NetworkPolicy").sort(compareObjects);
+  const extraObjects = [...kind(flux, "ServiceMonitor"), ...kind(flux, "PodMonitor"), ...kind(flux, "HorizontalPodAutoscaler"), ...kind(flux, "ScaledObject")].sort(compareObjects);
   const deployment = {
     apiVersion: "deployment.jorisjonkers.dev",
     kind: "Deployment",
@@ -77,6 +79,7 @@ export function importLiveFleet(options: ImportLiveFleetOptions): ImportLiveFlee
       workloads: Object.fromEntries(serviceNames.map((serviceName) => [serviceName, workloadFor(serviceName, fleet, flux)])),
     },
   };
+  persistImportedNetworkPolicies(deployment, networkPolicies);
   const platformBlueprints: { repo: string; ref: string; sha: string; paths: string[] } | undefined = options.platformBlueprintsPath
     ? gitRef("JorisJonkers-dev/platform-blueprints", options.platformBlueprintsPath)
     : undefined;
@@ -123,8 +126,6 @@ export function importLiveFleet(options: ImportLiveFleetOptions): ImportLiveFlee
     collections: [],
     envFiles: { cluster: clusterEnv(fleet) },
   });
-  const networkPolicies = kind(flux, "NetworkPolicy").sort(compareObjects);
-  const extraObjects = [...kind(flux, "ServiceMonitor"), ...kind(flux, "PodMonitor"), ...kind(flux, "HorizontalPodAutoscaler"), ...kind(flux, "ScaledObject")].sort(compareObjects);
   model.flux.layers = flux.layers;
   model.parityImports = {
     networkPolicies,
@@ -139,6 +140,18 @@ export function importLiveFleet(options: ImportLiveFleetOptions): ImportLiveFlee
   return { model, files, documents: { deployment, sources, lock, nodeContract, reachability, envFiles }, imported: { networkPolicies, extraObjects } };
 }
 
+function persistImportedNetworkPolicies(deployment: RecordAny, networkPolicies: KubernetesObject[]): void {
+  for (const workload of Object.values(deployment.spec.workloads) as RecordAny[]) {
+    const policies = networkPolicies.filter((policy) => meta(policy).namespace === workload.namespace);
+    if (policies.length === 0) continue;
+    workload.importedParity = {
+      ...(workload.importedParity ?? {}),
+      networkPolicies: policies,
+      workloadFileName: `${workload.kind}.yaml`,
+    };
+  }
+}
+
 function workloadFor(serviceName: string, fleet: RecordAny, flux: FluxIndex): RecordAny {
   const controller = controllerFor(serviceName, flux);
   const backend = fleet.ingress_intent?.kubernetes_backends?.[serviceName];
@@ -147,7 +160,7 @@ function workloadFor(serviceName: string, fleet: RecordAny, flux: FluxIndex): Re
   const container = (pod.containers ?? [])[0] ?? {};
   const namespace = meta(controller).namespace ?? meta(service).namespace ?? backend?.namespace ?? groupFor(serviceName, fleet);
   const ports = portsFor(service, container, backend);
-  const config = configFor(serviceName, namespace, flux);
+  const config = configFor(serviceName, namespace, pod, flux);
   const storage = storageFor(serviceName, namespace, pod, flux);
   return omitEmpty({
     group: groupFor(serviceName, fleet),
@@ -256,13 +269,20 @@ function portsFor(service: KubernetesObject | undefined, container: RecordAny, b
   });
 }
 
-function configFor(serviceName: string, namespace: string, flux: FluxIndex): RecordAny | undefined {
+function configFor(serviceName: string, namespace: string, pod: RecordAny, flux: FluxIndex): RecordAny | undefined {
   const configMap = named(kind(flux, "ConfigMap"), `${serviceName}-config`, namespace);
   if (!configMap?.data) return undefined;
+  const envKeys = new Set<string>();
+  for (const container of pod.containers ?? []) {
+    for (const env of container.env ?? []) {
+      const ref = env.valueFrom?.configMapKeyRef;
+      if (ref?.name === `${serviceName}-config` && ref.key) envKeys.add(ref.key);
+    }
+  }
   const values: Record<string, string> = {};
   const files: Record<string, string> = {};
   for (const [key, value] of Object.entries(configMap.data as Record<string, string>)) {
-    if (/^[A-Z0-9_]+$/.test(key)) values[key] = value;
+    if (envKeys.has(key)) values[key] = value;
     else files[key] = value;
   }
   return { values, files };
@@ -270,10 +290,18 @@ function configFor(serviceName: string, namespace: string, flux: FluxIndex): Rec
 
 function secretsFor(serviceName: string, namespace: string, pod: RecordAny, flux: FluxIndex): RecordAny[] {
   const keyRefs = new Map<string, Set<string>>();
+  const envRefs = new Map<string, Record<string, string>>();
   for (const container of pod.containers ?? []) {
     for (const env of container.env ?? []) {
       const ref = env.valueFrom?.secretKeyRef;
-      if (ref?.name && ref?.key) keyRefs.set(ref.name, (keyRefs.get(ref.name) ?? new Set()).add(ref.key));
+      if (ref?.name && ref?.key) {
+        keyRefs.set(ref.name, (keyRefs.get(ref.name) ?? new Set()).add(ref.key));
+        if (env.name) {
+          const values = envRefs.get(ref.name) ?? {};
+          values[env.name] = ref.key;
+          envRefs.set(ref.name, values);
+        }
+      }
     }
   }
   for (const secret of kind(flux, "VaultStaticSecret").filter((item) => meta(item).namespace === namespace)) {
@@ -284,6 +312,7 @@ function secretsFor(serviceName: string, namespace: string, pod: RecordAny, flux
     name: secretName,
     destinationSecretName: secretName,
     envKeys: [...keys].sort(),
+    env: envRefs.get(secretName) ?? {},
   }));
 }
 
@@ -452,6 +481,12 @@ function sourceFor(path: string, options: { platformBlueprintsPath?: string; col
         : `${collection} workload/support manifest should be sourced from homelab-collections; no collection checkout path was provided during import.`,
     };
   }
+  if (isFirstPartyModelRenderedPath(path)) {
+    return {
+      kind: "model-rendered",
+      reason: "First-party workload/support manifest is rendered from the deployment model through the IR; structural file layout differences are checked by behavioral parity.",
+    };
+  }
   return {
     kind: "carried",
     reason: carriedReason(path),
@@ -493,9 +528,15 @@ function collectionForPath(path: string): string | undefined {
   return undefined;
 }
 
+function isFirstPartyModelRenderedPath(path: string): boolean {
+  return path.startsWith("apps/stateless/")
+    || path.startsWith("apps/knowledge/")
+    || path.startsWith("apps/agents/");
+}
+
 function carriedReason(path: string): string {
   if (path.startsWith("apps/stateless/") || path.startsWith("apps/knowledge/") || path.startsWith("apps/agents/")) {
-    return "First-party workload/support manifest is carried only until the deployment model renderer covers this exact live shape.";
+    return "First-party manifest did not match the model-rendered path classifier; keep carried only with an explicit bespoke reason.";
   }
   if (path.startsWith("clusters/")) {
     return "Flux bootstrap/root manifest is carried because it is cluster bootstrap state rather than an application support pack.";

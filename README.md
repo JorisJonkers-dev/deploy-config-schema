@@ -74,7 +74,7 @@ npx deploy-config-schema collections index --root collections --out generated/co
 
 npx deploy-config-schema lock images --lock deployment.lock.yml --format image-tags --reject-latest
 npx deploy-config-schema compile --env production --sources deployment-sources.yml --lock deployment.lock.yml --node-contract inventory/node-contract.lock.yml --collections generated/collections.lock.yml --reachability catalog/reachability.yml --out cluster/flux --check
-npx deploy-config-schema parity check --rendered cluster/flux --compiled build/flux --profile flux
+npx deploy-config-schema parity check --rendered cluster/flux --compiled build/flux --profile flux --mode behavioral
 npx deploy-config-schema state move-plan validate state/move-plan.yml
 npx deploy-config-schema cutover plan --current cluster/flux --candidate build/flux --out state/cutover-plan.yml
 ```
@@ -82,6 +82,11 @@ npx deploy-config-schema cutover plan --current cluster/flux --candidate build/f
 `cutover plan` is intentionally non-applying. It compares current and candidate
 trees, writes a review artifact when requested, and never switches Flux sources
 or talks to a cluster.
+
+`parity check` defaults to behavioral mode. It fails on missing/extra objects,
+duplicates, diagnostics, or `behavior-changing` diffs; byte-level redesign diffs
+that preserve the per-kind behavior projection are reported as
+`behavior-preserving`. Use `--mode byte` for strict normalized byte comparison.
 
 Render a full generated tree from `platform.yaml`:
 

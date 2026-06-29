@@ -35,8 +35,8 @@ spec:
             - web-api
         adapter: import-live-fleet
         source:
-          kind: carried
-          reason: First-party workload/support manifest is carried only until the deployment model renderer covers this exact live shape.
+          kind: model-rendered
+          reason: First-party workload/support manifest is rendered from the deployment model through the IR; structural file layout differences are checked by behavioral parity.
       - path: apps/stateless/web-api/kustomization.yaml
         content: |
           apiVersion: kustomize.config.k8s.io/v1beta1
@@ -45,8 +45,8 @@ spec:
             - workload.yaml
         adapter: import-live-fleet
         source:
-          kind: carried
-          reason: First-party workload/support manifest is carried only until the deployment model renderer covers this exact live shape.
+          kind: model-rendered
+          reason: First-party workload/support manifest is rendered from the deployment model through the IR; structural file layout differences are checked by behavioral parity.
       - path: apps/stateless/web-api/workload.yaml
         content: |
           apiVersion: apps/v1
@@ -134,6 +134,9 @@ spec:
             name: web-api-db
             namespace: apps
           spec:
+            type: kv-v2
+            mount: kv
+            path: apps/web-api/web-api-db
             destination:
               name: web-api-db
               create: true
@@ -170,8 +173,8 @@ spec:
                     averageUtilization: 70
         adapter: import-live-fleet
         source:
-          kind: carried
-          reason: First-party workload/support manifest is carried only until the deployment model renderer covers this exact live shape.
+          kind: model-rendered
+          reason: First-party workload/support manifest is rendered from the deployment model through the IR; structural file layout differences are checked by behavioral parity.
       - path: clusters/production/kustomizations.yaml
         content: |
           apiVersion: kustomize.toolkit.fluxcd.io/v1
@@ -224,9 +227,9 @@ spec:
           containerPort: 8080
           servicePort: 80
       config:
-        values:
-          LOG_LEVEL: info
+        values: {}
         files:
+          LOG_LEVEL: info
           application.yml: |
             feature: imported
       secrets:
@@ -234,6 +237,8 @@ spec:
           destinationSecretName: web-api-db
           envKeys:
             - uri
+          env:
+            DATABASE_URL: uri
       credentials: []
       storage:
         volumes:
@@ -277,3 +282,17 @@ spec:
               port: http
               middleware: []
       rawManifests: []
+      importedParity:
+        networkPolicies:
+          - apiVersion: networking.k8s.io/v1
+            kind: NetworkPolicy
+            metadata:
+              name: web-api-ingress
+              namespace: apps
+            spec:
+              podSelector:
+                matchLabels:
+                  app.kubernetes.io/name: web-api
+              policyTypes:
+                - Ingress
+        workloadFileName: deployment.yaml

@@ -201,16 +201,28 @@ function envVars(workload: WorkloadModel, containerEnv: Record<string, string>):
       },
     },
   }));
-  const secretEntries = workload.secrets.flatMap((secret) => secret.envKeys.map((key) => ({
-    name: key.toUpperCase().replaceAll(/[^A-Z0-9_]/g, "_"),
+  const secretEntries = workload.secrets.flatMap((secret) => {
+    const env = secret.env ?? {};
+    const mapped = Object.entries(env).map(([name, key]) => secretEnvVar(secret.destinationSecretName, name, key));
+    const mappedKeys = new Set(Object.values(env));
+    const derived = secret.envKeys
+      .filter((key) => !mappedKeys.has(key))
+      .map((key) => secretEnvVar(secret.destinationSecretName, key.toUpperCase().replaceAll(/[^A-Z0-9_]/g, "_"), key));
+    return [...mapped, ...derived];
+  });
+  return [...configEntries, ...secretEntries].sort((left, right) => String(left.name).localeCompare(String(right.name)));
+}
+
+function secretEnvVar(secretName: string, name: string, key: string): KubernetesObject {
+  return {
+    name,
     valueFrom: {
       secretKeyRef: {
-        name: secret.destinationSecretName,
+        name: secretName,
         key,
       },
     },
-  })));
-  return [...configEntries, ...secretEntries].sort((left, right) => String(left.name).localeCompare(String(right.name)));
+  };
 }
 
 function serviceManifest(workload: WorkloadModel): KubernetesObject | undefined {

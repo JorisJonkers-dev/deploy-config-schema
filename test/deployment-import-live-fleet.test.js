@@ -62,7 +62,7 @@ test("importLiveFleet imports fleet intent, workload details, Flux layers, and p
   assert.equal(workload.replicas, 2);
   assert.deepEqual(workload.service?.ports, [{ name: "http", containerPort: 8080, servicePort: 80, protocol: "TCP" }]);
   assert.equal(workload.storage.volumes[0].size, "5Gi");
-  assert.deepEqual(workload.secrets, [{ name: "web-api-db", destinationSecretName: "web-api-db", envKeys: ["uri"] }]);
+  assert.deepEqual(workload.secrets, [{ name: "web-api-db", destinationSecretName: "web-api-db", envKeys: ["uri"], env: { DATABASE_URL: "uri" } }]);
   assert.equal(workload.autoscaling?.targetCpuUtilization, 70);
   assert.equal(workload.observability.status[0].url, "http://web-api.apps.svc.cluster.local:80/healthz");
   assert.deepEqual(workload.observability.metrics, [{ kind: "ServiceMonitor", port: "http", path: "/metrics", interval: "30s" }]);
@@ -86,9 +86,9 @@ test("importLiveFleet imports fleet intent, workload details, Flux layers, and p
   assert.equal(result.model.parityImports.existingFiles.length, 5);
   assert.deepEqual(result.model.parityImports.existingFiles.map((file) => [file.path, file.source.kind]), [
     ["apps/edge/traefik-ingressroutes.yaml", "pack-sourced"],
-    ["apps/stateless/kustomization.yaml", "carried"],
-    ["apps/stateless/web-api/kustomization.yaml", "carried"],
-    ["apps/stateless/web-api/workload.yaml", "carried"],
+    ["apps/stateless/kustomization.yaml", "model-rendered"],
+    ["apps/stateless/web-api/kustomization.yaml", "model-rendered"],
+    ["apps/stateless/web-api/workload.yaml", "model-rendered"],
     ["clusters/production/kustomizations.yaml", "carried"],
   ]);
   assert.ok(result.model.parityImports.existingFiles.every((file) => file.source.reason));

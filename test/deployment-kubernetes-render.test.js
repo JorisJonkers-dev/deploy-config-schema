@@ -86,10 +86,16 @@ test("renderKubernetes mirrors live workload output for deployment fixture", () 
   }
 
   const isB2File = (item) => item.path.endsWith("servicemonitor.yaml") || item.path.endsWith("podmonitor.yaml");
+  const isGroupKustomization = (item) => /^apps\/[^/]+\/kustomization\.yaml$/.test(item.path);
   const liveFiles = renderLiveKubernetes(projectModelToAdapterContext(model)).filter((item) => !isB2File(item));
-  const renderedFiles = renderKubernetes(model).files.filter((item) => !isB2File(item));
+  const allRenderedFiles = renderKubernetes(model).files.filter((item) => !isB2File(item));
+  const renderedFiles = allRenderedFiles.filter((item) => !isGroupKustomization(item));
 
   assert.deepEqual(renderedFiles, liveFiles);
+  assert.deepEqual(allRenderedFiles.filter(isGroupKustomization).map((item) => item.path), [
+    "apps/agents/kustomization.yaml",
+    "apps/data/kustomization.yaml",
+  ]);
   assert.deepEqual(docs(file(renderedFiles, "apps/agents/assistant-api/deployment.yaml").content).map((document) => document.kind), ["Deployment"]);
   assert.deepEqual(
     docs(file(renderedFiles, "apps/agents/assistant-api/kustomization.yaml").content)[0].resources,

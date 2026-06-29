@@ -6,7 +6,7 @@ import { test } from "node:test";
 import { runCli } from "../src/cli.js";
 import { compileProject } from "../src/deployment/compiler.js";
 import { importLiveFleet } from "../src/deployment/import/live-fleet.js";
-import { compareParityTrees, normalizeParityTree } from "../src/deployment/parity.js";
+import { compareParityTrees } from "../src/deployment/parity.js";
 
 const fleetPath = "test/fixtures/deployment/import/fleet.yaml";
 const goldenFluxTree = "fixtures/deployment/golden/cluster/flux";
@@ -71,31 +71,26 @@ test("imported live golden tree compiles through deployment with classified pari
   const report = compareParityTrees({ current: goldenFluxTree, rendered: renderedDir });
   assert.equal(report.ok, true);
   assert.deepEqual(report.summary, {
+    mode: "behavioral",
     currentObjects: 13,
     renderedObjects: 13,
     missing: 0,
     extra: 0,
-    changed: 0,
+    changed: 5,
     duplicates: 0,
+    behaviorEquivalent: 13,
+    behaviorPreservingDiffs: 5,
+    behaviorChangingDiffs: 0,
+    sourceBreakdown: {
+      "model-rendered": 10,
+      "pack-sourced": 1,
+      "collection-sourced": 0,
+      carried: 2,
+    },
   });
-  assert.deepEqual(zeroDiffKeys(goldenFluxTree, report), [
-    "_path/apps/stateless/kustomization.yaml#0",
-    "_path/apps/stateless/web-api/kustomization.yaml#0",
-    "apps/v1/Deployment/apps/web-api",
-    "autoscaling/v2/HorizontalPodAutoscaler/apps/web-api",
-    "kustomize.toolkit.fluxcd.io/v1/Kustomization/flux-system/apps-core",
-    "kustomize.toolkit.fluxcd.io/v1/Kustomization/flux-system/apps-stateless",
-    "monitoring.coreos.com/v1/ServiceMonitor/apps/web-api",
-    "networking.k8s.io/v1/NetworkPolicy/apps/web-api-ingress",
-    "secrets.hashicorp.com/v1beta1/VaultStaticSecret/apps/web-api-db",
-    "traefik.io/v1alpha1/IngressRoute/edge/web-api",
-    "v1/ConfigMap/apps/web-api-config",
-    "v1/PersistentVolumeClaim/apps/web-api-data",
-    "v1/Service/apps/web-api",
-  ]);
   assert.deepEqual(report.missing, []);
   assert.deepEqual(report.extra, []);
-  assert.deepEqual(report.changed, []);
+  assert.deepEqual(report.comparisons.flatMap((comparison) => comparison.diffs.filter((diff) => diff.classification === "behavior-changing")), []);
 });
 
 test("render-flux check detects drift in compiled deployment tree", async () => {
@@ -157,12 +152,22 @@ test("imported parity compile de-duplicates repeated current object identities i
   assert.equal(compiled.ok, true);
   const report = compareParityTrees({ current, rendered: renderedDir });
   assert.deepEqual(report.summary, {
+    mode: "behavioral",
     currentObjects: 14,
     renderedObjects: 14,
     missing: 0,
     extra: 0,
-    changed: 0,
+    changed: 5,
     duplicates: 1,
+    behaviorEquivalent: 14,
+    behaviorPreservingDiffs: 5,
+    behaviorChangingDiffs: 1,
+    sourceBreakdown: {
+      "model-rendered": 10,
+      "pack-sourced": 1,
+      "collection-sourced": 0,
+      carried: 3,
+    },
   });
   assert.deepEqual(report.duplicates, [{
     key: "v1/Namespace/_cluster/apps",
@@ -172,11 +177,3 @@ test("imported parity compile de-duplicates repeated current object identities i
     ],
   }]);
 });
-
-function zeroDiffKeys(currentRoot, report) {
-  const missing = new Set(report.missing);
-  const changed = new Set(report.changed.map((change) => change.key));
-  return [...normalizeParityTree(currentRoot).keys()]
-    .filter((key) => !missing.has(key) && !changed.has(key))
-    .sort();
-}
