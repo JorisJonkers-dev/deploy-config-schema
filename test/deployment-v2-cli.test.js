@@ -32,6 +32,15 @@ function tempDir() {
 
 const fixture = (name) => `fixtures/deployment-v2/${name}`;
 
+const expectedCompilePaths = [
+  "apps/agents/assistant-api/servicemonitor.yaml",
+  "apps/edge/traefik-ingressroutes.yaml",
+  "apps/observability/gatus/gatus-endpoints-configmap.yaml",
+  "apps/vso-secrets/kustomization.yaml",
+  "apps/vso-secrets/vault-auth.yaml",
+  "apps/vso-secrets/vault-connection.yaml",
+];
+
 test("validate accepts every deploy-v2 artifact kind", async () => {
   const cases = [
     ["deployment-v2", "deployment.yml"],
@@ -102,7 +111,7 @@ test("resolve-sources reports unlocked source entries", async () => {
   assert.deepEqual(result.diagnostics.map((diagnostic) => diagnostic.path), ["/firstParty/assistant-api"]);
 });
 
-test("compile validates inputs and writes no files for empty stubs", async () => {
+test("compile validates inputs and writes B2 deployment-v2 files", async () => {
   const out = tempDir();
   const writeIo = streams();
   const checkIo = streams();
@@ -118,7 +127,7 @@ test("compile validates inputs and writes no files for empty stubs", async () =>
   ];
 
   assert.equal(await runCli(args, writeIo), 0, writeIo.stderr.text());
-  assert.deepEqual(JSON.parse(writeIo.stdout.text()).files, []);
+  assert.deepEqual(JSON.parse(writeIo.stdout.text()).files, expectedCompilePaths);
   assert.equal(await runCli([...args, "--check"], checkIo), 0, checkIo.stdout.text());
 });
 
