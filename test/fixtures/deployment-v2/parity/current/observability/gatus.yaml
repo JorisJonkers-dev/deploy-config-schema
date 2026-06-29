@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gatus-endpoints
+  namespace: observability
+data:
+  config.yaml: |
+    endpoints:
+      - name: api
+        group: apps
+        url: https://api.example.com/healthz
+        conditions:
+          - "[STATUS] == 200"
