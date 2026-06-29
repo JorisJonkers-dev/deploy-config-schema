@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.0](https://github.com/JorisJonkers-dev/deploy-config-schema/compare/v0.10.0...v0.11.0) (2026-06-29)
+
+
+### Features
+
+* wire deploy v2 compiler acceptance ([#12](https://github.com/JorisJonkers-dev/deploy-config-schema/issues/12)) ([0e61427](https://github.com/JorisJonkers-dev/deploy-config-schema/commit/0e61427e5c8cb902c57e0d7df6d0597ff19e78e8))
+
 ## [0.10.0](https://github.com/JorisJonkers-dev/deploy-config-schema/compare/v0.9.0...v0.10.0) (2026-06-29)
 
 
