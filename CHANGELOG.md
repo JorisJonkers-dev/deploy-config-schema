@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.15.0](https://github.com/JorisJonkers-dev/deploy-config-schema/compare/v0.14.0...v0.15.0) (2026-06-29)
+
+
+### Features
+
+* render full live first-party parity support ([#28](https://github.com/JorisJonkers-dev/deploy-config-schema/issues/28)) ([a4e754d](https://github.com/JorisJonkers-dev/deploy-config-schema/commit/a4e754da44d0022d699c46521f42d500e2e9aa53))
+
 ## [0.14.0](https://github.com/JorisJonkers-dev/deploy-config-schema/compare/v0.13.3...v0.14.0) (2026-06-29)
 
 
