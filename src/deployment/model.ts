@@ -96,6 +96,8 @@ export type NodeModel = {
     memoryMiB: number;
   };
   labels: Record<string, string>;
+  roles?: string[];
+  capabilities?: string[];
   gpus: GpuModel[];
   taints: Array<{ key: string; value?: string; effect: "NoSchedule" | "PreferNoSchedule" | "NoExecute" }>;
   storage: {
@@ -1331,7 +1333,7 @@ function adapterArtifactsFor(input: {
         nodes: Object.fromEntries(Object.entries(input.nodeContract.nodes).map(([name, node]) => [name, {
           site: node.site,
           arch: node.arch,
-          capabilities: Object.entries(node.labels).filter(([key, value]) => key.startsWith("platform.jorisjonkers.dev/capability-") && value === "true").map(([key]) => key.replace("platform.jorisjonkers.dev/capability-", "")),
+          capabilities: capabilitiesForNode(node),
         }])),
       },
     },
@@ -1366,7 +1368,7 @@ function resolvePlacement(placement: PlacementModel, nodeContract: NodeContractM
       if (node.labels[key] !== value) return false;
     }
     for (const capability of placement.requiredCapabilities) {
-      if (node.labels[`platform.jorisjonkers.dev/capability-${capability}`] !== "true") return false;
+      if (!nodeHasCapability(node, capability)) return false;
     }
     return true;
   });
@@ -1379,6 +1381,20 @@ function resolvePlacement(placement: PlacementModel, nodeContract: NodeContractM
     nodeNames,
     gpuResourceName: placement.gpu ? gpuResourceNameFor(placement.gpu, gpuEligible.map(([, node]) => node)) : undefined,
   };
+}
+
+function capabilitiesForNode(node: NodeModel): string[] {
+  if (node.capabilities) return [...node.capabilities].sort();
+  return Object.entries(node.labels)
+    .filter(([key, value]) => key.startsWith("platform.jorisjonkers.dev/capability-") && value === "true")
+    .map(([key]) => key.replace("platform.jorisjonkers.dev/capability-", ""))
+    .sort();
+}
+
+function nodeHasCapability(node: NodeModel, capability: string): boolean {
+  if (node.capabilities?.includes(capability)) return true;
+  if (node.labels[`platform.jorisjonkers.dev/capability-${capability}`] === "true") return true;
+  return Object.entries(node.labels).some(([key, value]) => key.endsWith(`/capability-${capability}`) && value === "true");
 }
 
 function nodeGpuCount(node: NodeModel, request: PlacementGpuModel): number {

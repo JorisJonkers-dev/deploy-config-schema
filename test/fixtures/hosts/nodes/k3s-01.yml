@@ -1,0 +1,46 @@
+kind: NodeInventory
+metadata:
+  name: k3s-01
+status: active
+site: lab
+arch: amd64
+ssh:
+  host: k3s-01.example.test
+  user: operator
+  port: 22
+roles:
+  - k3s-server
+capacity:
+  cpu_millicores: 4000
+  memory_mib: 8192
+gpus:
+  - vendor: nvidia
+    model: example-gpu
+    class: compute
+    memory_mib: 8192
+    count: 1
+capabilities:
+  - platform
+labels:
+  example.com/custom: enabled
+taints: []
+schedulability:
+  enabled: true
+  reason: active cluster node
+storage:
+  longhorn:
+    eligible: true
+    node_tags:
+      - lab
+  disks:
+    - name: data
+      path: /var/lib/example-storage
+      media: ssd
+      usable_gib: 200
+      reserved_gib: 20
+      roles:
+        - longhorn
+      longhorn:
+        enabled: true
+        tags:
+          - ssd

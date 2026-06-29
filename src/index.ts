@@ -11,6 +11,29 @@ export { BLUEPRINTS_ROOT_ENV, loadBlueprintRegistry, resolveBlueprintRegistry } 
 export { normalizeServiceIntentForRender } from "./service-intent-normalizer.js";
 export { fleetToDeployConfig, type FleetInventoryInput } from "./fleet-to-deploy-config.js";
 export { HostEnvError, hostEnvLines, type HostEnvOptions } from "./host-env.js";
+export {
+  annotationsForNode,
+  contractStatus,
+  inventorySourceSha,
+  isSchedulable,
+  labelsForNode,
+  readHostInventory,
+  renderNodeContract,
+  renderNodeLabelsManifest,
+  stringifyHostYaml,
+  validateHostInventory,
+  type HostInventory,
+  type HostInventoryValidation,
+  type NodeContractRenderOptions,
+} from "./hosts/inventory.js";
+export {
+  buildCollectionIndex,
+  findCollectionEnvFiles,
+  findCollectionFiles,
+  validateCollectionTree,
+  type CollectionIndex,
+  type CollectionTreeValidation,
+} from "./collections/index.js";
 export { renderTraefik } from "./adapters/traefik.js";
 export { renderEdgeCatalog, renderEdgeRouteCatalog } from "./adapters/catalog.js";
 export { renderFluxPacks } from "./adapters/flux-packs.js";
@@ -78,6 +101,19 @@ export {
   readDeploymentLock,
   updateDeploymentLock,
 } from "./deployment/lockfile.js";
+export {
+  hasExplicitImageVersion,
+  isLatestRef,
+  serviceFromImageRef,
+  validateImageTags,
+  type ImageTagValidationOptions,
+  type ImageTagValidationResult,
+} from "./deployment/image-tags.js";
+export {
+  createCutoverPlan,
+  type CutoverPlan,
+  type CutoverPlanOptions,
+} from "./deployment/cutover.js";
 export {
   normalizeParityTree,
   compareParityTrees,

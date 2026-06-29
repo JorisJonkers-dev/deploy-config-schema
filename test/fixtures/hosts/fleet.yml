@@ -1,0 +1,8 @@
+kind: FleetInventory
+metadata:
+  cluster: example-cluster
+  source: example-hosts
+sites:
+  - path: sites/lab.yml
+nodes:
+  - path: nodes/k3s-01.yml

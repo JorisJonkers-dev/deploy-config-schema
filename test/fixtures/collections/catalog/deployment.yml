@@ -1,0 +1,28 @@
+apiVersion: deployment.jorisjonkers.dev/collection
+kind: Collection
+metadata:
+  name: catalog
+  domain: catalog
+spec:
+  deployments:
+    - apiVersion: deployment.jorisjonkers.dev
+      kind: Deployment
+      metadata:
+        name: example-db
+      spec:
+        workloads:
+          example-db:
+            image: ghcr.io/example/example-db:v1.0.0
+            group: data
+            namespace: data
+            containers:
+              - name: example-db
+                ports:
+                  - name: http
+                    containerPort: 8080
+            ports:
+              - name: http
+                containerPort: 8080
+  providerExports:
+    database:
+      type: database

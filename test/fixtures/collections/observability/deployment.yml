@@ -1,0 +1,25 @@
+apiVersion: deployment.jorisjonkers.dev/collection
+kind: Collection
+metadata:
+  name: observability
+  domain: observability
+spec:
+  deployments:
+    - apiVersion: deployment.jorisjonkers.dev
+      kind: Deployment
+      metadata:
+        name: status
+      spec:
+        workloads:
+          status:
+            image: ghcr.io/example/status:v2.0.0
+            group: observability
+            namespace: observability
+            containers:
+              - name: status
+                ports:
+                  - name: http
+                    containerPort: 8080
+            ports:
+              - name: http
+                containerPort: 8080
