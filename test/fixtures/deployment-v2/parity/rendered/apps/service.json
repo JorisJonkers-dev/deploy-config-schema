@@ -1,0 +1,21 @@
+{
+  "kind": "Service",
+  "apiVersion": "v1",
+  "metadata": {
+    "namespace": "demo",
+    "name": "api",
+    "uid": "service-rendered"
+  },
+  "spec": {
+    "selector": {
+      "app.kubernetes.io/name": "api"
+    },
+    "ports": [
+      {
+        "targetPort": 8080,
+        "port": 80,
+        "name": "http"
+      }
+    ]
+  }
+}
