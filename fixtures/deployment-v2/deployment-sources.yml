@@ -2,6 +2,9 @@ apiVersion: deployment.jorisjonkers.dev/sources/v1
 kind: DeploymentSources
 spec:
   environments:
+    - runtime
+    - development
+    - staging
     - production
   firstParty:
     assistant-api:
@@ -22,3 +25,4 @@ spec:
   platformBlueprints:
     repo: JorisJonkers-dev/platform-blueprints
     ref: v0.8.0
+  policies: {}

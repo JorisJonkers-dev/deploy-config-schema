@@ -11,6 +11,7 @@ inputs:
       repoSha: ffffffffffffffffffffffffffffffffffffffff
       images:
         - ghcr.io/jorisjonkers-dev/assistant-api:v1.2.3
+        - ghcr.io/jorisjonkers-dev/platform-postgres:v16
   collections:
     data:
       repo: JorisJonkers-dev/homelab-collections
@@ -25,5 +26,6 @@ inputs:
   platformBlueprints:
     repo: JorisJonkers-dev/platform-blueprints
     ref: v0.8.0
+  charts: {}
   images:
     gatus: ghcr.io/twin/gatus:v5.20.0
