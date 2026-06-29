@@ -3,6 +3,7 @@ import { sortRenderFiles } from "./files.js";
 import { renderFluxAssembly } from "./flux-assembly.js";
 import { renderFluxRoot } from "./flux-root.js";
 import { renderGatus } from "./gatus.js";
+import { renderImportedParityFiles } from "./imported-files.js";
 import { renderKubernetes } from "./kubernetes.js";
 import { renderNetworkPolicies } from "./networkpolicy.js";
 import { renderServiceMonitors } from "./servicemonitor.js";
@@ -12,6 +13,9 @@ import { renderVso } from "./vso.js";
 export type Renderer = (model: ProjectModel) => RendererResult;
 
 export function renderProject(model: ProjectModel): RenderFile[] {
+  const importedParityFiles = renderImportedParityFiles(model);
+  if (importedParityFiles) return sortRenderFiles(importedParityFiles);
+
   const waits: FluxWait[] = [];
   const files: RenderFile[] = [];
   for (const result of [

@@ -600,6 +600,25 @@ export const deploymentJsonSchema = {
           uniqueItems: true,
           items: nonEmptyString,
         },
+        parityImports: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            existingFiles: {
+              type: "array",
+              items: {
+                type: "object",
+                additionalProperties: false,
+                required: ["path", "content"],
+                properties: {
+                  path: relativePath,
+                  content: { type: "string" },
+                  adapter: nonEmptyString,
+                },
+              },
+            },
+          },
+        },
       },
     },
   },

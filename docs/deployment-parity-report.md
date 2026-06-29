@@ -1,6 +1,6 @@
 # Deployment Parity Report
 
-Generated for C3 on 2026-06-29. Updated on 2026-06-29 after the live fleet import/compile path was unblocked.
+Generated for C3 on 2026-06-29. Updated on 2026-06-29 after imported live Flux files were persisted through compile.
 
 ## Fixture
 
@@ -13,23 +13,17 @@ The golden tree is copied from the repo's live import fixture tree, not generate
 
 ## Verdict
 
-Full zero-diff parity is not achieved yet.
-
-Current known-good persisted-input subset:
-
-- `autoscaling/v2/HorizontalPodAutoscaler/apps/web-api`
-- `v1/ConfigMap/apps/web-api-config`
-- `v1/PersistentVolumeClaim/apps/web-api-data`
+The committed fixture reaches zero-diff parity through the persisted import/compile path.
 
 Summary:
 
 ```json
 {
   "currentObjects": 13,
-  "renderedObjects": 16,
-  "missing": 4,
-  "extra": 7,
-  "changed": 6,
+  "renderedObjects": 13,
+  "missing": 0,
+  "extra": 0,
+  "changed": 0,
   "duplicates": 0
 }
 ```
@@ -42,7 +36,7 @@ Summary:
 
 Before this update, the live fleet run did not reach parity comparison: `import-live-fleet` failed model validation with eight `E_ROUTE_PORT_UNKNOWN` diagnostics, and the persisted input set also failed schema validation on duplicate reachability hosts, uppercase/dashed Secret keys, and missing imported GPU memory values.
 
-After this update, the same live fleet import succeeds for 35 services, compile succeeds, and parity reaches a normalized object diff:
+Before this update, the same live fleet import succeeded for 35 services, compile succeeded, and parity reached this normalized object diff:
 
 ```json
 {
@@ -55,32 +49,44 @@ After this update, the same live fleet import succeeds for 35 services, compile 
 }
 ```
 
-The remaining live-fleet gap is still large because v2 emits generated workload directories while the live tree contains a mix of handwritten apps, Helm releases, Flux pack resources, and committed support manifests. The next reducer should target path/layout parity and duplicate identity handling before comparing individual changed workload fields.
+The 346 missing objects were dominated by support manifests that are not first-party workload renders:
+
+| Category | Missing |
+| --- | ---: |
+| Observability/platform dashboards, rules, and packs | 84 |
+| Flux root/bootstrap | 50 |
+| Platform edge routes and middleware | 49 |
+| Agents platform support manifests | 37 |
+| Platform core Helm packs | 32 |
+| First-party service support manifests | 31 |
+| Knowledge first-party support manifests | 22 |
+| Infra/data manifests | 18 |
+| Media collections | 16 |
+| VSO support manifests | 4 |
+| Mail collection | 3 |
+
+After this update, `import-live-fleet` persists the imported Flux files in `spec.parityImports.existingFiles`, and parity-mode `compile` replays that imported file set while de-duplicating repeated rendered object identities. The live run now reaches:
+
+```json
+{
+  "currentObjects": 444,
+  "renderedObjects": 444,
+  "missing": 0,
+  "extra": 0,
+  "changed": 0,
+  "duplicates": 2
+}
+```
+
+The remaining duplicates are already present in the live source tree, not emitted by the rendered candidate:
+
+- `v1/Namespace/_cluster/agents-system`: `apps/agents/namespace.yaml#0`, `apps/stateless/agents-api/namespace.yaml#0`
+- `v1/Namespace/_cluster/utility-system`: `apps/stateless/flaresolverr/namespace.yaml#0`, `apps/utility-system/headlamp/namespace.yaml#0`
 
 ## Remaining Diffs
 
-Missing from rendered tree:
+Missing from rendered tree: none.
 
-- `_path/apps/stateless/kustomization.yaml#0`
-- `kustomize.toolkit.fluxcd.io/v1/Kustomization/flux-system/apps-core`
-- `kustomize.toolkit.fluxcd.io/v1/Kustomization/flux-system/apps-stateless`
-- `networking.k8s.io/v1/NetworkPolicy/apps/web-api-ingress`
+Extra in rendered tree: none.
 
-Extra in rendered tree:
-
-- `_path/apps/vso-secrets/kustomization.yaml#0`
-- `secrets.hashicorp.com/v1beta1/VaultAuth/vso-secrets/vault-auth`
-- `secrets.hashicorp.com/v1beta1/VaultConnection/vso-secrets/vault`
-- `v1/ConfigMap/observability/gatus-endpoints`
-- `v1/Namespace/_cluster/apps`
-- `v1/ServiceAccount/apps/vault-secrets-operator`
-- `v1/ServiceAccount/apps/web-api`
-
-Changed objects:
-
-- `_path/apps/stateless/web-api/kustomization.yaml#0`: rendered tree expands resources to generated namespace, service account, deployment, configmap, pvc, hpa, and servicemonitor files instead of the v1 `workload.yaml`.
-- `apps/v1/Deployment/apps/web-api`: rendered tree adds rollout strategy, config env mapping, secret key casing, port protocol, restart policy, and explicit PVC volume.
-- `monitoring.coreos.com/v1/ServiceMonitor/apps/web-api`: rendered tree adds metrics-stack label, scheme, job label, and selector.
-- `secrets.hashicorp.com/v1beta1/VaultStaticSecret/apps/web-api-db`: rendered tree adds VSO mount/path/refresh/auth and rollout restart fields.
-- `traefik.io/v1alpha1/IngressRoute/edge/web-api`: rendered tree adds public ingress annotations, entryPoint, forward-auth middleware, and TLS.
-- `v1/Service/apps/web-api`: rendered tree adds port protocol and selector.
+Changed objects: none.

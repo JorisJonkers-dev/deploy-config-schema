@@ -64,6 +64,7 @@ export function importLiveFleet(options: ImportLiveFleetOptions): ImportLiveFlee
       labels: { "deployment.jorisjonkers.dev/imported-from": "live-fleet" },
     },
     spec: {
+      parityImports: { existingFiles: existingFiles(options.fluxTreePath) },
       workloads: Object.fromEntries(serviceNames.map((serviceName) => [serviceName, workloadFor(serviceName, fleet, flux)])),
     },
   };
@@ -106,7 +107,7 @@ export function importLiveFleet(options: ImportLiveFleetOptions): ImportLiveFlee
   model.parityImports = {
     networkPolicies,
     extraObjects,
-    existingFiles: existingFiles(options.fluxTreePath),
+    existingFiles: deployment.spec.parityImports.existingFiles,
   };
   for (const workload of Object.values(model.workloads)) {
     const policies = networkPolicies.filter((policy) => meta(policy).namespace === workload.namespace);

@@ -874,6 +874,7 @@ export function buildProjectModel(input: CompilerInputSet): ProjectModel {
       layers: [],
       packs: {},
     },
+    parityImports: parityImportsFromDeployments(input.deployments),
     adapterArtifacts,
   };
 
@@ -885,6 +886,14 @@ export function buildProjectModel(input: CompilerInputSet): ProjectModel {
     throw error;
   }
   return parsed;
+}
+
+function parityImportsFromDeployments(deployments: unknown[]): ParityImportModel | undefined {
+  const existingFiles = deployments.flatMap((deployment) => {
+    const value = deployment as { spec?: { parityImports?: { existingFiles?: RenderFile[] } } };
+    return value.spec?.parityImports?.existingFiles ?? [];
+  });
+  return existingFiles.length > 0 ? { networkPolicies: [], extraObjects: [], existingFiles } : undefined;
 }
 
 export function projectModelToAdapterContext(model: ProjectModel): AdapterContext {
