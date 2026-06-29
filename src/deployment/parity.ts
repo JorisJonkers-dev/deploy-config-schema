@@ -297,7 +297,7 @@ function applyDesiredStateIgnores(value: KubernetesObject): void {
   }
 }
 
-function parityObjectKey(value: KubernetesObject, path: string, documentIndex: number): string {
+export function parityObjectKey(value: KubernetesObject, path: string, documentIndex: number): string {
   const apiVersion = stringValue(value.apiVersion);
   const kind = stringValue(value.kind);
   const metadata = recordValue(value.metadata);

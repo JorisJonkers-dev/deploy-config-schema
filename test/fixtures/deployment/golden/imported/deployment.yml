@@ -5,6 +5,182 @@ metadata:
   labels:
     deployment.jorisjonkers.dev/imported-from: live-fleet
 spec:
+  parityImports:
+    existingFiles:
+      - path: apps/edge/traefik-ingressroutes.yaml
+        content: |
+          apiVersion: traefik.io/v1alpha1
+          kind: IngressRoute
+          metadata:
+            name: web-api
+            namespace: edge
+          spec:
+            routes:
+              - kind: Rule
+                match: Host(`api.example.test`) && PathPrefix(`/api`)
+                services:
+                  - name: web-api
+                    namespace: apps
+                    port: 80
+        adapter: import-live-fleet
+      - path: apps/stateless/kustomization.yaml
+        content: |
+          apiVersion: kustomize.config.k8s.io/v1beta1
+          kind: Kustomization
+          resources:
+            - web-api
+        adapter: import-live-fleet
+      - path: apps/stateless/web-api/kustomization.yaml
+        content: |
+          apiVersion: kustomize.config.k8s.io/v1beta1
+          kind: Kustomization
+          resources:
+            - workload.yaml
+        adapter: import-live-fleet
+      - path: apps/stateless/web-api/workload.yaml
+        content: |
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: web-api
+            namespace: apps
+          spec:
+            replicas: 2
+            selector:
+              matchLabels:
+                app.kubernetes.io/name: web-api
+            template:
+              metadata:
+                labels:
+                  app.kubernetes.io/name: web-api
+              spec:
+                serviceAccountName: web-api
+                containers:
+                  - name: web-api
+                    image: ghcr.io/example/web-api:v1.0.0
+                    imagePullPolicy: IfNotPresent
+                    ports:
+                      - name: http
+                        containerPort: 8080
+                    env:
+                      - name: DATABASE_URL
+                        valueFrom:
+                          secretKeyRef:
+                            name: web-api-db
+                            key: uri
+                    volumeMounts:
+                      - name: data
+                        mountPath: /var/lib/web-api
+          ---
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: web-api
+            namespace: apps
+          spec:
+            ports:
+              - name: http
+                port: 80
+                targetPort: http
+          ---
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: web-api-config
+            namespace: apps
+          data:
+            LOG_LEVEL: info
+            application.yml: |
+              feature: imported
+          ---
+          apiVersion: v1
+          kind: PersistentVolumeClaim
+          metadata:
+            name: web-api-data
+            namespace: apps
+          spec:
+            accessModes:
+              - ReadWriteOnce
+            storageClassName: longhorn
+            resources:
+              requests:
+                storage: 5Gi
+          ---
+          apiVersion: networking.k8s.io/v1
+          kind: NetworkPolicy
+          metadata:
+            name: web-api-ingress
+            namespace: apps
+          spec:
+            podSelector:
+              matchLabels:
+                app.kubernetes.io/name: web-api
+            policyTypes:
+              - Ingress
+          ---
+          apiVersion: secrets.hashicorp.com/v1beta1
+          kind: VaultStaticSecret
+          metadata:
+            name: web-api-db
+            namespace: apps
+          spec:
+            destination:
+              name: web-api-db
+              create: true
+          ---
+          apiVersion: monitoring.coreos.com/v1
+          kind: ServiceMonitor
+          metadata:
+            name: web-api
+            namespace: apps
+          spec:
+            endpoints:
+              - port: http
+                path: /metrics
+                interval: 30s
+          ---
+          apiVersion: autoscaling/v2
+          kind: HorizontalPodAutoscaler
+          metadata:
+            name: web-api
+            namespace: apps
+          spec:
+            minReplicas: 2
+            maxReplicas: 4
+            scaleTargetRef:
+              apiVersion: apps/v1
+              kind: Deployment
+              name: web-api
+            metrics:
+              - type: Resource
+                resource:
+                  name: cpu
+                  target:
+                    type: Utilization
+                    averageUtilization: 70
+        adapter: import-live-fleet
+      - path: clusters/production/kustomizations.yaml
+        content: |
+          apiVersion: kustomize.toolkit.fluxcd.io/v1
+          kind: Kustomization
+          metadata:
+            name: apps-core
+            namespace: flux-system
+          spec:
+            path: ./cluster/flux/apps/core
+            wait: true
+            timeout: 15m
+          ---
+          apiVersion: kustomize.toolkit.fluxcd.io/v1
+          kind: Kustomization
+          metadata:
+            name: apps-stateless
+            namespace: flux-system
+          spec:
+            path: ./cluster/flux/apps/stateless
+            dependsOn:
+              - name: apps-core
+        adapter: import-live-fleet
   workloads:
     web-api:
       group: stateless

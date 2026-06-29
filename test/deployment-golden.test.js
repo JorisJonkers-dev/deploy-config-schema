@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -35,7 +35,7 @@ function streams() {
   };
 }
 
-test("imported live golden tree compiles through deployment and records honest parity subset", () => {
+test("imported live golden tree compiles through deployment and replays current parity files", () => {
   const importedDir = tempDir();
   const renderedDir = tempDir();
 
@@ -60,49 +60,42 @@ test("imported live golden tree compiles through deployment and records honest p
   });
   assert.equal(compiled.ok, true);
   assert.deepEqual(compiled.diagnostics, []);
-  assert(compiled.files.some((file) => file.path === "apps/stateless/web-api/deployment.yaml"));
-  assert(compiled.files.some((file) => file.path === "apps/edge/traefik-ingressroutes.yaml"));
-  assert(compiled.files.some((file) => file.path === "apps/vso-secrets/vault-auth.yaml"));
-  assert(compiled.files.some((file) => file.path === "apps/observability/gatus/gatus-endpoints-configmap.yaml"));
+  assert.deepEqual(compiled.files.map((file) => file.path), [
+    "apps/edge/traefik-ingressroutes.yaml",
+    "apps/stateless/kustomization.yaml",
+    "apps/stateless/web-api/kustomization.yaml",
+    "apps/stateless/web-api/workload.yaml",
+    "clusters/production/kustomizations.yaml",
+  ]);
 
   const report = compareParityTrees({ current: goldenFluxTree, rendered: renderedDir });
-  assert.equal(report.ok, false);
+  assert.equal(report.ok, true);
   assert.deepEqual(report.summary, {
     currentObjects: 13,
-    renderedObjects: 16,
-    missing: 4,
-    extra: 7,
-    changed: 6,
+    renderedObjects: 13,
+    missing: 0,
+    extra: 0,
+    changed: 0,
     duplicates: 0,
   });
   assert.deepEqual(zeroDiffKeys(goldenFluxTree, report), [
-    "autoscaling/v2/HorizontalPodAutoscaler/apps/web-api",
-    "v1/ConfigMap/apps/web-api-config",
-    "v1/PersistentVolumeClaim/apps/web-api-data",
-  ]);
-  assert.deepEqual(report.missing, [
     "_path/apps/stateless/kustomization.yaml#0",
-    "kustomize.toolkit.fluxcd.io/v1/Kustomization/flux-system/apps-core",
-    "kustomize.toolkit.fluxcd.io/v1/Kustomization/flux-system/apps-stateless",
-    "networking.k8s.io/v1/NetworkPolicy/apps/web-api-ingress",
-  ]);
-  assert.deepEqual(report.extra, [
-    "_path/apps/vso-secrets/kustomization.yaml#0",
-    "secrets.hashicorp.com/v1beta1/VaultAuth/vso-secrets/vault-auth",
-    "secrets.hashicorp.com/v1beta1/VaultConnection/vso-secrets/vault",
-    "v1/ConfigMap/observability/gatus-endpoints",
-    "v1/Namespace/_cluster/apps",
-    "v1/ServiceAccount/apps/vault-secrets-operator",
-    "v1/ServiceAccount/apps/web-api",
-  ]);
-  assert.deepEqual(report.changed.map((change) => change.key), [
     "_path/apps/stateless/web-api/kustomization.yaml#0",
     "apps/v1/Deployment/apps/web-api",
+    "autoscaling/v2/HorizontalPodAutoscaler/apps/web-api",
+    "kustomize.toolkit.fluxcd.io/v1/Kustomization/flux-system/apps-core",
+    "kustomize.toolkit.fluxcd.io/v1/Kustomization/flux-system/apps-stateless",
     "monitoring.coreos.com/v1/ServiceMonitor/apps/web-api",
+    "networking.k8s.io/v1/NetworkPolicy/apps/web-api-ingress",
     "secrets.hashicorp.com/v1beta1/VaultStaticSecret/apps/web-api-db",
     "traefik.io/v1alpha1/IngressRoute/edge/web-api",
+    "v1/ConfigMap/apps/web-api-config",
+    "v1/PersistentVolumeClaim/apps/web-api-data",
     "v1/Service/apps/web-api",
   ]);
+  assert.deepEqual(report.missing, []);
+  assert.deepEqual(report.extra, []);
+  assert.deepEqual(report.changed, []);
 });
 
 test("render-flux check detects drift in compiled deployment tree", async () => {
@@ -120,12 +113,64 @@ test("render-flux check detects drift in compiled deployment tree", async () => 
   const cleanCheckIo = streams();
   assert.equal(await runCli(["render-flux", "--repo", repo, "--env", "production", "--check"], cleanCheckIo), 0, cleanCheckIo.stdout.text());
 
-  const driftPath = join(repo, "cluster/flux/apps/stateless/web-api/deployment.yaml");
+  const driftPath = join(repo, "cluster/flux/apps/stateless/web-api/workload.yaml");
   writeFileSync(driftPath, `${readFileSync(driftPath, "utf8")}\n# drift\n`);
 
   const driftCheckIo = streams();
   assert.equal(await runCli(["render-flux", "--repo", repo, "--env", "production", "--check"], driftCheckIo), 1);
   assert.equal(JSON.parse(driftCheckIo.stdout.text()).ok, false);
+});
+
+test("imported parity compile de-duplicates repeated current object identities in rendered files", () => {
+  const current = tempDir();
+  cpSync(goldenFluxTree, current, { recursive: true });
+  mkdirSync(join(current, "apps", "duplicate"), { recursive: true });
+  const namespace = [
+    "apiVersion: v1",
+    "kind: Namespace",
+    "metadata:",
+    "  name: apps",
+    "",
+  ].join("\n");
+  writeFileSync(join(current, "apps", "namespace.yaml"), namespace);
+  writeFileSync(join(current, "apps", "duplicate", "namespace.yaml"), namespace);
+
+  const importedDir = tempDir();
+  const renderedDir = tempDir();
+  importLiveFleet({
+    fleetPath,
+    fluxTreePath: current,
+    outDir: importedDir,
+    deploymentName: "imported-fleet",
+  });
+
+  const compiled = compileProject({
+    environment: "production",
+    sourcesPath: join(importedDir, "deployment-sources.yml"),
+    lockPath: join(importedDir, "deployment.lock.yml"),
+    nodeContractPath: join(importedDir, "inventory/node-contract.lock.yml"),
+    reachabilityPath: join(importedDir, "catalog/reachability.yml"),
+    deploymentPaths: [join(importedDir, "deployment.yml")],
+    outDir: renderedDir,
+  });
+
+  assert.equal(compiled.ok, true);
+  const report = compareParityTrees({ current, rendered: renderedDir });
+  assert.deepEqual(report.summary, {
+    currentObjects: 14,
+    renderedObjects: 14,
+    missing: 0,
+    extra: 0,
+    changed: 0,
+    duplicates: 1,
+  });
+  assert.deepEqual(report.duplicates, [{
+    key: "v1/Namespace/_cluster/apps",
+    paths: [
+      "current/apps/duplicate/namespace.yaml#0",
+      "current/apps/namespace.yaml#0",
+    ],
+  }]);
 });
 
 function zeroDiffKeys(currentRoot, report) {

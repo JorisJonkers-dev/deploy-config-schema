@@ -4881,6 +4881,39 @@ export const deploymentJsonSchema = {
             "type": "string",
             "minLength": 1
           }
+        },
+        "parityImports": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "existingFiles": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "path",
+                  "content"
+                ],
+                "properties": {
+                  "path": {
+                    "type": "string",
+                    "minLength": 1,
+                    "not": {
+                      "pattern": "^/"
+                    }
+                  },
+                  "content": {
+                    "type": "string"
+                  },
+                  "adapter": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              }
+            }
+          }
         }
       }
     }
@@ -7576,6 +7609,39 @@ export const collectionJsonSchema = {
                     "items": {
                       "type": "string",
                       "minLength": 1
+                    }
+                  },
+                  "parityImports": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "existingFiles": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "path",
+                            "content"
+                          ],
+                          "properties": {
+                            "path": {
+                              "type": "string",
+                              "minLength": 1,
+                              "not": {
+                                "pattern": "^/"
+                              }
+                            },
+                            "content": {
+                              "type": "string"
+                            },
+                            "adapter": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          }
+                        }
+                      }
                     }
                   }
                 }
