@@ -5,6 +5,11 @@ const identifier = {
   pattern: "^[a-z0-9][a-z0-9._-]*$",
 };
 
+const envKeyIdentifier = {
+  type: "string",
+  pattern: "^[A-Za-z0-9._-]+$",
+};
+
 const nonEmptyString = {
   type: "string",
   minLength: 1,
@@ -296,7 +301,7 @@ const deploymentWorkload = {
           envKeys: {
             type: "array",
             uniqueItems: true,
-            items: identifier,
+            items: envKeyIdentifier,
           },
         },
       },

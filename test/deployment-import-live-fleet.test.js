@@ -94,9 +94,15 @@ test("importLiveFleet falls back to Kubernetes service discovery and defaults op
   writeFileSync(join(root, "fleet.yaml"), YAML.stringify({
     cluster: { public_domain: "example.test" },
     nodes: { node1: { status: "active", site: "default", arch: "arm64" } },
-    exposure_intent: { lan_only: ["fallback-lan"], internal_only: ["internal-only"] },
-    access_intent: { host_labels: { "fallback-lan": "root" } },
-    ingress_intent: { kubernetes_backends: { "fallback-lan": { namespace: "fallback", service: "fallback-lan", port: 8080 } } },
+    service_intent: { kubernetes: { stateless: ["fallback-lan", "internal-only", "charted"] } },
+    exposure_intent: { lan_only: ["fallback-lan"], public: ["charted"], internal_only: ["internal-only"] },
+    access_intent: { host_labels: { "fallback-lan": "root", charted: "charted" } },
+    ingress_intent: {
+      kubernetes_backends: {
+        "fallback-lan": { namespace: "fallback", service: "fallback-lan", port: 8080 },
+        charted: { namespace: "fallback", service: "charted-chart-service", port: 8088, health: { type: "tcp", port: 8088 } },
+      },
+    },
   }));
   writeFileSync(join(fluxTree, "services.yaml"), [
     "apiVersion: v1",
@@ -126,22 +132,39 @@ test("importLiveFleet falls back to Kubernetes service discovery and defaults op
   assert.equal(result.documents.deployment.metadata.name, "imported-fleet");
   assert.equal(result.documents.lock.metadata.generatedAt, "1970-01-01T00:00:00.000Z");
   assert.equal(result.documents.nodeContract.metadata.sourceSha, "0000000000000000000000000000000000000000");
-  assert.deepEqual(Object.keys(result.model.workloads).sort(), ["fallback-lan", "internal-only"]);
+  assert.deepEqual(Object.keys(result.model.workloads).sort(), ["charted", "fallback-lan", "internal-only"]);
   assert.equal(result.model.workloads["fallback-lan"].group, "stateless");
   assert.equal(result.model.workloads["fallback-lan"].image.ref, "ghcr.io/jorisjonkers-dev/import-placeholder:latest");
+  assert.deepEqual(result.model.workloads.charted.service?.ports, [{ name: "http", containerPort: 8088, servicePort: 8088, protocol: "TCP" }]);
+  assert.deepEqual(result.model.workloads.charted.observability.status, [{
+    name: "health",
+    group: "stateless",
+    url: "http",
+    type: "tcp",
+    conditions: ["[CONNECTED] == true"],
+  }]);
   assert.deepEqual(result.model.routes.map((route) => ({
     name: route.name,
     host: route.host,
     tier: route.tier,
     authScope: route.authScope,
     rules: route.rules.map(({ priority, ...rule }) => rule),
-  })), [{
-    name: "fallback-lan",
-    host: "example.test",
-    tier: "lan",
-    authScope: "anonymous",
-    rules: [{ path: "/", operation: "prefix", port: "web", middleware: [] }],
-  }]);
+  })).sort((left, right) => left.name.localeCompare(right.name)), [
+    {
+      name: "charted",
+      host: "charted.example.test",
+      tier: "public-frankfurt",
+      authScope: "anonymous",
+      rules: [{ path: "/", operation: "prefix", port: "http", middleware: [] }],
+    },
+    {
+      name: "fallback-lan",
+      host: "example.test",
+      tier: "lan",
+      authScope: "anonymous",
+      rules: [{ path: "/", operation: "prefix", port: "web", middleware: [] }],
+    },
+  ]);
   assert.equal(result.model.parityImports.networkPolicies.length, 0);
   assert.equal(result.model.workloads["fallback-lan"].importedParity, undefined);
 });

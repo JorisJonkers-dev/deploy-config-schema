@@ -118,11 +118,12 @@ export function importLiveFleet(options: ImportLiveFleetOptions): ImportLiveFlee
 
 function workloadFor(serviceName: string, fleet: RecordAny, flux: FluxIndex): RecordAny {
   const controller = controllerFor(serviceName, flux);
-  const service = named(kind(flux, "Service"), serviceName);
+  const backend = fleet.ingress_intent?.kubernetes_backends?.[serviceName];
+  const service = serviceFor(serviceName, backend, flux);
   const pod = podSpec(controller);
   const container = (pod.containers ?? [])[0] ?? {};
-  const namespace = meta(controller).namespace ?? meta(service).namespace ?? fleet.ingress_intent?.kubernetes_backends?.[serviceName]?.namespace ?? groupFor(serviceName, fleet);
-  const ports = portsFor(service, container);
+  const namespace = meta(controller).namespace ?? meta(service).namespace ?? backend?.namespace ?? groupFor(serviceName, fleet);
+  const ports = portsFor(service, container, backend);
   const config = configFor(serviceName, namespace, flux);
   const storage = storageFor(serviceName, namespace, pod, flux);
   return omitEmpty({
@@ -149,7 +150,7 @@ function workloadFor(serviceName: string, fleet: RecordAny, flux: FluxIndex): Re
     credentials: [],
     storage,
     autoscaling: autoscalingFor(serviceName, namespace, flux),
-    observability: observabilityFor(serviceName, namespace, fleet, flux),
+    observability: observabilityFor(serviceName, namespace, fleet, flux, ports),
     routes: routesFor(serviceName, fleet, ports),
     rawManifests: [],
   });
@@ -192,6 +193,12 @@ function controllerFor(serviceName: string, flux: FluxIndex): KubernetesObject |
   return named([...kind(flux, "Deployment"), ...kind(flux, "StatefulSet"), ...kind(flux, "Job"), ...kind(flux, "CronJob")], serviceName);
 }
 
+function serviceFor(serviceName: string, backend: RecordAny | undefined, flux: FluxIndex): KubernetesObject | undefined {
+  return named(kind(flux, "Service"), serviceName, backend?.namespace)
+    ?? (backend?.service ? named(kind(flux, "Service"), backend.service, backend.namespace) : undefined)
+    ?? named(kind(flux, "Service"), serviceName);
+}
+
 function podSpec(controller?: KubernetesObject): RecordAny {
   if (controller?.kind === "CronJob") return get(controller, "spec", "jobTemplate", "spec", "template", "spec") ?? {};
   if (controller?.kind === "Job") return get(controller, "spec", "template", "spec") ?? {};
@@ -205,9 +212,17 @@ function controllerKind(controller?: KubernetesObject): string {
   return "deployment";
 }
 
-function portsFor(service: KubernetesObject | undefined, container: RecordAny): RecordAny[] {
+function portsFor(service: KubernetesObject | undefined, container: RecordAny, backend?: RecordAny): RecordAny[] {
   const containerPorts = new Map((container.ports ?? []).map((port: RecordAny) => [port.name, port.containerPort]));
-  return ((get(service, "spec", "ports") ?? []) as RecordAny[]).map((port) => {
+  const servicePorts = ((get(service, "spec", "ports") ?? []) as RecordAny[]);
+  if (servicePorts.length === 0 && backend?.port) {
+    return [{
+      name: "http",
+      containerPort: Number(backend.port),
+      servicePort: Number(backend.port),
+    }];
+  }
+  return servicePorts.map((port) => {
     const target = port.targetPort ?? port.port;
     return omitEmpty({
       name: port.name ?? `port-${port.port}`,
@@ -275,18 +290,21 @@ function autoscalingFor(serviceName: string, namespace: string, flux: FluxIndex)
   }) : undefined;
 }
 
-function observabilityFor(serviceName: string, namespace: string, fleet: RecordAny, flux: FluxIndex): RecordAny {
+function observabilityFor(serviceName: string, namespace: string, fleet: RecordAny, flux: FluxIndex, ports: RecordAny[]): RecordAny {
   const backend = fleet.monitoring_intent?.kubernetes_backends?.[serviceName] ?? fleet.ingress_intent?.kubernetes_backends?.[serviceName];
   const health = backend?.health ?? {};
+  const type = health.type ?? "http";
+  const healthPort = health.port ?? backend?.port;
+  const healthPortName = portName(ports, healthPort);
   const monitor = kind(flux, "ServiceMonitor").find((item) => meta(item).namespace === namespace && meta(item).name === serviceName);
   const endpoint = ((get(monitor, "spec", "endpoints") ?? []) as RecordAny[])[0] ?? {};
   return {
     status: backend ? [{
       name: "health",
       group: groupFor(serviceName, fleet),
-      url: `http://${backend.service}.${backend.namespace}.svc.cluster.local:${backend.port}${health.path ?? "/"}`,
-      type: health.type ?? "http",
-      conditions: [`[STATUS] == ${health.expected_status ?? 200}`, `[RESPONSE_TIME] < ${health.response_time_ms ?? 1500}`],
+      url: type === "tcp" ? healthPortName : `http://${backend.service}.${backend.namespace}.svc.cluster.local:${backend.port}${health.path ?? "/"}`,
+      type,
+      conditions: type === "tcp" ? ["[CONNECTED] == true"] : [`[STATUS] == ${health.expected_status ?? 200}`, `[RESPONSE_TIME] < ${health.response_time_ms ?? 1500}`],
     }] : [],
     metrics: monitor ? [omitEmpty({ kind: "ServiceMonitor", port: endpoint.port, path: endpoint.path, interval: endpoint.interval })] : [],
   };
@@ -330,7 +348,7 @@ function nodeContractFor(fleet: RecordAny, sourceSha: string): NodeContractModel
         vendor: gpu.vendor,
         model: gpu.model,
         class: gpu.class,
-        memoryMiB: gpu.memoryMiB ?? gpu.memory_mib,
+        memoryMiB: gpu.memoryMiB ?? gpu.memory_mib ?? 1,
         count: gpu.count ?? 1,
         resourceName: gpu.resourceName ?? gpu.resource_name,
       })),
@@ -342,7 +360,7 @@ function nodeContractFor(fleet: RecordAny, sourceSha: string): NodeContractModel
 }
 
 function reachabilityFor(fleet: RecordAny): ReachabilityModel {
-  const hosts = Object.entries(fleet.access_intent?.host_labels ?? {}).map(([, label]) => fqdn(String(label), fleet.cluster?.public_domain ?? "example.com")).sort();
+  const hosts = [...new Set(Object.entries(fleet.access_intent?.host_labels ?? {}).map(([, label]) => fqdn(String(label), fleet.cluster?.public_domain ?? "example.com")))].sort();
   return {
     apiVersion: "deployment.jorisjonkers.dev/reachability",
     kind: "Reachability",

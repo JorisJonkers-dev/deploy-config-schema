@@ -40,7 +40,7 @@
     "fixtures/"
   ],
   "scripts": {
-    "build": "tsc && npm run build:schemas && node scripts/copy-dist-assets.js",
+    "build": "tsc && npm run build:schemas && tsc && node scripts/copy-dist-assets.js",
     "build:schemas": "node dist/scripts/generate-schemas.js",
     "check:schemas": "node dist/scripts/generate-schemas.js --check",
     "prepack": "npm run build",

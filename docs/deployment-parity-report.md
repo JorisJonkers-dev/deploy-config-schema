@@ -1,6 +1,6 @@
 # Deployment Parity Report
 
-Generated for C3 on 2026-06-29.
+Generated for C3 on 2026-06-29. Updated on 2026-06-29 after the live fleet import/compile path was unblocked.
 
 ## Fixture
 
@@ -33,6 +33,29 @@ Summary:
   "duplicates": 0
 }
 ```
+
+## Live Fleet Run
+
+- Fleet input: `/workspace/homelab-deploy/inventory/fleet.yaml`
+- Live tree: `/workspace/homelab-deploy/cluster/flux`
+- Rendered path: `import-live-fleet` writes persisted deployment inputs, then `compile --env production` renders the candidate tree.
+
+Before this update, the live fleet run did not reach parity comparison: `import-live-fleet` failed model validation with eight `E_ROUTE_PORT_UNKNOWN` diagnostics, and the persisted input set also failed schema validation on duplicate reachability hosts, uppercase/dashed Secret keys, and missing imported GPU memory values.
+
+After this update, the same live fleet import succeeds for 35 services, compile succeeds, and parity reaches a normalized object diff:
+
+```json
+{
+  "currentObjects": 444,
+  "renderedObjects": 205,
+  "missing": 346,
+  "extra": 107,
+  "changed": 59,
+  "duplicates": 10
+}
+```
+
+The remaining live-fleet gap is still large because v2 emits generated workload directories while the live tree contains a mix of handwritten apps, Helm releases, Flux pack resources, and committed support manifests. The next reducer should target path/layout parity and duplicate identity handling before comparing individual changed workload fields.
 
 ## Remaining Diffs
 
