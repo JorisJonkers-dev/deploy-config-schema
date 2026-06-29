@@ -13,7 +13,16 @@ function tempDir() {
   return mkdtempSync(join(tmpdir(), "deploy-v2-compiler-"));
 }
 
-test("compileProject validates named inputs and empty stubs produce no files", () => {
+const expectedCompilePaths = [
+  "apps/agents/assistant-api/servicemonitor.yaml",
+  "apps/edge/traefik-ingressroutes.yaml",
+  "apps/observability/gatus/gatus-endpoints-configmap.yaml",
+  "apps/vso-secrets/kustomization.yaml",
+  "apps/vso-secrets/vault-auth.yaml",
+  "apps/vso-secrets/vault-connection.yaml",
+];
+
+test("compileProject validates named inputs and renders B2 deployment-v2 files", () => {
   const result = compileProject({
     environment: "production",
     sourcesPath: "fixtures/deployment-v2/deployment-sources.yml",
@@ -24,7 +33,7 @@ test("compileProject validates named inputs and empty stubs produce no files", (
   });
 
   assert.equal(result.ok, true);
-  assert.deepEqual(result.files, []);
+  assert.deepEqual(result.files.map((file) => file.path), expectedCompilePaths);
 });
 
 test("compileProject reports schema diagnostics for named inputs", () => {
