@@ -1,0 +1,60 @@
+version: 1
+cluster:
+  name: imported-homelab
+  public_domain: example.test
+nodes:
+  k3s-01:
+    status: active
+    site: frankfurt
+    arch: amd64
+    capabilities:
+      - platform
+    storage:
+      longhorn:
+        eligible: true
+        nodeTags:
+          - fast
+        disks:
+          - name: nvme
+            path: /var/lib/longhorn
+            tags:
+              - fast
+service_intent:
+  kubernetes:
+    stateless:
+      - web-api
+exposure_intent:
+  public:
+    - web-api
+access_intent:
+  sso_protected:
+    - web-api
+  host_labels:
+    web-api: api
+ingress_intent:
+  kubernetes_backends:
+    web-api:
+      namespace: apps
+      service: web-api
+      port: 80
+      health:
+        type: http
+        path: /healthz
+        expected_status: 204
+        response_time_ms: 750
+  route_rules:
+    - name: web-api
+      service: web-api
+      path_prefixes:
+        - /api
+monitoring_intent:
+  kubernetes_backends:
+    web-api:
+      namespace: apps
+      service: web-api
+      port: 80
+      health:
+        type: http
+        path: /healthz
+        expected_status: 204
+        response_time_ms: 750
