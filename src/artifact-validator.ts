@@ -6,8 +6,16 @@ import { createRequire } from "node:module";
 import type { Ajv2020 as Ajv2020Class } from "ajv/dist/2020.js";
 import { validateConfig } from "./validator.js";
 import {
+  collectionV1JsonSchema,
+  deploymentEnvV1JsonSchema,
+  deploymentLockV1JsonSchema,
+  deploymentSourcesV1JsonSchema,
+  deploymentV2JsonSchema,
   fleetInventoryJsonSchema,
+  nodeContractV1JsonSchema,
+  reachabilityV1JsonSchema,
   serviceIntentJsonSchema,
+  stateMovePlanV1JsonSchema,
   vaultDynamicSecretsJsonSchema,
 } from "./schemas/generated-json.js";
 
@@ -15,6 +23,14 @@ const artifactSchemas = {
   "service-intent": serviceIntentJsonSchema,
   "fleet-inventory": fleetInventoryJsonSchema,
   "vault-dynamic-secrets": vaultDynamicSecretsJsonSchema,
+  "deployment-v2": deploymentV2JsonSchema,
+  "deployment-env-v1": deploymentEnvV1JsonSchema,
+  "deployment-sources-v1": deploymentSourcesV1JsonSchema,
+  "deployment-lock-v1": deploymentLockV1JsonSchema,
+  "node-contract-v1": nodeContractV1JsonSchema,
+  "collection-v1": collectionV1JsonSchema,
+  "reachability-v1": reachabilityV1JsonSchema,
+  "state-move-plan-v1": stateMovePlanV1JsonSchema,
 };
 
 const require = createRequire(import.meta.url);
@@ -42,8 +58,6 @@ export function validateArtifact(kind, document, options = {}) {
     validateFleetInventory(document, diagnostics);
   } else if (kind === "vault-dynamic-secrets") {
     validateVaultDynamicSecrets(document, diagnostics);
-  } else {
-    diagnostic(diagnostics, "E_ARTIFACT_KIND_UNKNOWN", "/", `unknown artifact kind: ${kind}`);
   }
 
   return result(diagnostics);

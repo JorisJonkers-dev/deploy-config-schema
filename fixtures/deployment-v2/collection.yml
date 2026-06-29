@@ -1,0 +1,24 @@
+apiVersion: deployment.jorisjonkers.dev/collection/v1
+kind: Collection
+metadata:
+  name: data
+  domain: data
+spec:
+  deployments:
+    - apiVersion: deployment.jorisjonkers.dev/v2
+      kind: Deployment
+      metadata:
+        name: platform-postgres
+      spec:
+        services:
+          platform-postgres:
+            image: ghcr.io/jorisjonkers-dev/platform-postgres:v16
+            namespace: data
+            ports:
+              - name: postgres
+                containerPort: 5432
+            data:
+              provider: postgres
+  providerExports:
+    postgres:
+      type: database

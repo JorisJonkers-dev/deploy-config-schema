@@ -1,0 +1,13 @@
+apiVersion: deployment.jorisjonkers.dev/state-move-plan/v1
+kind: StateMovePlan
+metadata:
+  name: assistant-api-postgres
+  ownerApproved: false
+moves:
+  - resource: pvc/assistant-api-postgres
+    from: old-source
+    to: homelab-deploy
+    operation: adopt
+    safety:
+      gateOn:
+        - owner-approval

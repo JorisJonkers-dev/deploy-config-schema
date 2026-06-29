@@ -3745,3 +3745,1555 @@ export const vaultDynamicSecretsJsonSchema = {
     }
   }
 };
+
+export const deploymentV2JsonSchema = {
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.jorisjonkers.dev/deployment/v2.schema.json",
+  "title": "JorisJonkers-dev Deployment v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "apiVersion",
+    "kind",
+    "metadata",
+    "spec"
+  ],
+  "properties": {
+    "apiVersion": {
+      "const": "deployment.jorisjonkers.dev/v2"
+    },
+    "kind": {
+      "const": "Deployment"
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]*$"
+        },
+        "labels": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "spec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "services"
+      ],
+      "properties": {
+        "services": {
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]*$"
+          },
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "image"
+            ],
+            "properties": {
+              "image": {
+                "type": "string",
+                "pattern": "^[^\\s]+@sha256:[a-f0-9]{64}$|^[^\\s]+:[^\\s]+$"
+              },
+              "namespace": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9._-]*$"
+              },
+              "account": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9._-]*$"
+              },
+              "command": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "ports": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "name",
+                    "containerPort"
+                  ],
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                    },
+                    "containerPort": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 65535
+                    },
+                    "protocol": {
+                      "enum": [
+                        "TCP",
+                        "UDP"
+                      ],
+                      "default": "TCP"
+                    }
+                  }
+                }
+              },
+              "data": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "messaging": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "placement": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "site": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                  },
+                  "nodeSelector": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "requiredCapabilities": {
+                    "type": "array",
+                    "uniqueItems": true,
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                    }
+                  }
+                }
+              },
+              "autoscaling": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "minReplicas": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "maxReplicas": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                }
+              },
+              "credentials": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "name",
+                    "claim"
+                  ],
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                    },
+                    "claim": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "destinationSecret": {
+                      "type": "string",
+                      "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                    }
+                  }
+                }
+              },
+              "observability": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "metrics": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "port"
+                      ],
+                      "properties": {
+                        "port": {
+                          "type": "string",
+                          "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                        },
+                        "path": {
+                          "type": "string",
+                          "pattern": "^/"
+                        }
+                      }
+                    }
+                  },
+                  "gatus": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "name",
+                        "url"
+                      ],
+                      "properties": {
+                        "name": {
+                          "type": "string",
+                          "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                        },
+                        "url": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "routes": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "host",
+                    "expose",
+                    "rules"
+                  ],
+                  "properties": {
+                    "host": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "expose": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "tier"
+                      ],
+                      "properties": {
+                        "tier": {
+                          "enum": [
+                            "lan",
+                            "public-frankfurt"
+                          ]
+                        }
+                      }
+                    },
+                    "rules": {
+                      "type": "array",
+                      "minItems": 1,
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "path",
+                          "port"
+                        ],
+                        "properties": {
+                          "path": {
+                            "type": "string",
+                            "pattern": "^/"
+                          },
+                          "port": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "operation": {
+                            "enum": [
+                              "prefix",
+                              "exact",
+                              "regexp"
+                            ],
+                            "default": "prefix"
+                          },
+                          "priority": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "middleware": {
+                            "type": "array",
+                            "uniqueItems": true,
+                            "items": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "auth": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                              "scope": {
+                                "enum": [
+                                  "anonymous",
+                                  "authenticated",
+                                  "admin"
+                                ]
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "hooks": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "pre": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                }
+              },
+              "safety": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "gateOn": {
+                    "type": "array",
+                    "uniqueItems": true,
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "fragments": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  }
+};
+
+export const deploymentEnvV1JsonSchema = {
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.jorisjonkers.dev/deployment-env/v1.schema.json",
+  "title": "JorisJonkers-dev Deployment Environment v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "apiVersion",
+    "kind",
+    "metadata",
+    "spec"
+  ],
+  "properties": {
+    "apiVersion": {
+      "const": "deployment.jorisjonkers.dev/env/v1"
+    },
+    "kind": {
+      "const": "DeploymentEnvironment"
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]*$"
+        }
+      }
+    },
+    "spec": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "values": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "overrides": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      }
+    }
+  }
+};
+
+export const deploymentSourcesV1JsonSchema = {
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.jorisjonkers.dev/deployment-sources/v1.schema.json",
+  "title": "JorisJonkers-dev Deployment Sources v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "apiVersion",
+    "kind",
+    "spec"
+  ],
+  "properties": {
+    "apiVersion": {
+      "const": "deployment.jorisjonkers.dev/sources/v1"
+    },
+    "kind": {
+      "const": "DeploymentSources"
+    },
+    "spec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "environments"
+      ],
+      "properties": {
+        "environments": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]*$"
+          }
+        },
+        "firstParty": {
+          "type": "object",
+          "minProperties": 0,
+          "propertyNames": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]*$"
+          },
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "bundle"
+            ],
+            "properties": {
+              "bundle": {
+                "type": "string",
+                "minLength": 1
+              },
+              "repo": {
+                "type": "string",
+                "minLength": 1
+              },
+              "policy": {
+                "enum": [
+                  "locked",
+                  "release"
+                ]
+              }
+            }
+          }
+        },
+        "collections": {
+          "type": "object",
+          "minProperties": 0,
+          "propertyNames": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]*$"
+          },
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "repo",
+              "ref"
+            ],
+            "properties": {
+              "repo": {
+                "type": "string",
+                "minLength": 1
+              },
+              "ref": {
+                "type": "string",
+                "minLength": 1
+              },
+              "sha": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{40}$"
+              },
+              "paths": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          }
+        },
+        "hosts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "repo",
+            "ref"
+          ],
+          "properties": {
+            "repo": {
+              "type": "string",
+              "minLength": 1
+            },
+            "ref": {
+              "type": "string",
+              "minLength": 1
+            },
+            "sha": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{40}$"
+            },
+            "paths": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        "platformBlueprints": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "repo",
+            "ref"
+          ],
+          "properties": {
+            "repo": {
+              "type": "string",
+              "minLength": 1
+            },
+            "ref": {
+              "type": "string",
+              "minLength": 1
+            },
+            "sha": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{40}$"
+            },
+            "paths": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        "policies": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      }
+    }
+  }
+};
+
+export const deploymentLockV1JsonSchema = {
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.jorisjonkers.dev/deployment-lock/v1.schema.json",
+  "title": "JorisJonkers-dev Deployment Lock v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "apiVersion",
+    "kind",
+    "metadata",
+    "inputs"
+  ],
+  "properties": {
+    "apiVersion": {
+      "const": "deployment.jorisjonkers.dev/lock/v1"
+    },
+    "kind": {
+      "const": "DeploymentLock"
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "generatedAt"
+      ],
+      "properties": {
+        "generatedAt": {
+          "type": "string",
+          "minLength": 1
+        },
+        "renderedRootDigest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        }
+      }
+    },
+    "inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "firstParty": {
+          "type": "object",
+          "minProperties": 0,
+          "propertyNames": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]*$"
+          },
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "bundle",
+              "manifestDigest",
+              "repoSha",
+              "images"
+            ],
+            "properties": {
+              "bundle": {
+                "type": "string",
+                "minLength": 1
+              },
+              "manifestDigest": {
+                "type": "string",
+                "pattern": "^sha256:[a-f0-9]{64}$"
+              },
+              "repoSha": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{40}$"
+              },
+              "images": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "pattern": "^[^\\s]+@sha256:[a-f0-9]{64}$|^[^\\s]+:[^\\s]+$"
+                }
+              }
+            }
+          }
+        },
+        "collections": {
+          "type": "object",
+          "minProperties": 0,
+          "propertyNames": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]*$"
+          },
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "repo",
+              "ref"
+            ],
+            "properties": {
+              "repo": {
+                "type": "string",
+                "minLength": 1
+              },
+              "ref": {
+                "type": "string",
+                "minLength": 1
+              },
+              "sha": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{40}$"
+              },
+              "paths": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          }
+        },
+        "homelabHosts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "repo",
+            "ref"
+          ],
+          "properties": {
+            "repo": {
+              "type": "string",
+              "minLength": 1
+            },
+            "ref": {
+              "type": "string",
+              "minLength": 1
+            },
+            "sha": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{40}$"
+            },
+            "paths": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        "platformBlueprints": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "repo",
+            "ref"
+          ],
+          "properties": {
+            "repo": {
+              "type": "string",
+              "minLength": 1
+            },
+            "ref": {
+              "type": "string",
+              "minLength": 1
+            },
+            "sha": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{40}$"
+            },
+            "paths": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        "charts": {
+          "type": "object",
+          "minProperties": 0,
+          "propertyNames": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]*$"
+          },
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "version",
+              "digest"
+            ],
+            "properties": {
+              "version": {
+                "type": "string",
+                "minLength": 1
+              },
+              "digest": {
+                "type": "string",
+                "pattern": "^sha256:[a-f0-9]{64}$"
+              }
+            }
+          }
+        },
+        "images": {
+          "type": "object",
+          "minProperties": 0,
+          "propertyNames": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]*$"
+          },
+          "additionalProperties": {
+            "type": "string",
+            "pattern": "^[^\\s]+@sha256:[a-f0-9]{64}$|^[^\\s]+:[^\\s]+$"
+          }
+        }
+      }
+    }
+  }
+};
+
+export const nodeContractV1JsonSchema = {
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.jorisjonkers.dev/node-contract/v1.schema.json",
+  "title": "JorisJonkers-dev Node Contract v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "apiVersion",
+    "kind",
+    "metadata",
+    "nodes"
+  ],
+  "properties": {
+    "apiVersion": {
+      "const": "deployment.jorisjonkers.dev/node-contract/v1"
+    },
+    "kind": {
+      "const": "NodeContract"
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sourceSha"
+      ],
+      "properties": {
+        "sourceSha": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40}$"
+        }
+      }
+    },
+    "nodes": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[a-z0-9][a-z0-9._-]*$"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "status",
+          "schedulable",
+          "site",
+          "arch",
+          "labels",
+          "storage"
+        ],
+        "properties": {
+          "status": {
+            "enum": [
+              "active",
+              "ignored",
+              "planned",
+              "retired"
+            ]
+          },
+          "schedulable": {
+            "type": "boolean"
+          },
+          "site": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]*$"
+          },
+          "arch": {
+            "enum": [
+              "amd64",
+              "arm64"
+            ]
+          },
+          "labels": {
+            "type": "object",
+            "required": [
+              "platform.jorisjonkers.dev/site",
+              "platform.jorisjonkers.dev/node-id",
+              "kubernetes.io/arch"
+            ],
+            "additionalProperties": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "taints": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "key",
+                "effect"
+              ],
+              "properties": {
+                "key": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "value": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "effect": {
+                  "enum": [
+                    "NoSchedule",
+                    "PreferNoSchedule",
+                    "NoExecute"
+                  ]
+                }
+              }
+            }
+          },
+          "storage": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "longhorn"
+            ],
+            "properties": {
+              "longhorn": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "eligible",
+                  "nodeTags",
+                  "disks"
+                ],
+                "properties": {
+                  "eligible": {
+                    "type": "boolean"
+                  },
+                  "nodeTags": {
+                    "type": "array",
+                    "uniqueItems": true,
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                    }
+                  },
+                  "disks": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "name",
+                        "path",
+                        "tags"
+                      ],
+                      "properties": {
+                        "name": {
+                          "type": "string",
+                          "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                        },
+                        "path": {
+                          "type": "string",
+                          "pattern": "^/"
+                        },
+                        "tags": {
+                          "type": "array",
+                          "uniqueItems": true,
+                          "items": {
+                            "type": "string",
+                            "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+};
+
+export const collectionV1JsonSchema = {
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.jorisjonkers.dev/collection/v1.schema.json",
+  "title": "JorisJonkers-dev Collection v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "apiVersion",
+    "kind",
+    "metadata",
+    "spec"
+  ],
+  "properties": {
+    "apiVersion": {
+      "const": "deployment.jorisjonkers.dev/collection/v1"
+    },
+    "kind": {
+      "const": "Collection"
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]*$"
+        },
+        "domain": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]*$"
+        }
+      }
+    },
+    "spec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "deployments"
+      ],
+      "properties": {
+        "deployments": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$id": "https://schemas.jorisjonkers.dev/deployment/v2.schema.json",
+            "title": "JorisJonkers-dev Deployment v2",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "apiVersion",
+              "kind",
+              "metadata",
+              "spec"
+            ],
+            "properties": {
+              "apiVersion": {
+                "const": "deployment.jorisjonkers.dev/v2"
+              },
+              "kind": {
+                "const": "Deployment"
+              },
+              "metadata": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "name"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                  },
+                  "labels": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                }
+              },
+              "spec": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "services"
+                ],
+                "properties": {
+                  "services": {
+                    "type": "object",
+                    "minProperties": 1,
+                    "propertyNames": {
+                      "type": "string",
+                      "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                    },
+                    "additionalProperties": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "image"
+                      ],
+                      "properties": {
+                        "image": {
+                          "type": "string",
+                          "pattern": "^[^\\s]+@sha256:[a-f0-9]{64}$|^[^\\s]+:[^\\s]+$"
+                        },
+                        "namespace": {
+                          "type": "string",
+                          "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                        },
+                        "account": {
+                          "type": "string",
+                          "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                        },
+                        "command": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "args": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "ports": {
+                          "type": "array",
+                          "uniqueItems": true,
+                          "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "name",
+                              "containerPort"
+                            ],
+                            "properties": {
+                              "name": {
+                                "type": "string",
+                                "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                              },
+                              "containerPort": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 65535
+                              },
+                              "protocol": {
+                                "enum": [
+                                  "TCP",
+                                  "UDP"
+                                ],
+                                "default": "TCP"
+                              }
+                            }
+                          }
+                        },
+                        "data": {
+                          "type": "object",
+                          "additionalProperties": true
+                        },
+                        "messaging": {
+                          "type": "object",
+                          "additionalProperties": true
+                        },
+                        "placement": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "properties": {
+                            "site": {
+                              "type": "string",
+                              "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                            },
+                            "nodeSelector": {
+                              "type": "object",
+                              "additionalProperties": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            },
+                            "requiredCapabilities": {
+                              "type": "array",
+                              "uniqueItems": true,
+                              "items": {
+                                "type": "string",
+                                "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                              }
+                            }
+                          }
+                        },
+                        "autoscaling": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "properties": {
+                            "minReplicas": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "maxReplicas": {
+                              "type": "integer",
+                              "minimum": 1
+                            }
+                          }
+                        },
+                        "credentials": {
+                          "type": "array",
+                          "uniqueItems": true,
+                          "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "name",
+                              "claim"
+                            ],
+                            "properties": {
+                              "name": {
+                                "type": "string",
+                                "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                              },
+                              "claim": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "destinationSecret": {
+                                "type": "string",
+                                "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                              }
+                            }
+                          }
+                        },
+                        "observability": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "properties": {
+                            "metrics": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": [
+                                  "port"
+                                ],
+                                "properties": {
+                                  "port": {
+                                    "type": "string",
+                                    "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                                  },
+                                  "path": {
+                                    "type": "string",
+                                    "pattern": "^/"
+                                  }
+                                }
+                              }
+                            },
+                            "gatus": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": [
+                                  "name",
+                                  "url"
+                                ],
+                                "properties": {
+                                  "name": {
+                                    "type": "string",
+                                    "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                                  },
+                                  "url": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        },
+                        "routes": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "host",
+                              "expose",
+                              "rules"
+                            ],
+                            "properties": {
+                              "host": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "expose": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": [
+                                  "tier"
+                                ],
+                                "properties": {
+                                  "tier": {
+                                    "enum": [
+                                      "lan",
+                                      "public-frankfurt"
+                                    ]
+                                  }
+                                }
+                              },
+                              "rules": {
+                                "type": "array",
+                                "minItems": 1,
+                                "items": {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": [
+                                    "path",
+                                    "port"
+                                  ],
+                                  "properties": {
+                                    "path": {
+                                      "type": "string",
+                                      "pattern": "^/"
+                                    },
+                                    "port": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "operation": {
+                                      "enum": [
+                                        "prefix",
+                                        "exact",
+                                        "regexp"
+                                      ],
+                                      "default": "prefix"
+                                    },
+                                    "priority": {
+                                      "type": "integer",
+                                      "minimum": 0
+                                    },
+                                    "middleware": {
+                                      "type": "array",
+                                      "uniqueItems": true,
+                                      "items": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      }
+                                    },
+                                    "auth": {
+                                      "type": "object",
+                                      "additionalProperties": false,
+                                      "properties": {
+                                        "scope": {
+                                          "enum": [
+                                            "anonymous",
+                                            "authenticated",
+                                            "admin"
+                                          ]
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        },
+                        "hooks": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "properties": {
+                            "pre": {
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            }
+                          }
+                        },
+                        "safety": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "properties": {
+                            "gateOn": {
+                              "type": "array",
+                              "uniqueItems": true,
+                              "items": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "fragments": {
+                    "type": "array",
+                    "uniqueItems": true,
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "providerExports": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      }
+    }
+  }
+};
+
+export const reachabilityV1JsonSchema = {
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.jorisjonkers.dev/reachability/v1.schema.json",
+  "title": "JorisJonkers-dev Reachability v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "apiVersion",
+    "kind",
+    "channels"
+  ],
+  "properties": {
+    "apiVersion": {
+      "const": "deployment.jorisjonkers.dev/reachability/v1"
+    },
+    "kind": {
+      "const": "Reachability"
+    },
+    "channels": {
+      "type": "object",
+      "required": [
+        "public-frankfurt",
+        "lan"
+      ],
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "hosts"
+        ],
+        "properties": {
+          "hosts": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "auth": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    }
+  }
+};
+
+export const stateMovePlanV1JsonSchema = {
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.jorisjonkers.dev/state-move-plan/v1.schema.json",
+  "title": "JorisJonkers-dev State Move Plan v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "apiVersion",
+    "kind",
+    "metadata",
+    "moves"
+  ],
+  "properties": {
+    "apiVersion": {
+      "const": "deployment.jorisjonkers.dev/state-move-plan/v1"
+    },
+    "kind": {
+      "const": "StateMovePlan"
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "ownerApproved"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]*$"
+        },
+        "ownerApproved": {
+          "type": "boolean"
+        }
+      }
+    },
+    "moves": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "resource",
+          "from",
+          "to",
+          "operation"
+        ],
+        "properties": {
+          "resource": {
+            "type": "string",
+            "minLength": 1
+          },
+          "from": {
+            "type": "string",
+            "minLength": 1
+          },
+          "to": {
+            "type": "string",
+            "minLength": 1
+          },
+          "operation": {
+            "enum": [
+              "copy",
+              "move",
+              "adopt"
+            ]
+          },
+          "safety": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "gateOn": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+};

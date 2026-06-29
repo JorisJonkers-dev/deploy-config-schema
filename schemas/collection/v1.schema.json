@@ -1,0 +1,421 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.jorisjonkers.dev/collection/v1.schema.json",
+  "title": "JorisJonkers-dev Collection v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "apiVersion",
+    "kind",
+    "metadata",
+    "spec"
+  ],
+  "properties": {
+    "apiVersion": {
+      "const": "deployment.jorisjonkers.dev/collection/v1"
+    },
+    "kind": {
+      "const": "Collection"
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]*$"
+        },
+        "domain": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]*$"
+        }
+      }
+    },
+    "spec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "deployments"
+      ],
+      "properties": {
+        "deployments": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$id": "https://schemas.jorisjonkers.dev/deployment/v2.schema.json",
+            "title": "JorisJonkers-dev Deployment v2",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "apiVersion",
+              "kind",
+              "metadata",
+              "spec"
+            ],
+            "properties": {
+              "apiVersion": {
+                "const": "deployment.jorisjonkers.dev/v2"
+              },
+              "kind": {
+                "const": "Deployment"
+              },
+              "metadata": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "name"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                  },
+                  "labels": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                }
+              },
+              "spec": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "services"
+                ],
+                "properties": {
+                  "services": {
+                    "type": "object",
+                    "minProperties": 1,
+                    "propertyNames": {
+                      "type": "string",
+                      "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                    },
+                    "additionalProperties": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "image"
+                      ],
+                      "properties": {
+                        "image": {
+                          "type": "string",
+                          "pattern": "^[^\\s]+@sha256:[a-f0-9]{64}$|^[^\\s]+:[^\\s]+$"
+                        },
+                        "namespace": {
+                          "type": "string",
+                          "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                        },
+                        "account": {
+                          "type": "string",
+                          "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                        },
+                        "command": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "args": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "ports": {
+                          "type": "array",
+                          "uniqueItems": true,
+                          "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "name",
+                              "containerPort"
+                            ],
+                            "properties": {
+                              "name": {
+                                "type": "string",
+                                "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                              },
+                              "containerPort": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 65535
+                              },
+                              "protocol": {
+                                "enum": [
+                                  "TCP",
+                                  "UDP"
+                                ],
+                                "default": "TCP"
+                              }
+                            }
+                          }
+                        },
+                        "data": {
+                          "type": "object",
+                          "additionalProperties": true
+                        },
+                        "messaging": {
+                          "type": "object",
+                          "additionalProperties": true
+                        },
+                        "placement": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "properties": {
+                            "site": {
+                              "type": "string",
+                              "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                            },
+                            "nodeSelector": {
+                              "type": "object",
+                              "additionalProperties": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            },
+                            "requiredCapabilities": {
+                              "type": "array",
+                              "uniqueItems": true,
+                              "items": {
+                                "type": "string",
+                                "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                              }
+                            }
+                          }
+                        },
+                        "autoscaling": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "properties": {
+                            "minReplicas": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "maxReplicas": {
+                              "type": "integer",
+                              "minimum": 1
+                            }
+                          }
+                        },
+                        "credentials": {
+                          "type": "array",
+                          "uniqueItems": true,
+                          "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "name",
+                              "claim"
+                            ],
+                            "properties": {
+                              "name": {
+                                "type": "string",
+                                "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                              },
+                              "claim": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "destinationSecret": {
+                                "type": "string",
+                                "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                              }
+                            }
+                          }
+                        },
+                        "observability": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "properties": {
+                            "metrics": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": [
+                                  "port"
+                                ],
+                                "properties": {
+                                  "port": {
+                                    "type": "string",
+                                    "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                                  },
+                                  "path": {
+                                    "type": "string",
+                                    "pattern": "^/"
+                                  }
+                                }
+                              }
+                            },
+                            "gatus": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": [
+                                  "name",
+                                  "url"
+                                ],
+                                "properties": {
+                                  "name": {
+                                    "type": "string",
+                                    "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                                  },
+                                  "url": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        },
+                        "routes": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "host",
+                              "expose",
+                              "rules"
+                            ],
+                            "properties": {
+                              "host": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "expose": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": [
+                                  "tier"
+                                ],
+                                "properties": {
+                                  "tier": {
+                                    "enum": [
+                                      "lan",
+                                      "public-frankfurt"
+                                    ]
+                                  }
+                                }
+                              },
+                              "rules": {
+                                "type": "array",
+                                "minItems": 1,
+                                "items": {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "required": [
+                                    "path",
+                                    "port"
+                                  ],
+                                  "properties": {
+                                    "path": {
+                                      "type": "string",
+                                      "pattern": "^/"
+                                    },
+                                    "port": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "operation": {
+                                      "enum": [
+                                        "prefix",
+                                        "exact",
+                                        "regexp"
+                                      ],
+                                      "default": "prefix"
+                                    },
+                                    "priority": {
+                                      "type": "integer",
+                                      "minimum": 0
+                                    },
+                                    "middleware": {
+                                      "type": "array",
+                                      "uniqueItems": true,
+                                      "items": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      }
+                                    },
+                                    "auth": {
+                                      "type": "object",
+                                      "additionalProperties": false,
+                                      "properties": {
+                                        "scope": {
+                                          "enum": [
+                                            "anonymous",
+                                            "authenticated",
+                                            "admin"
+                                          ]
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        },
+                        "hooks": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "properties": {
+                            "pre": {
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            }
+                          }
+                        },
+                        "safety": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "properties": {
+                            "gateOn": {
+                              "type": "array",
+                              "uniqueItems": true,
+                              "items": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "fragments": {
+                    "type": "array",
+                    "uniqueItems": true,
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "providerExports": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      }
+    }
+  }
+}
