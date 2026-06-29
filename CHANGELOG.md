@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.1](https://github.com/JorisJonkers-dev/deploy-config-schema/compare/v0.13.0...v0.13.1) (2026-06-29)
+
+
+### Bug Fixes
+
+* unblock live fleet parity compile ([db4b9f8](https://github.com/JorisJonkers-dev/deploy-config-schema/commit/db4b9f8de7b56644cc9e95ea2340538f9857ea63))
+
 ## [0.13.0](https://github.com/JorisJonkers-dev/deploy-config-schema/compare/v0.12.0...v0.13.0) (2026-06-29)
 
 
