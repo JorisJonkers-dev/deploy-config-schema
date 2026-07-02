@@ -68,7 +68,7 @@ test("importLiveFleet imports fleet intent, workload details, Flux layers, and p
   assert.deepEqual(workload.observability.metrics, [{ kind: "ServiceMonitor", port: "http", path: "/metrics", interval: "30s" }]);
   assert.deepEqual(result.model.routes.map((route) => ({
     ...route,
-    rules: route.rules.map(({ priority, ...rule }) => rule),
+    rules: route.rules.map(({ priority: _priority, ...rule }) => rule),
   })), [{
     name: "web-api",
     serviceName: "web-api",
@@ -180,7 +180,7 @@ test("importLiveFleet falls back to Kubernetes service discovery and defaults op
     host: route.host,
     tier: route.tier,
     authScope: route.authScope,
-    rules: route.rules.map(({ priority, ...rule }) => rule),
+    rules: route.rules.map(({ priority: _priority, ...rule }) => rule),
   })).sort((left, right) => left.name.localeCompare(right.name)), [
     {
       name: "charted",

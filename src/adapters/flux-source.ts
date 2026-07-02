@@ -3,7 +3,6 @@ import {
   appPath,
   blueprintFiles,
   componentName,
-  contextArtifacts,
   fluxFile,
   hasPack,
   packValue,
@@ -24,7 +23,6 @@ const sourceReleaseBlueprints = {
 };
 
 export function renderFluxSource(input) {
-  const artifacts = contextArtifacts(input);
   const platform = platformFromContext(input);
   const substitutions = substitutionMap(input, input?.overrides?.["flux-source"]?.substitutions ?? {});
   const files = new Map();

@@ -13,48 +13,33 @@
 
 'permissions':
   'contents': 'read'
+  'packages': 'read'
 
 'jobs':
-  'test':
-    'name': 'Test and Coverage'
-    'runs-on': 'ubuntu-latest'
-    'env':
-      'NODE_AUTH_TOKEN': '${{ github.token }}'
-    'steps':
-      - 'uses': 'actions/checkout@v6'
-        'with':
-          'fetch-depth': 0
-      - 'uses': 'actions/setup-node@v6'
-        'with':
-          'node-version': '20'
-          'cache': 'npm'
-      - 'run': 'npm ci'
-      - 'run': 'npm test'
-
-  'schema-and-cli':
-    'name': 'Schema and CLI'
-    'runs-on': 'ubuntu-latest'
-    'env':
-      'NODE_AUTH_TOKEN': '${{ github.token }}'
-    'steps':
-      - 'uses': 'actions/checkout@v6'
-      - 'uses': 'actions/setup-node@v6'
-        'with':
-          'node-version': '20'
-          'cache': 'npm'
-      - 'run': 'npm ci'
-      - 'run': 'npm run build'
-      - 'run': 'npm run validate:schema'
-      - 'run': 'npm run validate:sample'
-      - 'run': 'npm run render:sample > /tmp/traefik-ingressroutes.yaml'
-      - 'run': 'test -s /tmp/traefik-ingressroutes.yaml'
-      - 'run': 'node dist/bin/deploy-config-schema.js render traefik-lan samples/deploy-config.yaml > /tmp/traefik-lan-ingressroutes.yaml'
-      - 'run': 'node dist/bin/deploy-config-schema.js render gatus samples/deploy-config.yaml > /tmp/gatus-endpoints-configmap.yaml'
-      - 'run': 'node dist/bin/deploy-config-schema.js render edge-catalog samples/deploy-config.yaml > /tmp/edge-catalog-configmap.yaml'
-      - 'run': 'node dist/bin/deploy-config-schema.js render edge-route-catalog samples/deploy-config.yaml > /tmp/edge-route-catalog-configmap.yaml'
-      - 'run': 'node dist/bin/deploy-config-schema.js render image-metadata samples/deploy-config.yaml > /tmp/image-metadata.yaml'
-      - 'run': 'node dist/bin/deploy-config-schema.js validate auto fixtures/deployment/*.yml'
-      - 'run': 'node dist/bin/deploy-config-schema.js lock images --lock fixtures/deployment/deployment.lock.yml --format image-tags'
+  'node':
+    'name': 'Node CI'
+    'uses': 'JorisJonkers-dev/github-workflows/.github/workflows/node-ci.yml@v0.10.2'
+    'with':
+      'node-version': '20'
+      'package-manager': 'npm'
+      'install-command': 'npm ci'
+      'prettier-args': 'package.json'
+      'test-command': 'npm test'
+      'build-command': |
+        npm run build
+        npm run validate:schema
+        npm run validate:sample
+        npm run render:sample > /tmp/traefik-ingressroutes.yaml
+        test -s /tmp/traefik-ingressroutes.yaml
+        node dist/bin/deploy-config-schema.js render traefik-lan samples/deploy-config.yaml > /tmp/traefik-lan-ingressroutes.yaml
+        node dist/bin/deploy-config-schema.js render gatus samples/deploy-config.yaml > /tmp/gatus-endpoints-configmap.yaml
+        node dist/bin/deploy-config-schema.js render edge-catalog samples/deploy-config.yaml > /tmp/edge-catalog-configmap.yaml
+        node dist/bin/deploy-config-schema.js render edge-route-catalog samples/deploy-config.yaml > /tmp/edge-route-catalog-configmap.yaml
+        node dist/bin/deploy-config-schema.js render image-metadata samples/deploy-config.yaml > /tmp/image-metadata.yaml
+        node dist/bin/deploy-config-schema.js validate auto fixtures/deployment/*.yml
+        node dist/bin/deploy-config-schema.js lock images --lock fixtures/deployment/deployment.lock.yml --format image-tags
+    'secrets':
+      'packages-token': '${{ secrets.GITHUB_TOKEN }}'
 
   'workflow-lint':
     'name': 'Workflow Lint'
@@ -122,8 +107,7 @@
     'name': 'Pipeline Complete'
     'if': 'always()'
     'needs':
-      - 'test'
-      - 'schema-and-cli'
+      - 'node'
       - 'workflow-lint'
       - 'secret-scan'
     'runs-on': 'ubuntu-latest'

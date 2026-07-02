@@ -1,4 +1,4 @@
-import { exposureByService, fqdn, routeRules } from "./model.js";
+import { routeRules } from "./model.js";
 import type { DeployConfig, KubernetesBackend, ResolvedRouteRule } from "./model.js";
 
 const PUBLIC_ADAPTER = "traefik-public";

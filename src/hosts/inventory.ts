@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
-import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { basename, dirname, extname, isAbsolute, relative, resolve, sep } from "node:path";
 import YAML from "yaml";
 import { validateArtifact } from "../artifact-validator.js";
 import { loadYamlDocument } from "../deployment/io.js";
