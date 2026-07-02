@@ -120,7 +120,7 @@ function vaultStaticSecret(model: ProjectModel, name: string, sync: VaultStaticS
         create: true,
       },
       refreshAfter: sync.refreshAfter ?? "1h",
-      rolloutRestartTargets: rolloutTargets(sync.rolloutRestartTargets, sync.target.namespace),
+      rolloutRestartTargets: rolloutTargets(sync.rolloutRestartTargets),
     }),
   }) as KubernetesObject;
 }
@@ -154,7 +154,7 @@ function targetNamespaces(model: ProjectModel): string[] {
   return [...namespaces].sort();
 }
 
-function rolloutTargets(targets: VaultStaticSyncModel["rolloutRestartTargets"], namespace: string): KubernetesObject[] | undefined {
+function rolloutTargets(targets: VaultStaticSyncModel["rolloutRestartTargets"]): KubernetesObject[] | undefined {
   const rendered = targets.map((target) => ({
     kind: target.kind,
     name: target.name,

@@ -8,7 +8,7 @@ import { renderKubernetes } from "./kubernetes.js";
 import { renderNixHosts } from "./nix-hosts.js";
 import { renderTraefik } from "./traefik.js";
 import { renderVso } from "./vso.js";
-import type { AdapterContext, DeployConfig, RenderResult } from "./model.js";
+import type { RenderResult } from "./model.js";
 
 type AdapterTarget = "edge" | "kubernetes" | "nix" | "vault" | "flux";
 type AdapterInput = "deploy-config" | "canonical-artifacts";

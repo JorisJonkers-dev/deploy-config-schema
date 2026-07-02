@@ -20,7 +20,6 @@ import {
 } from "./flux-utils.js";
 
 export function renderFluxRoot(input) {
-  const artifacts = contextArtifacts(input);
   const layers = inferFluxLayers(input);
   return [
     fluxFile(clusterPath(input, "kustomization.yaml"), renderClusterKustomization(), "flux-root"),

@@ -2,7 +2,6 @@
 // artifact objects. Pass 4 preserves byte-for-byte runtime behavior; deeper
 // structural typing should happen against generated schema types in a later pass.
 import { createRequire } from "node:module";
-import type { ErrorObject } from "ajv";
 import type { Ajv2020 as Ajv2020Class } from "ajv/dist/2020.js";
 import { deployConfigJsonSchema as schema } from "./schemas/generated-json.js";
 

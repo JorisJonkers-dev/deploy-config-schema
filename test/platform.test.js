@@ -12,7 +12,7 @@ import { validateArtifact } from "../src/artifact-validator.js";
 import { expandPlatform } from "../src/minimal/expand.js";
 import { validatePlatform } from "../src/minimal/schema.js";
 import { createPathAllocator } from "../src/render-plan/paths.js";
-import { createRenderPlan, renderPlanFiles } from "../src/render-plan/plan.js";
+import { createRenderPlan } from "../src/render-plan/plan.js";
 import { generatedHeader, renderManagedContent, writeGeneratedFiles } from "../src/render-plan/writer.js";
 
 const singleNode = readYaml("../fixtures/platform/single-node.platform.yaml");

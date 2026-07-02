@@ -2,7 +2,6 @@ import YAML from "yaml";
 import type {
   AdapterContext,
   AdapterFile,
-  JsonValue,
   RolloutRestartTarget,
   VaultDynamicSecretsArtifact,
   VaultDynamicSync,

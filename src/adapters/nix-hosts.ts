@@ -1,7 +1,6 @@
 import type { AdapterContext, AdapterFile, BlueprintRegistry, FleetInventoryArtifact } from "./model.js";
 
 const ADAPTER = "nix-hosts";
-type RoleName = keyof typeof roleEnables;
 type SshTarget = { user: string; host: string; port: number };
 type NormalizedNode = {
   id: string;
