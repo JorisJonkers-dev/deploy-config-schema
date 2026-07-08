@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2019-09/schema",
+  "$id": "https://jorisjonkers.dev/schemas/gate-summary/v1",
+  "title": "GateSummary",
+  "type": "object",
+  "required": ["gate", "check_name", "status", "reason", "flaky_candidates", "actor_decision", "redacted"],
+  "properties": {
+    "gate": { "type": "string", "enum": ["compose-gate", "leak-scan", "stack-integration-gate", "pipeline-complete", "deploy-artifact", "deploy-validate", "post-deploy-health", "gate-canary", "app-key-age-watchdog", "package-retention-watchdog", "kb-phase-capture", "npm-signatures"] },
+    "check_name": { "type": "string" },
+    "status": { "type": "string", "enum": ["pass", "fail"] },
+    "reason": { "type": "string" },
+    "flaky_candidates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["suite", "attempt", "failureClass", "failureSnapshot"],
+        "properties": {
+          "suite": { "type": "string" },
+          "shard": { "oneOf": [{ "type": "number" }, { "type": "null" }] },
+          "attempt": { "type": "number" },
+          "failureClass": { "type": "string" },
+          "failureSnapshot": { "type": "string" }
+        }
+      }
+    },
+    "actor_decision": { "type": "string", "enum": ["none", "break-glass", "rerun", "rollback"] },
+    "redacted": { "type": "boolean" }
+  }
+}

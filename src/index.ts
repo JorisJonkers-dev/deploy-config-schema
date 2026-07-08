@@ -126,3 +126,44 @@ export {
   type ImportLiveFleetOptions,
   type ImportLiveFleetResult,
 } from "./deployment/import/live-fleet.js";
+export {
+  validateClusterContext,
+  enforce_visibility_rules,
+  assertNodeLabelsOnAllowlist,
+  scanAllStringFields,
+  getPackageVersion,
+  type ClusterContext,
+  type ScanHit,
+} from "./cluster-context/schema.js";
+export { redactToPublic } from "./cluster-context/redact.js";
+export {
+  HEALTH_TIMEOUT_CLASS_MAP,
+  validateHealthTimeoutClass,
+  resolveHealthTimeout,
+  type WorkloadWithHealth,
+} from "./schemas/health-timeout-map.js";
+export {
+  emitAdapterCompat,
+  type AdapterCompatDoc,
+  type AdapterCompatSpec,
+} from "./adapters/adapter-compat.js";
+export {
+  validateRawManifests,
+  FORBIDDEN_KINDS,
+  type RawManifestsGuard,
+  type ViolationEntry,
+} from "./artifact/raw-manifests.js";
+export {
+  emitArtifactContract,
+  computeRenderHash,
+  type ArtifactContract,
+  type ArtifactContractInputDigests,
+  type ArtifactContractOutputs,
+  type EmitArtifactContractOptions,
+} from "./artifact/contract.js";
+export {
+  emitKustomizationHealth,
+  type KustomizationHealth,
+  type HealthCheck,
+  type EmitKustomizationHealthOptions,
+} from "./artifact/kustomization-health.js";
