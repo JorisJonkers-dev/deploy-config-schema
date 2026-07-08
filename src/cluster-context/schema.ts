@@ -1,10 +1,10 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
-import type { Ajv2019 as Ajv2019Class } from "ajv/dist/2019.js";
+import type { Ajv2020 as Ajv2020Class } from "ajv/dist/2020.js";
 
 const require = createRequire(import.meta.url);
-const Ajv2019 = require("ajv/dist/2019.js").default as typeof Ajv2019Class;
+const Ajv2020 = require("ajv/dist/2020.js").default as typeof Ajv2020Class;
 
 export type ClusterContext = {
   apiVersion: string;
@@ -55,7 +55,7 @@ const KNOWN_NODE_LABEL_KEYS = new Set([
   "platform.jorisjonkers.dev/role",
 ]);
 
-const ajv = new Ajv2019({ strict: false });
+const ajv = new Ajv2020({ strict: false });
 const schemaPath = fileURLToPath(new URL("../../schemas/cluster-context.schema.json", import.meta.url));
 const schema = JSON.parse(readFileSync(schemaPath, "utf8")) as Record<string, unknown>;
 const validate = ajv.compile(schema);
