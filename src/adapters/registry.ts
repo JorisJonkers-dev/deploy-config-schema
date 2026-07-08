@@ -10,8 +10,8 @@ import { renderTraefik } from "./traefik.js";
 import { renderVso } from "./vso.js";
 import type { RenderResult } from "./model.js";
 
-type AdapterTarget = "edge" | "kubernetes" | "nix" | "vault" | "flux";
-type AdapterInput = "deploy-config" | "canonical-artifacts";
+type AdapterTarget = "edge" | "kubernetes" | "nix" | "vault" | "flux" | "fragment";
+type AdapterInput = "deploy-config" | "canonical-artifacts" | "deployment-fragment";
 type AdapterStatus = "implemented";
 export type AdapterDefinition = {
   name: string;
@@ -137,6 +137,62 @@ registerAdapter({
   status: "implemented",
   defaultPath: "platform/cluster/flux/apps",
   render: renderFluxSource,
+});
+
+
+registerAdapter({
+  name: "traefik-route-fragment",
+  target: "fragment",
+  input: "deployment-fragment",
+  status: "implemented",
+  defaultPath: "fragments/traefik-route",
+  render(_input) {
+    return "";
+  },
+});
+
+registerAdapter({
+  name: "gatus-endpoint-fragment",
+  target: "fragment",
+  input: "deployment-fragment",
+  status: "implemented",
+  defaultPath: "fragments/gatus-endpoint",
+  render(_input) {
+    return "";
+  },
+});
+
+registerAdapter({
+  name: "edge-catalog-fragment",
+  target: "fragment",
+  input: "deployment-fragment",
+  status: "implemented",
+  defaultPath: "fragments/edge-catalog",
+  render(_input) {
+    return "";
+  },
+});
+
+registerAdapter({
+  name: "image-metadata-fragment",
+  target: "fragment",
+  input: "deployment-fragment",
+  status: "implemented",
+  defaultPath: "fragments/image-metadata",
+  render(_input) {
+    return "";
+  },
+});
+
+registerAdapter({
+  name: "kubernetes-workload-fragment",
+  target: "fragment",
+  input: "deployment-fragment",
+  status: "implemented",
+  defaultPath: "fragments/kubernetes-workload",
+  render(_input) {
+    return "";
+  },
 });
 
 export const plannedAdapterContracts = Object.freeze([] as const);
