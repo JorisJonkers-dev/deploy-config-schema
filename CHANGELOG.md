@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.16.0](https://github.com/JorisJonkers-dev/deploy-config-schema/compare/v0.15.0...v0.16.0) (2026-07-08)
+
+
+### Features
+
+* shared platform contracts and fragment render engine (0.16.0) ([#31](https://github.com/JorisJonkers-dev/deploy-config-schema/issues/31)) ([f09e4c9](https://github.com/JorisJonkers-dev/deploy-config-schema/commit/f09e4c90d31d7e5636f33dba90b8121a9b5ed12d))
+
 ## [0.15.0](https://github.com/JorisJonkers-dev/deploy-config-schema/compare/v0.14.0...v0.15.0) (2026-06-29)
 
 
