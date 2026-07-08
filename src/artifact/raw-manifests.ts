@@ -1,8 +1,11 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import YAML from "yaml";
+import type { DeploymentV2 } from "../deployment/v2-model.js";
 
 export const FORBIDDEN_KINDS = ["Secret", "ClusterRole", "ClusterRoleBinding", "CustomResourceDefinition", "Namespace"];
+
+export const RAW_REASON_ANNOTATION = "platform.jorisjonkers.dev/raw-reason";
 
 export type ViolationEntry = {
   kind: string;
@@ -17,50 +20,65 @@ export type RawManifestsGuard = {
   violations: ViolationEntry[];
 };
 
+export type ValidateRawManifestsParams = {
+  deployment: DeploymentV2;
+  root: string;
+  outputRoot?: string;
+};
+
 function listYamlFiles(root: string): string[] {
   if (!existsSync(root)) return [];
   const stats = statSync(root);
   if (!stats.isDirectory()) {
-    return /\.(ya?ml)$/i.test(root) ? [root] : [];
+    return /\.ya?ml$/i.test(root) ? [root] : [];
   }
-  return readdirSync(root).flatMap((entry) => {
-    const path = join(root, entry);
-    return statSync(path).isDirectory() ? listYamlFiles(path) : (/\.(ya?ml)$/i.test(path) ? [path] : []);
-  }).sort();
+  return readdirSync(root)
+    .flatMap((entry) => {
+      const path = join(root, entry);
+      return statSync(path).isDirectory() ? listYamlFiles(path) : (/\.ya?ml$/i.test(path) ? [path] : []);
+    })
+    .sort();
 }
 
-export function validateRawManifests(rawDir: string): RawManifestsGuard {
-  const present = existsSync(rawDir);
-  if (!present) {
-    return {
-      present: false,
-      forbidden_kinds_scanned: FORBIDDEN_KINDS,
-      violations: [],
-    };
+type RawDoc = {
+  kind?: string;
+  metadata?: { namespace?: string; annotations?: Record<string, string> };
+};
+
+/**
+ * Guards raw manifests declared via workload.rawManifests: forbidden kinds,
+ * foreign namespaces and the mandatory raw-reason annotation. Throws
+ * E_RAW_MANIFESTS_VIOLATIONS when any violation is found.
+ */
+export function validateRawManifests(params: ValidateRawManifestsParams): RawManifestsGuard {
+  const { deployment, root } = params;
+  if (!deployment.spec.workloads.some((workload) => workload.rawManifests?.enabled)) {
+    return { present: false, forbidden_kinds_scanned: FORBIDDEN_KINDS, violations: [] };
   }
-  const files = listYamlFiles(rawDir);
+
   const violations: ViolationEntry[] = [];
-  for (const file of files) {
+  for (const file of listYamlFiles(root)) {
     const content = readFileSync(file, "utf8");
-    const docs = YAML.parseAllDocuments(content);
-    let lineOffset = 0;
-    for (const doc of docs) {
-      const obj = doc.toJS() as Record<string, unknown> | null;
+    for (const doc of YAML.parseAllDocuments(content)) {
+      const obj = doc.toJS() as RawDoc | null;
       if (!obj || typeof obj !== "object") continue;
-      const kind = obj["kind"] as string | undefined;
-      if (kind && FORBIDDEN_KINDS.includes(kind)) {
-        violations.push({
-          kind,
-          filename: file,
-          line: lineOffset + 1,
-          reason: `forbidden kind: ${kind}`,
-        });
+      const line = content.slice(0, doc.range?.[0] ?? 0).split("\n").length;
+      const kind = obj.kind ?? "Unknown";
+      const filename = relative(root, file);
+      if (obj.kind && FORBIDDEN_KINDS.includes(obj.kind)) {
+        violations.push({ kind, filename, line, reason: "E_FORBIDDEN_KIND" });
+      }
+      if (obj.metadata?.namespace && obj.metadata.namespace !== deployment.spec.namespace) {
+        violations.push({ kind, filename, line, reason: "E_RAW_FOREIGN_NAMESPACE" });
+      }
+      if (!obj.metadata?.annotations?.[RAW_REASON_ANNOTATION]) {
+        violations.push({ kind, filename, line, reason: "E_RAW_MISSING_ANNOTATION" });
       }
     }
   }
-  return {
-    present: true,
-    forbidden_kinds_scanned: FORBIDDEN_KINDS,
-    violations,
-  };
+
+  if (violations.length > 0) {
+    throw new Error(`E_RAW_MANIFESTS_VIOLATIONS: ${JSON.stringify(violations)}`);
+  }
+  return { present: true, forbidden_kinds_scanned: FORBIDDEN_KINDS, violations: [] };
 }

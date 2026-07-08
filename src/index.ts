@@ -167,3 +167,48 @@ export {
   type HealthCheck,
   type EmitKustomizationHealthOptions,
 } from "./artifact/kustomization-health.js";
+export {
+  DEPLOYMENT_V2_API_VERSION,
+  ERROR_CODES,
+  normalizeImageLock,
+  resolveRouteAuthMode,
+  resolveRouteOwner,
+  validateDeploymentSemantics,
+  type DeploymentV2,
+  type RouteV2,
+  type WorkloadV2,
+} from "./deployment/v2-model.js";
+export {
+  assertNoFloatingImages,
+  assertNoFloatingImagesInRawManifests,
+  deterministicTimestamp,
+  extractImageRefs,
+  forbidAmbientAdapterInputs,
+  isDeterministicRuntime,
+  listYamlFilesRecursive,
+  loadFragmentInput,
+  loadFragmentInputFromPaths,
+  parseDeploymentV2,
+  requireDigestRef,
+  validateContextCompatibility,
+  withDeterministicRuntime,
+  type FragmentInput,
+  type LoadFragmentInputOptions,
+} from "./adapters/fragment-model.js";
+export { renderKubernetesWorkloadFragment, type K8sManifest, type KubernetesWorkloadFragment } from "./adapters/kubernetes-workload-fragment.js";
+export { renderTraefikRouteFragment, type TraefikRoute, type TraefikRouteFragment } from "./adapters/traefik-route-fragment.js";
+export { renderGatusEndpointFragment, type GatusEndpoint, type GatusEndpointFragment } from "./adapters/gatus-endpoint-fragment.js";
+export { renderEdgeCatalogFragment, type CatalogEntry, type EdgeCatalogFragment } from "./adapters/edge-catalog-fragment.js";
+export { renderImageMetadataFragment, type ImageMeta, type ImageMetadataFragment } from "./adapters/image-metadata-fragment.js";
+export { buildOutputPaths } from "./artifact/contract.js";
+export {
+  assertNoUnselectedMutations,
+  behavioralDiff,
+  checkScopedParity,
+  filterBySelector,
+  loadManifests,
+  type ScopedManifest,
+  type ScopedParityOptions,
+  type ScopedParityResult,
+} from "./deployment/parity-scoped.js";
+export { RAW_REASON_ANNOTATION } from "./artifact/raw-manifests.js";
