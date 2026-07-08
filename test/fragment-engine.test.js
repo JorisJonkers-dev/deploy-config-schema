@@ -44,7 +44,7 @@ function stream() {
   };
 }
 
-function fixtureInput(overrides = {}) {
+function fixtureInput() {
   return loadFragmentInputFromPaths({
     deployPath: join(FIXTURES, "minimal/deployment.yml"),
     imagesPath: join(FIXTURES, "minimal/images.lock.json"),
