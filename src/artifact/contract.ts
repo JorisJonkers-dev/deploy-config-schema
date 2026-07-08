@@ -100,3 +100,13 @@ export function emitArtifactContract(options: EmitArtifactContractOptions): Arti
     },
   };
 }
+
+export function buildOutputPaths(environments: string[]): ArtifactContractOutputs {
+  const manifests: Record<string, string> = {};
+  const metadata: Record<string, string> = {};
+  for (const env of environments) {
+    manifests[env] = `out/manifests/${env}`;
+    metadata[env] = `out/metadata/${env}`;
+  }
+  return { manifests, metadata };
+}

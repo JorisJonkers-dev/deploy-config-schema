@@ -115,27 +115,53 @@ test("emitKustomizationHealth no workloads → default 5m", () => {
   assert.equal(result.spec.timeout, "5m");
 });
 
-// T-A5: raw manifest with kind=Secret → violations
-test("T-A5: validateRawManifests with Secret kind → violation", () => {
-  const tmpDir = join(tmpdir(), `test-raw-${Date.now()}`);
+function rawDeployment(enabled = true) {
+  return {
+    apiVersion: "deployment.jorisjonkers.dev/v2",
+    kind: "Deployment",
+    metadata: { name: "test-service" },
+    spec: {
+      namespace: "test-ns",
+      workloads: [{ name: "app", ...(enabled ? { rawManifests: { enabled: true, path: "deploy/raw-manifests" } } : {}) }],
+    },
+  };
+}
+
+test("T-A5: validateRawManifests with Secret kind → E_RAW_MANIFESTS_VIOLATIONS", () => {
+  const tmpDir = join(tmpdir(), `test-raw-${Date.now()}-a`);
   mkdirSync(tmpDir, { recursive: true });
   try {
-    writeFileSync(join(tmpDir, "secret.yaml"), "apiVersion: v1\nkind: Secret\nmetadata:\n  name: my-secret\n");
-    const guard = validateRawManifests(tmpDir);
-    assert.equal(guard.present, true);
-    assert.ok(guard.violations.length > 0);
-    assert.ok(guard.violations.some((v) => v.kind === "Secret"));
+    writeFileSync(join(tmpDir, "secret.yaml"), [
+      "apiVersion: v1",
+      "kind: Secret",
+      "metadata:",
+      "  name: my-secret",
+      "  namespace: test-ns",
+      "  annotations:",
+      "    platform.jorisjonkers.dev/raw-reason: needed",
+      "",
+    ].join("\n"));
+    assert.throws(() => validateRawManifests({ deployment: rawDeployment(), root: tmpDir }), /E_RAW_MANIFESTS_VIOLATIONS/);
   } finally {
     rmSync(tmpDir, { recursive: true, force: true });
   }
 });
 
 test("validateRawManifests with clean manifests → no violations", () => {
-  const tmpDir = join(tmpdir(), `test-raw-${Date.now()}`);
+  const tmpDir = join(tmpdir(), `test-raw-${Date.now()}-b`);
   mkdirSync(tmpDir, { recursive: true });
   try {
-    writeFileSync(join(tmpDir, "deployment.yaml"), "apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: app\n");
-    const guard = validateRawManifests(tmpDir);
+    writeFileSync(join(tmpDir, "deployment.yaml"), [
+      "apiVersion: apps/v1",
+      "kind: Deployment",
+      "metadata:",
+      "  name: app",
+      "  namespace: test-ns",
+      "  annotations:",
+      "    platform.jorisjonkers.dev/raw-reason: legacy",
+      "",
+    ].join("\n"));
+    const guard = validateRawManifests({ deployment: rawDeployment(), root: tmpDir });
     assert.equal(guard.present, true);
     assert.equal(guard.violations.length, 0);
   } finally {
@@ -143,8 +169,19 @@ test("validateRawManifests with clean manifests → no violations", () => {
   }
 });
 
-test("validateRawManifests with non-existent dir → present=false", () => {
-  const guard = validateRawManifests("/nonexistent/path/xyz123");
+test("validateRawManifests foreign namespace / missing annotation → E_RAW_MANIFESTS_VIOLATIONS", () => {
+  const tmpDir = join(tmpdir(), `test-raw-${Date.now()}-c`);
+  mkdirSync(tmpDir, { recursive: true });
+  try {
+    writeFileSync(join(tmpDir, "foreign.yaml"), "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: x\n  namespace: other-ns\n");
+    assert.throws(() => validateRawManifests({ deployment: rawDeployment(), root: tmpDir }), /E_RAW_MANIFESTS_VIOLATIONS/);
+  } finally {
+    rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("validateRawManifests without rawManifests workloads → present=false", () => {
+  const guard = validateRawManifests({ deployment: rawDeployment(false), root: "/nonexistent/path/xyz123" });
   assert.equal(guard.present, false);
   assert.equal(guard.violations.length, 0);
   assert.deepEqual(guard.forbidden_kinds_scanned, FORBIDDEN_KINDS);

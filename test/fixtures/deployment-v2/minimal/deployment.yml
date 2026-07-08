@@ -1,0 +1,14 @@
+apiVersion: deployment.jorisjonkers.dev/v2
+kind: Deployment
+metadata:
+  name: test-service
+spec:
+  namespace: test-ns
+  workloads:
+    - name: app
+      image:
+        alias: app
+      health:
+        path: /health
+        port: 8080
+        timeoutClass: stateless
