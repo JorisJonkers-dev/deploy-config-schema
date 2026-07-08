@@ -17,6 +17,7 @@ import { normalizeServiceIntentForRender } from "./service-intent-normalizer.js"
 import { fleetToDeployConfig } from "./fleet-to-deploy-config.js";
 import { HostEnvError, hostEnvLines } from "./host-env.js";
 import {
+  runArtifact,
   runBundle,
   runCollections,
   runCompile,
@@ -25,6 +26,8 @@ import {
   runImportLiveFleet,
   runLock,
   runParity,
+  runParityCheck,
+  runRender as runFragmentRender,
   runRenderFlux,
   runResolveSources,
   runState,
@@ -86,6 +89,9 @@ export async function runCli(args, streams = { stdout: process.stdout, stderr: p
     return runImportLiveFleet(rest, streams, parseOptions);
   }
   if (command === "parity") {
+    if (rest.includes("--service")) {
+      return runParityCheck(rest, streams, parseOptions);
+    }
     return runParity(rest, streams, parseOptions);
   }
   if (command === "state") {
@@ -93,6 +99,9 @@ export async function runCli(args, streams = { stdout: process.stdout, stderr: p
   }
   if (command === "cutover") {
     return runCutover(rest, streams, parseOptions);
+  }
+  if (command === "artifact") {
+    return runArtifact(rest, streams, parseOptions);
   }
   if (command === "show-host-env") {
     return runShowHostEnv(rest, streams, { install: false });
@@ -105,6 +114,11 @@ export async function runCli(args, streams = { stdout: process.stdout, stderr: p
     return 0;
   }
   if (command === "render") {
+    const firstPositional = rest.find((arg) => !arg.startsWith("--"));
+    const maybeFragment = firstPositional ? getAdapter(firstPositional) : undefined;
+    if (maybeFragment?.target === "fragment") {
+      return runFragmentRender(rest, streams, parseOptions);
+    }
     return runRender(rest, streams);
   }
 
@@ -496,6 +510,21 @@ function loadValidateAndExpand(path) {
   };
 }
 
+const extraValueFlags = {
+  "--context": "context",
+  "--context-path": "contextPath",
+  "--context-dir": "contextDir",
+  "--context-ref": "contextRef",
+  "--artifact-name": "artifactName",
+  "--schema-version": "schemaVersion",
+  "--environments": "environments",
+  "--image-digests": "imageDigests",
+  "--provenance-verified": "provenanceVerified",
+  "--service": "service",
+  "--selector": "selector",
+  "--output-root": "outputRoot",
+};
+
 function parseOptions(args) {
   const positionals = [];
   const options = {
@@ -849,6 +878,14 @@ function parseOptions(args) {
       options.update = true;
     } else if (arg === "--reject-latest") {
       options.rejectLatest = true;
+    } else if (extraValueFlags[arg]) {
+      const value = args[index + 1];
+      if (!value) {
+        diagnostics.push({ code: "E_USAGE", message: `${arg} requires a value`, path: "/" });
+      } else {
+        options[extraValueFlags[arg]] = value;
+        index += 1;
+      }
     } else if (arg.startsWith("--")) {
       diagnostics.push({
         code: "E_USAGE",
@@ -947,6 +984,10 @@ function usage() {
     "  deploy-config-schema render-plan <platform.yaml> [--target edge|adapter] [--output <root>] [--blueprints-root <dir>] [--blueprints-version <tag>]",
     "  deploy-config-schema render-tree <platform.yaml> --output <root> [--target edge|adapter] [--dry-run|--diff|--check|--force] [--blueprints-root <dir>] [--blueprints-version <tag>]",
     "  deploy-config-schema render <adapter> <config> [--input deploy-config|service-intent] [--output <path>]",
+    "  deploy-config-schema render <fragment-id> <deploy-dir> --env <env> --images <images.lock.json> (--context-dir <dir> | --context <ref@sha256:..> --context-path <file>) [--output <path>]",
+    "  deploy-config-schema artifact emit-contract --artifact-name <name> --environments <e1,e2> --images <lock> --context-ref <ref@sha256:..> --deployment <deployment.yml> --context <context.yml> --out <path> [--provenance-verified true|false] [--output-root <dir>]",
+    "  deploy-config-schema artifact emit-kustomization-health --deployment <deployment.yml> --env <env> --image-digests <lock> --out <path>",
+    "  deploy-config-schema parity check --current <tree> --rendered <tree> --service <name> --selector <key=value> [--profile flux] [--mode behavioral]",
     "  deploy-config-schema fleet-to-deploy-config <fleet.yaml>",
     "  deploy-config-schema bundle pack --deploy-dir <dir> --images <file> --repo <repo> --git-sha <sha> --version <version> --out <file>",
     "  deploy-config-schema hosts validate --inventory inventory/fleet.yml",

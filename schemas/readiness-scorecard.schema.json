@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jorisjonkers.dev/schemas/readiness-scorecard/v1",
+  "title": "ReadinessScorecard",
+  "type": "object",
+  "required": ["schema_pinned", "context_pinned", "no_latest_images", "health_declared", "route_owner_authmode_declared", "rollback_retention_acknowledged", "no_raw_secrets", "stateful_policy_declared", "raw_manifests_guarded", "npm_signatures_verified"],
+  "properties": {
+    "schema_pinned": { "type": "string", "enum": ["pass", "fail"] },
+    "context_pinned": { "type": "string", "enum": ["pass", "fail"] },
+    "no_latest_images": { "type": "string", "enum": ["pass", "fail"] },
+    "health_declared": { "type": "string", "enum": ["pass", "fail"] },
+    "route_owner_authmode_declared": { "type": "string", "enum": ["pass", "fail", "not_applicable"] },
+    "rollback_retention_acknowledged": { "type": "string", "enum": ["pass", "fail"] },
+    "no_raw_secrets": { "type": "string", "enum": ["pass", "fail"] },
+    "stateful_policy_declared": { "type": "string", "enum": ["pass", "fail", "not_applicable"] },
+    "raw_manifests_guarded": { "type": "string", "enum": ["pass", "fail", "not_applicable"] },
+    "npm_signatures_verified": { "type": "string", "enum": ["pass", "fail"] }
+  }
+}

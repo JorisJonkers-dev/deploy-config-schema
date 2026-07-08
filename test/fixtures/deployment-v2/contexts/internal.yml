@@ -1,0 +1,37 @@
+apiVersion: deployment.jorisjonkers.dev/cluster-context/v1
+kind: ClusterContext
+metadata:
+  name: production-internal
+  visibility: internal
+spec:
+  cluster: production
+  schemaVersion: "0.16.0"
+  labels:
+    allowed:
+      kubernetes.io/arch: [amd64, arm64]
+      platform.jorisjonkers.dev/site: [frankfurt, enschede]
+      platform.jorisjonkers.dev/capability-public-ingress: ["true"]
+      platform.jorisjonkers.dev/capability-lan-ingress: ["true"]
+  routeTiers:
+    public-frankfurt:
+      class: public
+      hostnamePolicy: public
+      authModes: [forward-auth]
+      requiredLabels:
+        platform.jorisjonkers.dev/capability-public-ingress: "true"
+    lan:
+      class: lan
+      hostnamePolicy: lan
+      authModes: [internal, lan]
+      requiredLabels:
+        platform.jorisjonkers.dev/capability-lan-ingress: "true"
+  capacity:
+    nodeLabels: {}
+  adapterCompat:
+    manifest: adapter-compat.yaml
+  internal:
+    nodeIps:
+      node1: 192.168.10.11
+      node2: 192.168.10.12
+    vaultAllowLists: {}
+    providerExports: {}

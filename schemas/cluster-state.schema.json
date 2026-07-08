@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jorisjonkers.dev/schemas/cluster-state/v1",
+  "title": "ClusterState",
+  "type": "object",
+  "required": ["environment", "lock_digest", "lock_version", "composed_root_digest", "services", "aggregates", "dependency_graph_order"],
+  "properties": {
+    "environment": { "type": "string" },
+    "lock_digest": { "type": "string", "pattern": "^sha256:" },
+    "lock_version": { "type": "string" },
+    "composed_root_digest": { "type": "string", "pattern": "^sha256:" },
+    "services": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "namespace", "layer", "artifact_digest", "health_class", "prune_policy", "flux_ready", "gatus_status"],
+        "properties": {
+          "name": { "type": "string" },
+          "namespace": { "type": "string" },
+          "layer": { "type": "string" },
+          "artifact_digest": { "type": "string", "pattern": "^sha256:" },
+          "health_class": { "type": "string", "enum": ["stateless", "stateful", "control-plane"] },
+          "prune_policy": { "type": "string" },
+          "flux_ready": { "type": "string", "enum": ["True", "False", "Unknown"] },
+          "observed_image_digest": { "oneOf": [{ "type": "string", "pattern": "^sha256:" }, { "type": "null" }] },
+          "gatus_status": { "type": "string", "enum": ["healthy", "degraded", "unknown"] },
+          "last_reconcile": { "oneOf": [{ "type": "string" }, { "type": "null" }] }
+        }
+      }
+    },
+    "aggregates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "path", "digest"],
+        "properties": {
+          "name": { "type": "string" },
+          "path": { "type": "string" },
+          "digest": { "type": "string", "pattern": "^sha256:" }
+        }
+      }
+    },
+    "dependency_graph_order": { "type": "array", "items": { "type": "string" } }
+  }
+}

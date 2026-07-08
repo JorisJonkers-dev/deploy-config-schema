@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jorisjonkers.dev/schemas/artifact-contract/v1",
+  "title": "DeployArtifactContract",
+  "type": "object",
+  "required": ["apiVersion", "kind", "metadata", "spec"],
+  "additionalProperties": false,
+  "properties": {
+    "apiVersion": { "type": "string", "const": "deployment.jorisjonkers.dev/artifact-contract/v1" },
+    "kind": { "type": "string", "const": "DeployArtifactContract" },
+    "metadata": {
+      "type": "object",
+      "required": ["name"],
+      "properties": { "name": { "type": "string" } }
+    },
+    "spec": {
+      "type": "object",
+      "required": ["schemaVersion", "artifactType", "renderHash", "environments", "imageDigests", "contextRef", "inputDigests", "adapterCompat", "schemaPackageIntegrity", "provenance_verified", "outputs"],
+      "properties": {
+        "schemaVersion": { "type": "string" },
+        "artifactType": { "type": "string", "const": "application/vnd.jorisjonkers.deployment.artifact.v1+tar" },
+        "renderHash": { "type": "string", "pattern": "^sha256:" },
+        "environments": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "imageDigests": { "type": "object", "additionalProperties": { "type": "string" } },
+        "contextRef": { "type": "string" },
+        "inputDigests": {
+          "type": "object",
+          "required": ["deployment", "imagesLock", "context"],
+          "properties": {
+            "deployment": { "type": "string", "pattern": "^sha256:" },
+            "imagesLock": { "type": "string", "pattern": "^sha256:" },
+            "context": { "type": "string", "pattern": "^sha256:" }
+          }
+        },
+        "adapterCompat": {
+          "type": "object",
+          "required": ["digest"],
+          "properties": { "digest": { "type": "string", "pattern": "^sha256:" } }
+        },
+        "schemaPackageIntegrity": { "type": "string" },
+        "provenance_verified": { "type": "boolean" },
+        "outputs": {
+          "type": "object",
+          "required": ["manifests", "metadata"],
+          "properties": {
+            "manifests": { "type": "object", "additionalProperties": { "type": "string" } },
+            "metadata": { "type": "object", "additionalProperties": { "type": "string" } }
+          }
+        }
+      }
+    }
+  }
+}

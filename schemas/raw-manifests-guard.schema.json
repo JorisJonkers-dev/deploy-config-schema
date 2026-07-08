@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jorisjonkers.dev/schemas/raw-manifests-guard/v1",
+  "title": "RawManifestsGuard",
+  "type": "object",
+  "required": ["present", "forbidden_kinds_scanned", "violations"],
+  "properties": {
+    "present": { "type": "boolean" },
+    "forbidden_kinds_scanned": { "type": "array", "items": { "type": "string" } },
+    "violations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["kind", "filename"],
+        "properties": {
+          "kind": { "type": "string" },
+          "filename": { "type": "string" },
+          "line": { "type": "number" },
+          "reason": { "type": "string" }
+        }
+      }
+    }
+  }
+}

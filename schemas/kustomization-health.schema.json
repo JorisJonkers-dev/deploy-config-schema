@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jorisjonkers.dev/schemas/kustomization-health/v1",
+  "title": "KustomizationHealth",
+  "type": "object",
+  "required": ["apiVersion", "kind", "spec"],
+  "properties": {
+    "apiVersion": { "type": "string", "const": "deployment.jorisjonkers.dev/kustomization-health/v1" },
+    "kind": { "type": "string", "const": "KustomizationHealth" },
+    "spec": {
+      "type": "object",
+      "required": ["wait", "retryInterval", "timeout", "healthChecks"],
+      "properties": {
+        "wait": { "type": "boolean" },
+        "retryInterval": { "type": "string" },
+        "timeout": { "type": "string" },
+        "healthChecks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["apiVersion", "kind", "name", "namespace"],
+            "properties": {
+              "apiVersion": { "type": "string" },
+              "kind": { "type": "string" },
+              "name": { "type": "string" },
+              "namespace": { "type": "string" }
+            }
+          }
+        },
+        "pruneDecisions": { "type": "array" },
+        "metadata": {
+          "type": "object",
+          "properties": {
+            "images": { "type": "object", "additionalProperties": { "type": "string" } }
+          }
+        }
+      }
+    }
+  }
+}

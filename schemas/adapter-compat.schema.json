@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jorisjonkers.dev/schemas/adapter-compat/v1",
+  "title": "AdapterCompat",
+  "type": "object",
+  "required": ["apiVersion", "kind", "metadata", "spec", "digest"],
+  "additionalProperties": false,
+  "properties": {
+    "apiVersion": { "type": "string", "const": "deployment.jorisjonkers.dev/adapter-compat/v1" },
+    "kind": { "type": "string", "const": "AdapterCompat" },
+    "metadata": {
+      "type": "object",
+      "required": ["schemaVersion", "schemaPackageIntegrity", "generatedFrom"],
+      "properties": {
+        "schemaVersion": { "type": "string" },
+        "schemaPackageIntegrity": { "type": "string", "pattern": "^sha512-" },
+        "generatedFrom": { "type": "string", "const": "deploy-config-schema" }
+      }
+    },
+    "spec": {
+      "type": "object",
+      "required": ["fragments"],
+      "properties": {
+        "fragments": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "required": ["outputKind", "outputSchema", "centralAdapters"],
+            "properties": {
+              "outputKind": { "type": "string" },
+              "outputSchema": { "type": "string" },
+              "centralAdapters": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "object",
+                  "required": ["accepts"],
+                  "properties": {
+                    "accepts": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "digest": { "type": "string", "pattern": "^sha256:" }
+  }
+}

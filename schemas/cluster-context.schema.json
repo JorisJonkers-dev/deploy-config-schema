@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jorisjonkers.dev/schemas/cluster-context/v1",
+  "title": "ClusterContext",
+  "type": "object",
+  "required": ["apiVersion", "kind", "metadata", "spec"],
+  "additionalProperties": false,
+  "properties": {
+    "apiVersion": { "type": "string", "const": "deployment.jorisjonkers.dev/cluster-context/v1" },
+    "kind": { "type": "string", "const": "ClusterContext" },
+    "metadata": {
+      "type": "object",
+      "required": ["name", "visibility"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "enum": ["production-public", "production-internal"] },
+        "visibility": { "type": "string", "enum": ["public", "internal"] }
+      }
+    },
+    "spec": {
+      "type": "object",
+      "required": ["cluster", "schemaVersion", "labels", "routeTiers", "capacity", "adapterCompat"],
+      "properties": {
+        "cluster": { "type": "string", "minLength": 1 },
+        "schemaVersion": { "type": "string" },
+        "labels": {
+          "type": "object",
+          "required": ["allowed"],
+          "properties": {
+            "allowed": {
+              "type": "object",
+              "additionalProperties": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        },
+        "routeTiers": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "required": ["class", "hostnamePolicy", "authModes"],
+            "properties": {
+              "class": { "type": "string", "enum": ["public", "lan"] },
+              "hostnamePolicy": { "type": "string", "enum": ["public", "lan"] },
+              "authModes": {
+                "type": "array",
+                "minItems": 1,
+                "items": { "type": "string", "enum": ["forward-auth", "internal", "lan"] }
+              },
+              "requiredLabels": { "type": "object", "additionalProperties": { "type": "string" } }
+            }
+          }
+        },
+        "capacity": {
+          "type": "object",
+          "properties": {
+            "nodeLabels": {
+              "type": "object",
+              "additionalProperties": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        },
+        "adapterCompat": {
+          "type": "object",
+          "required": ["manifest"],
+          "properties": {
+            "manifest": { "type": "string" }
+          }
+        },
+        "internal": {
+          "type": "object",
+          "properties": {
+            "nodeIps": { "type": "object", "additionalProperties": { "type": "string" } },
+            "vaultAllowLists": { "type": "object" },
+            "providerExports": { "type": "object" }
+          }
+        }
+      }
+    }
+  }
+}

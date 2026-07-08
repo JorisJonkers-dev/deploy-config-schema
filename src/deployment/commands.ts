@@ -21,6 +21,15 @@ import { loadYamlDocument } from "./io.js";
 import { extractLockedImages, readDeploymentLock, updateDeploymentLock } from "./lockfile.js";
 import { compareParityTrees } from "./parity.js";
 import { resolveSources } from "./source-resolver.js";
+import { fileURLToPath } from "node:url";
+import { getAdapter } from "../adapters/registry.js";
+import { emitAdapterCompat } from "../adapters/adapter-compat.js";
+import { loadFragmentInput, parseDeploymentV2, requireDigestRef } from "../adapters/fragment-model.js";
+import { normalizeImageLock } from "./v2-model.js";
+import { emitKustomizationHealth } from "../artifact/kustomization-health.js";
+import { emitArtifactContract, buildOutputPaths } from "../artifact/contract.js";
+import { getPackageVersion } from "../cluster-context/schema.js";
+import { checkScopedParity } from "./parity-scoped.js";
 
 export function runBundle(args, streams, parseOptions) {
   const [subcommand, ...rest] = args;
@@ -457,4 +466,186 @@ function usageDiagnostic(command) {
       path: "/",
     },
   ];
+}
+
+// deploy-config-schema render <fragment-id> <deploy-dir> --env E --images L (--context-dir D | --context REF --context-path P) [--output OUT]
+export function runRender(args, streams, parseOptions) {
+  const { positionals, options, diagnostics } = parseOptions(args);
+  const [fragmentId, deployDir] = positionals;
+  if (diagnostics.length > 0 || !fragmentId || !deployDir || !options.env || !options.images
+      || (!options.contextDir && !(options.context && options.contextPath))) {
+    writeDiagnostics(streams.stderr, diagnostics.length > 0 ? diagnostics : usageDiagnostic("render <fragment-id> <deploy-dir> --env <env> --images <images.lock.json> (--context-dir <dir> | --context <ref@sha256:..> --context-path <file>) [--output <path>]"));
+    return 2;
+  }
+  const adapter = getAdapter(fragmentId);
+  if (!adapter || adapter.target !== "fragment") {
+    writeDiagnostics(streams.stderr, [{ code: "E_ADAPTER_UNKNOWN", message: `unknown fragment adapter: ${fragmentId}`, path: "/" }]);
+    return 1;
+  }
+  try {
+    let contextPath;
+    let contextRef;
+    if (options.contextDir) {
+      contextPath = join(options.contextDir, "cluster-context-public.yml");
+      contextRef = `local://${contextPath}`;
+    } else {
+      requireDigestRef(options.context);
+      contextPath = options.contextPath;
+      contextRef = options.context;
+    }
+    const adapterCompat = emitAdapterCompat(getPackageVersion(), readPackageIntegrity());
+    const input = loadFragmentInput({
+      deployPath: join(deployDir, "deployment.yml"),
+      imagesPath: options.images,
+      contextRef,
+      contextPath,
+      env: options.env,
+      adapterCompatDigest: adapterCompat.digest,
+    });
+    const rendered = adapter.render(input);
+    writeRenderedText(rendered, options.output, streams.stdout);
+    return 0;
+  } catch (error) {
+    writeDiagnostics(streams.stderr, [{ code: extractErrorCode(error), message: error instanceof Error ? error.message : String(error), path: "/" }]);
+    return 1;
+  }
+}
+
+// deploy-config-schema artifact emit-contract|emit-kustomization-health ...
+export function runArtifact(args, streams, parseOptions) {
+  const [subcommand, ...rest] = args;
+  if (subcommand === "emit-kustomization-health") {
+    return runEmitKustomizationHealth(rest, streams, parseOptions);
+  }
+  if (subcommand === "emit-contract") {
+    return runEmitContract(rest, streams, parseOptions);
+  }
+  writeDiagnostics(streams.stderr, usageDiagnostic("artifact emit-contract|emit-kustomization-health <options>"));
+  return 2;
+}
+
+// deploy-config-schema parity check --current C --rendered R --service S --selector K=V [--profile flux] [--mode behavioral]
+export function runParityCheck(args, streams, parseOptions) {
+  const rest = args[0] === "check" ? args.slice(1) : args;
+  const { options, diagnostics } = parseOptions(rest);
+  if (diagnostics.length > 0 || !options.current || !options.rendered || !options.service || !options.selector) {
+    writeDiagnostics(streams.stderr, diagnostics.length > 0 ? diagnostics : usageDiagnostic("parity check --current <tree> --rendered <tree> --service <name> --selector <key=value> [--profile flux] [--mode behavioral]"));
+    return 2;
+  }
+  try {
+    const result = checkScopedParity({
+      currentManifestRoot: options.current,
+      renderedManifestRoot: options.rendered,
+      profile: options.profile ?? "flux",
+      mode: options.mode ?? "behavioral",
+      service: options.service,
+      selector: options.selector,
+    });
+    streams.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+    return result.status === "pass" ? 0 : 1;
+  } catch (error) {
+    writeDiagnostics(streams.stderr, [{ code: extractErrorCode(error), message: error instanceof Error ? error.message : String(error), path: "/" }]);
+    return 1;
+  }
+}
+
+function runEmitKustomizationHealth(args, streams, parseOptions) {
+  const { options, diagnostics } = parseOptions(args);
+  const deploymentPath = Array.isArray(options.deployment) ? options.deployment[0] : options.deployment;
+  if (diagnostics.length > 0 || !deploymentPath || !options.env || !options.imageDigests || !options.out) {
+    writeDiagnostics(streams.stderr, diagnostics.length > 0 ? diagnostics : usageDiagnostic("artifact emit-kustomization-health --deployment <deployment.yml> --env <env> --image-digests <images.lock.json> --out <path>"));
+    return 2;
+  }
+  try {
+    const deployment = parseDeploymentV2(YAML.parse(readFileSync(deploymentPath, "utf8")));
+    const imageDigests = normalizeImageLock(JSON.parse(readFileSync(options.imageDigests, "utf8")));
+    const healthChecks = deployment.spec.workloads
+      .filter((workload) => workload.health?.mandatory !== false)
+      .map((workload) => ({
+        apiVersion: "apps/v1",
+        kind: workload.stateful ? "StatefulSet" : "Deployment",
+        name: workload.name,
+        namespace: deployment.spec.namespace,
+      }));
+    const health = emitKustomizationHealth({ workloads: deployment.spec.workloads, healthChecks, imageDigests, pruneDecisions: [] });
+    mkdirSync(dirname(options.out), { recursive: true });
+    writeFileSync(options.out, YAML.stringify(health, { lineWidth: 0 }));
+    streams.stdout.write(`${JSON.stringify({ out: options.out, env: options.env, timeout: health.spec.timeout }, null, 2)}\n`);
+    return 0;
+  } catch (error) {
+    writeDiagnostics(streams.stderr, [{ code: extractErrorCode(error), message: error instanceof Error ? error.message : String(error), path: "/" }]);
+    return 1;
+  }
+}
+
+function runEmitContract(args, streams, parseOptions) {
+  const { options, diagnostics } = parseOptions(args);
+  const deploymentPath = Array.isArray(options.deployment) ? options.deployment[0] : options.deployment;
+  const required = options.artifactName && options.environments && options.images && options.contextRef && deploymentPath && options.context && options.out;
+  if (diagnostics.length > 0 || !required) {
+    writeDiagnostics(streams.stderr, diagnostics.length > 0 ? diagnostics : usageDiagnostic("artifact emit-contract --artifact-name <name> --environments <e1,e2> --images <images.lock.json> --context-ref <ref@sha256:..> --deployment <deployment.yml> --context <cluster-context.yml> --out <path> [--provenance-verified true|false] [--output-root <dir>]"));
+    return 2;
+  }
+  try {
+    requireDigestRef(options.contextRef);
+    const rawDeployment = readFileSync(deploymentPath, "utf8");
+    const rawImages = readFileSync(options.images, "utf8");
+    const rawContext = readFileSync(options.context, "utf8");
+    const environments = options.environments.split(",").map((env) => env.trim()).filter(Boolean);
+    const adapterCompat = emitAdapterCompat(getPackageVersion(), readPackageIntegrity());
+    const contract = emitArtifactContract({
+      name: `${options.artifactName}-deploy`,
+      environments,
+      imageDigests: normalizeImageLock(JSON.parse(rawImages)),
+      contextRef: options.contextRef,
+      inputDigests: {
+        deployment: sha256(rawDeployment),
+        imagesLock: sha256(rawImages),
+        context: sha256(rawContext),
+      },
+      adapterCompatDigest: adapterCompat.digest,
+      schemaPackageIntegrity: readPackageIntegrity(),
+      provenanceVerified: options.provenanceVerified === "true",
+      outputs: buildOutputPaths(environments),
+      files: loadOutputFileTree(options.outputRoot),
+    });
+    mkdirSync(dirname(options.out), { recursive: true });
+    writeFileSync(options.out, YAML.stringify(contract, { lineWidth: 0 }));
+    streams.stdout.write(`${JSON.stringify({ out: options.out, renderHash: contract.spec.renderHash, environments }, null, 2)}\n`);
+    return 0;
+  } catch (error) {
+    writeDiagnostics(streams.stderr, [{ code: extractErrorCode(error), message: error instanceof Error ? error.message : String(error), path: "/" }]);
+    return 1;
+  }
+}
+
+function loadOutputFileTree(outputRoot) {
+  if (!outputRoot || !existsSync(outputRoot)) return {};
+  const files = {};
+  for (const path of listFiles(outputRoot)) {
+    const relativePath = relative(outputRoot, path).replaceAll("\\", "/");
+    if (relativePath === "artifact-contract.yaml") continue;
+    files[relativePath] = readFileSync(path, "utf8");
+  }
+  return files;
+}
+
+function readPackageIntegrity() {
+  const pkgPath = fileURLToPath(new URL("../../../package.json", import.meta.url));
+  return `sha512-${createHash("sha512").update(readFileSync(pkgPath)).digest("base64")}`;
+}
+
+function extractErrorCode(error) {
+  const match = error instanceof Error ? /^(E_[A-Z_]+)/.exec(error.message) : null;
+  return match ? match[1] : "E_COMMAND";
+}
+
+function writeRenderedText(rendered, outputPath, stdout) {
+  const text = typeof rendered === "string" && rendered.endsWith("\n") ? rendered : `${rendered}\n`;
+  if (outputPath) {
+    mkdirSync(dirname(outputPath), { recursive: true });
+    writeFileSync(outputPath, text);
+    return;
+  }
+  stdout.write(text);
 }
