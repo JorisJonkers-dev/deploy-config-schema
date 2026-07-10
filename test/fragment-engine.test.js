@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync, copyFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import YAML from "yaml";
 import {
@@ -11,6 +12,7 @@ import {
   computeRenderHash,
   deterministicTimestamp,
   forbidAmbientAdapterInputs,
+  getPackageVersion,
   isDeterministicRuntime,
   loadFragmentInput,
   loadFragmentInputFromPaths,
@@ -44,12 +46,21 @@ function stream() {
   };
 }
 
+function versionedContextPath(filename = "public.yml") {
+  const raw = readFileSync(join(FIXTURES, "contexts", filename), "utf8");
+  const doc = YAML.parse(raw);
+  doc.spec.schemaVersion = getPackageVersion();
+  const tmp = join(mkdtempSync(join(tmpdir(), "dcs-ctx-")), filename);
+  writeFileSync(tmp, YAML.stringify(doc));
+  return tmp;
+}
+
 function fixtureInput() {
   return loadFragmentInputFromPaths({
     deployPath: join(FIXTURES, "minimal/deployment.yml"),
     imagesPath: join(FIXTURES, "minimal/images.lock.json"),
     contextRef: PINNED_REF,
-    contextPath: join(FIXTURES, "contexts/public.yml"),
+    contextPath: versionedContextPath(),
     env: "production",
     adapterCompatDigest: "sha256:deadbeef",
   });
@@ -360,7 +371,7 @@ test("loadFragmentInput full flow (no ambient vars) matches loadFragmentInputFro
     deployPath: join(FIXTURES, "minimal/deployment.yml"),
     imagesPath: join(FIXTURES, "minimal/images.lock.json"),
     contextRef: PINNED_REF,
-    contextPath: join(FIXTURES, "contexts/public.yml"),
+    contextPath: versionedContextPath(),
     env: "production",
     adapterCompatDigest: "sha256:deadbeef",
   });
@@ -395,7 +406,7 @@ test("CLI: render fragment via --context-dir writes YAML output", async () => {
     const deployDir = join(root, "deploy");
     mkdirSync(deployDir, { recursive: true });
     copyFileSync(join(FIXTURES, "minimal/deployment.yml"), join(deployDir, "deployment.yml"));
-    copyFileSync(join(FIXTURES, "contexts/public.yml"), join(root, "cluster-context-public.yml"));
+    writeFileSync(join(root, "cluster-context-public.yml"), readFileSync(versionedContextPath(), "utf8"));
     const stdout = stream();
     const stderr = stream();
     const code = await runCli([
@@ -432,7 +443,7 @@ test("CLI: artifact emit-contract writes SC-3 contract", async () => {
       "--images", join(FIXTURES, "minimal/images.lock.json"),
       "--context-ref", PINNED_REF,
       "--deployment", join(FIXTURES, "minimal/deployment.yml"),
-      "--context", join(FIXTURES, "contexts/public.yml"),
+      "--context", versionedContextPath(),
       "--provenance-verified", "true",
       "--out", join(root, "artifact-contract.yaml"),
     ], { stdout, stderr });
@@ -440,7 +451,7 @@ test("CLI: artifact emit-contract writes SC-3 contract", async () => {
     const contract = YAML.parse(readFileSync(join(root, "artifact-contract.yaml"), "utf8"));
     assert.equal(contract.kind, "DeployArtifactContract");
     assert.equal(contract.metadata.name, "my-service-deploy");
-    assert.equal(contract.spec.schemaVersion, "0.16.0");
+    assert.equal(contract.spec.schemaVersion, getPackageVersion());
     assert.ok(contract.spec.renderHash.startsWith("sha256:"));
     assert.equal(contract.spec.provenance_verified, true);
     assert.ok(contract.spec.inputDigests.deployment.startsWith("sha256:"));

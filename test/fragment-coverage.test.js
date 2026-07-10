@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import YAML from "yaml";
 import {
@@ -8,6 +9,7 @@ import {
   deterministicTimestamp,
   extractImageRefs,
   filterBySelector,
+  getPackageVersion,
   listYamlFilesRecursive,
   loadFragmentInputFromPaths,
   renderEdgeCatalogFragment,
@@ -32,12 +34,21 @@ function stream() {
   };
 }
 
+function versionedContextPath() {
+  const raw = readFileSync(join(FIXTURES, "contexts/public.yml"), "utf8");
+  const doc = YAML.parse(raw);
+  doc.spec.schemaVersion = getPackageVersion();
+  const tmp = join(mkdtempSync(join(tmpdir(), "dcs-ctx-")), "public.yml");
+  writeFileSync(tmp, YAML.stringify(doc));
+  return tmp;
+}
+
 function fixtureInput() {
   return loadFragmentInputFromPaths({
     deployPath: join(FIXTURES, "minimal/deployment.yml"),
     imagesPath: join(FIXTURES, "minimal/images.lock.json"),
     contextRef: PINNED_REF,
-    contextPath: join(FIXTURES, "contexts/public.yml"),
+    contextPath: versionedContextPath(),
     env: "production",
     adapterCompatDigest: "sha256:deadbeef",
   });
@@ -185,7 +196,7 @@ test("CLI: render fragment writes to stdout without --output", async () => {
       "--env", "production",
       "--images", join(FIXTURES, "minimal/images.lock.json"),
       "--context", PINNED_REF,
-      "--context-path", join(FIXTURES, "contexts/public.yml"),
+      "--context-path", versionedContextPath(),
     ], { stdout, stderr });
     assert.equal(code, 0, stderr.text());
     assert.equal(YAML.parse(stdout.text()).kind, "GatusEndpointFragment");
@@ -201,7 +212,7 @@ test("CLI: render fragment surfaces load errors with the E_ code", async () => {
     mkdirSync(deployDir, { recursive: true });
     writeFileSync(join(deployDir, "deployment.yml"), readFileSync(join(FIXTURES, "minimal/deployment.yml")));
     writeFileSync(join(root, "images.lock.json"), JSON.stringify({ app: "ghcr.io/org/app:latest" }));
-    writeFileSync(join(root, "cluster-context-public.yml"), readFileSync(join(FIXTURES, "contexts/public.yml")));
+    writeFileSync(join(root, "cluster-context-public.yml"), readFileSync(versionedContextPath()));
     const stdout = stream();
     const stderr = stream();
     const code = await runCli([
@@ -232,7 +243,7 @@ test("CLI: artifact emit-contract collects files from --output-root and rejects 
       "--environments", "production",
       "--images", join(FIXTURES, "minimal/images.lock.json"),
       "--deployment", join(FIXTURES, "minimal/deployment.yml"),
-      "--context", join(FIXTURES, "contexts/public.yml"),
+      "--context", versionedContextPath(),
       "--output-root", outputRoot,
       "--out", join(root, "artifact-contract.yaml"),
     ];
