@@ -6,9 +6,10 @@ import {
   assertNodeLabelsOnAllowlist,
   scanAllStringFields,
   redactToPublic,
+  getPackageVersion,
 } from "../src/index.js";
 
-const SCHEMA_VERSION = "0.16.0";
+const SCHEMA_VERSION = getPackageVersion();
 
 function makePublicCtx(overrides = {}) {
   return {
