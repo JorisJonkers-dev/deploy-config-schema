@@ -473,6 +473,7 @@ function inferValidationKindFromDocument(document) {
   if (document?.apiVersion === "deployment.jorisjonkers.dev/collection-index") return "collection-index";
   if (document?.apiVersion === "deployment.jorisjonkers.dev/reachability") return "reachability";
   if (document?.apiVersion === "deployment.jorisjonkers.dev/state-move-plan") return "state-move-plan";
+  if (document?.apiVersion === "deployment.jorisjonkers.dev/cluster-context/v1" || document?.kind === "ClusterContext") return "cluster-context";
   if (document?.vault) return "vault-dynamic-secrets";
   if (document?.cluster && document?.service_intent) return "deploy-config";
   if (document?.name && document?.domain) return "platform";

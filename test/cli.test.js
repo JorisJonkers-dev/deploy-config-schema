@@ -229,3 +229,59 @@ test("non-Traefik adapters render implemented output", async () => {
   assert.match(stdout.text(), /kind: ConfigMap/);
   assert.match(stdout.text(), /name: gatus-endpoints/);
 });
+
+test("validate cluster-context kind accepts valid cluster-context document", async () => {
+  const stdout = stream();
+  const stderr = stream();
+
+  const exitCode = await runCli(["validate", "cluster-context", "fixtures/cluster-context.sample.yaml"], { stdout, stderr });
+
+  assert.equal(exitCode, 0);
+  assert.equal(stderr.text(), "");
+  const result = JSON.parse(stdout.text());
+  assert.equal(result.valid, true);
+  assert.deepEqual(result.results[0].kind, "cluster-context");
+});
+
+test("validate auto infers cluster-context from apiVersion", async () => {
+  const stdout = stream();
+  const stderr = stream();
+
+  const exitCode = await runCli(["validate", "auto", "fixtures/cluster-context.sample.yaml"], { stdout, stderr });
+
+  assert.equal(exitCode, 0);
+  assert.equal(stderr.text(), "");
+  const result = JSON.parse(stdout.text());
+  assert.equal(result.valid, true);
+  assert.equal(result.results[0].kind, "cluster-context");
+});
+
+test("validate auto infers cluster-context from filename pattern", async () => {
+  const stdout = stream();
+  const stderr = stream();
+
+  const path = tempFile("production.cluster-context.yaml", readFileSync(new URL("../fixtures/cluster-context.sample.yaml", import.meta.url), "utf8"));
+
+  const exitCode = await runCli(["validate", "auto", path], { stdout, stderr });
+
+  assert.equal(exitCode, 0);
+  assert.equal(stderr.text(), "");
+  const result = JSON.parse(stdout.text());
+  assert.equal(result.valid, true);
+  assert.equal(result.results[0].kind, "cluster-context");
+});
+
+test("validate auto rejects invalid cluster-context document with schema errors", async () => {
+  const stdout = stream();
+  const stderr = stream();
+
+  const invalidDoc = { apiVersion: "deployment.jorisjonkers.dev/cluster-context/v1", kind: "ClusterContext", metadata: { name: "production-public", visibility: "public" } };
+  const path = tempFile("bad.cluster-context.yaml", YAML.stringify(invalidDoc));
+
+  const exitCode = await runCli(["validate", "auto", path], { stdout, stderr });
+
+  assert.equal(exitCode, 1);
+  const result = JSON.parse(stdout.text());
+  assert.equal(result.valid, false);
+  assert.ok(result.diagnostics.some((d) => d.code === "E_SCHEMA"), `expected E_SCHEMA, got ${JSON.stringify(result.diagnostics)}`);
+});
