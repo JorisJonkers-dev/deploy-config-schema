@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  getPackageVersion,
   normalizeImageLock,
   validateDeploymentSemantics,
 } from "../src/index.js";
@@ -12,7 +13,7 @@ function publicContext() {
     metadata: { name: "production-public", visibility: "public" },
     spec: {
       cluster: "production",
-      schemaVersion: "0.16.0",
+      schemaVersion: getPackageVersion(),
       labels: { allowed: { "kubernetes.io/arch": ["amd64"] } },
       routeTiers: {
         "public-frankfurt": { class: "public", hostnamePolicy: "public", authModes: ["forward-auth"] },
