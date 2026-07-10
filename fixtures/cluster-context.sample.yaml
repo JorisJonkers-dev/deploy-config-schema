@@ -1,0 +1,22 @@
+apiVersion: "deployment.jorisjonkers.dev/cluster-context/v1"
+kind: ClusterContext
+metadata:
+  name: production-public
+  visibility: public
+spec:
+  cluster: k3s-lab
+  schemaVersion: "0.16.0"
+  labels:
+    allowed:
+      "kubernetes.io/arch": ["amd64", "arm64"]
+      "kubernetes.io/os": ["linux"]
+  routeTiers:
+    public:
+      class: public
+      hostnamePolicy: public
+      authModes: ["forward-auth"]
+  capacity:
+    nodeLabels:
+      "platform.jorisjonkers.dev/role": ["worker", "control-plane"]
+  adapterCompat:
+    manifest: "sha256:abc123def456"

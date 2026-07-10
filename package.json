@@ -28,7 +28,8 @@
     "./schemas/collection": "./dist/schemas/collection.schema.json",
     "./schemas/collection-index": "./dist/schemas/collection-index.schema.json",
     "./schemas/reachability": "./dist/schemas/reachability.schema.json",
-    "./schemas/state-move-plan": "./dist/schemas/state-move-plan.schema.json"
+    "./schemas/state-move-plan": "./dist/schemas/state-move-plan.schema.json",
+    "./schemas/cluster-context": "./dist/schemas/cluster-context.schema.json"
   },
   "files": [
     "dist/",

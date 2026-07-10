@@ -2,6 +2,8 @@
 // schema-validated artifact shapes with dynamic cross-reference checks. This
 // conversion keeps runtime behavior stable and leaves full generated schema
 // typing for a follow-up pass.
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
 import type { Ajv2020 as Ajv2020Class } from "ajv/dist/2020.js";
 import { validateConfig } from "./validator.js";
@@ -22,6 +24,10 @@ import {
   vaultDynamicSecretsJsonSchema,
 } from "./schemas/generated-json.js";
 
+const clusterContextJsonSchema = JSON.parse(
+  readFileSync(fileURLToPath(new URL("../../schemas/cluster-context.schema.json", import.meta.url)), "utf8"),
+);
+
 const artifactSchemas = {
   "service-intent": serviceIntentJsonSchema,
   "fleet-inventory": fleetInventoryJsonSchema,
@@ -37,6 +43,7 @@ const artifactSchemas = {
   "collection-index": collectionIndexJsonSchema,
   "reachability": reachabilityJsonSchema,
   "state-move-plan": stateMovePlanJsonSchema,
+  "cluster-context": clusterContextJsonSchema,
 };
 
 const require = createRequire(import.meta.url);
