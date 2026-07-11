@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.16.1](https://github.com/JorisJonkers-dev/deploy-config-schema/compare/v0.16.0...v0.16.1) (2026-07-10)
+
+
+### Bug Fixes
+
+* decouple context fixture schemaVersion checks from package version ([#38](https://github.com/JorisJonkers-dev/deploy-config-schema/issues/38)) ([c1ba378](https://github.com/JorisJonkers-dev/deploy-config-schema/commit/c1ba378be14fd917e363df1dc7f751c1d1d79e5e))
+* derive SCHEMA_VERSION from getPackageVersion in cluster-context test ([#37](https://github.com/JorisJonkers-dev/deploy-config-schema/issues/37)) ([aad48db](https://github.com/JorisJonkers-dev/deploy-config-schema/commit/aad48dbc6e338c0c7f67bbfd1e2ff25ef5f6bab5))
+* remove committed golden render-hash that changes on every version bump ([#40](https://github.com/JorisJonkers-dev/deploy-config-schema/issues/40)) ([a23c7cc](https://github.com/JorisJonkers-dev/deploy-config-schema/commit/a23c7cc22658dae7b3fb33387cb76589998c4989))
+* wire cluster-context kind into CLI validate dispatch ([#35](https://github.com/JorisJonkers-dev/deploy-config-schema/issues/35)) ([8b15214](https://github.com/JorisJonkers-dev/deploy-config-schema/commit/8b152144f5ead53bfd61c2be2080134738869fff))
+
 ## [0.16.0](https://github.com/JorisJonkers-dev/deploy-config-schema/compare/v0.15.0...v0.16.0) (2026-07-08)
 
 
