@@ -522,6 +522,9 @@ test("job workload: kubernetes fragment renders batch/v1 Job with migration labe
   assert.equal(job.metadata.labels["app.kubernetes.io/component"], "migration",
     "Job must carry app.kubernetes.io/component=migration for prune-guardrails");
   assert.equal(job.spec.template.spec.restartPolicy, "Never");
+  // TTL: Option B (owner decision 2026-07-12) — completed jobs must be cleaned up automatically
+  assert.equal(job.spec.ttlSecondsAfterFinished, 3600,
+    "Job must carry ttlSecondsAfterFinished:3600 so Flux can re-apply after cleanup");
   // No PVCs in output
   assert.ok(!rendered.manifests.some((m) => m.kind === "PersistentVolumeClaim"),
     "Job workload must not emit PVCs");
