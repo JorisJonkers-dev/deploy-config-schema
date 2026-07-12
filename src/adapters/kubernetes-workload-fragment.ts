@@ -118,6 +118,13 @@ function buildWorkloadManifest(workload: WorkloadV2, ns: string, images: Record<
   };
 }
 
+/** TTL after job completion (Option B decision). Allows Flux to re-apply a
+ *  new Job after the previous one is automatically cleaned up, avoiding
+ *  AlreadyExists conflicts on reconciliation. Value must exceed the Flux
+ *  reconciliation interval + health-check scrape window; 3600 s (1 h) is
+ *  the owner-decided value (DECISIONS.md 2026-07-12). */
+const JOB_TTL_SECONDS_AFTER_FINISHED = 3600;
+
 function buildJobManifest(workload: WorkloadV2, ns: string, images: Record<string, string>): K8sManifest {
   const podSpec: Record<string, unknown> = {
     serviceAccountName: workload.name,
@@ -135,6 +142,7 @@ function buildJobManifest(workload: WorkloadV2, ns: string, images: Record<strin
     kind: "Job",
     metadata: { name: workload.name, namespace: ns, labels: jobLabels(workload) },
     spec: {
+      ttlSecondsAfterFinished: JOB_TTL_SECONDS_AFTER_FINISHED,
       template: { metadata: { labels: jobLabels(workload) }, spec: podSpec },
     },
   };
