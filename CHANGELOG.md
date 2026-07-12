@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.18.0](https://github.com/JorisJonkers-dev/deploy-config-schema/compare/v0.17.0...v0.18.0) (2026-07-12)
+
+
+### Features
+
+* **job-workload:** add ttlSecondsAfterFinished:3600 to rendered Job manifests ([#43](https://github.com/JorisJonkers-dev/deploy-config-schema/issues/43)) ([0137314](https://github.com/JorisJonkers-dev/deploy-config-schema/commit/0137314ceb152866f0ba3b925c5c31ffa99b9a6a))
+
 ## [0.17.0](https://github.com/JorisJonkers-dev/deploy-config-schema/compare/v0.16.1...v0.17.0) (2026-07-12)
 
 
