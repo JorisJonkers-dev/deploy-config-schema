@@ -549,6 +549,12 @@ export function runParityCheck(args, streams, parseOptions) {
   }
 }
 
+function resolveWorkloadKind(workload) {
+  if (workload.kind === "job") return "job";
+  if (workload.stateful) return "statefulset";
+  return "deployment";
+}
+
 function runEmitKustomizationHealth(args, streams, parseOptions) {
   const { options, diagnostics } = parseOptions(args);
   const deploymentPath = Array.isArray(options.deployment) ? options.deployment[0] : options.deployment;
@@ -559,15 +565,41 @@ function runEmitKustomizationHealth(args, streams, parseOptions) {
   try {
     const deployment = parseDeploymentV2(YAML.parse(readFileSync(deploymentPath, "utf8")));
     const imageDigests = normalizeImageLock(JSON.parse(readFileSync(options.imageDigests, "utf8")));
+
+    // wait:false only when ALL workloads are job-kind. Mixed job+stateless deployments
+    // would incorrectly suppress wait for the stateless service if we set waitOverride globally.
+    const allJobWorkloads = deployment.spec.workloads.length > 0 &&
+      deployment.spec.workloads.every((w) => resolveWorkloadKind(w) === "job");
+
     const healthChecks = deployment.spec.workloads
       .filter((workload) => workload.health?.mandatory !== false)
-      .map((workload) => ({
-        apiVersion: "apps/v1",
-        kind: workload.stateful ? "StatefulSet" : "Deployment",
-        name: workload.name,
-        namespace: deployment.spec.namespace,
-      }));
-    const health = emitKustomizationHealth({ workloads: deployment.spec.workloads, healthChecks, imageDigests, pruneDecisions: [] });
+      .map((workload) => {
+        const wkind = resolveWorkloadKind(workload);
+        if (wkind === "job") {
+          return {
+            apiVersion: "batch/v1",
+            kind: "Job",
+            name: workload.name,
+            namespace: deployment.spec.namespace,
+          };
+        }
+        return {
+          apiVersion: "apps/v1",
+          kind: wkind === "statefulset" ? "StatefulSet" : "Deployment",
+          name: workload.name,
+          namespace: deployment.spec.namespace,
+        };
+      });
+
+    // Job workloads: wait must be false (Flux uses healthChecks for Job completion,
+    // not Ready condition; setting wait:true would block on a condition that never fires).
+    const health = emitKustomizationHealth({
+      workloads: deployment.spec.workloads,
+      healthChecks,
+      imageDigests,
+      pruneDecisions: [],
+      ...(allJobWorkloads ? { waitOverride: false } : {}),
+    });
     mkdirSync(dirname(options.out), { recursive: true });
     writeFileSync(options.out, YAML.stringify(health, { lineWidth: 0 }));
     streams.stdout.write(`${JSON.stringify({ out: options.out, env: options.env, timeout: health.spec.timeout }, null, 2)}\n`);

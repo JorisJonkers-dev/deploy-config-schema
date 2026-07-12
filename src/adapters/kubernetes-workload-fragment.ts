@@ -54,6 +54,9 @@ export function renderKubernetesWorkloadFragment(input: FragmentInput): Kubernet
       if (manifest.kind === "Secret") {
         throw new Error("E_FORBIDDEN_KIND: raw Secret output forbidden in kubernetes-workload-fragment");
       }
+      if (manifest.kind === "PersistentVolumeClaim") {
+        throw new Error("E_FORBIDDEN_KIND: PersistentVolumeClaim output forbidden in kubernetes-workload-fragment");
+      }
       if (CLUSTER_SCOPED_KINDS.has(manifest.kind)) {
         throw new Error(`E_FORBIDDEN_KIND: cluster-scoped kind '${manifest.kind}' forbidden in fragment output`);
       }
@@ -79,7 +82,21 @@ function imageFor(workload: WorkloadV2, images: Record<string, string>): string 
   return ref;
 }
 
+function isJobWorkload(workload: WorkloadV2): boolean {
+  return workload.kind === "job";
+}
+
+function jobLabels(workload: WorkloadV2): Record<string, string> {
+  return {
+    ...labels(workload),
+    "app.kubernetes.io/component": "migration",
+  };
+}
+
 function buildWorkloadManifest(workload: WorkloadV2, ns: string, images: Record<string, string>): K8sManifest {
+  if (isJobWorkload(workload)) {
+    return buildJobManifest(workload, ns, images);
+  }
   const podSpec: Record<string, unknown> = {
     serviceAccountName: workload.name,
     containers: [{ name: workload.name, image: imageFor(workload, images) }],
@@ -97,6 +114,28 @@ function buildWorkloadManifest(workload: WorkloadV2, ns: string, images: Record<
     spec: {
       selector: { matchLabels: labels(workload) },
       template: { metadata: { labels: labels(workload) }, spec: podSpec },
+    },
+  };
+}
+
+function buildJobManifest(workload: WorkloadV2, ns: string, images: Record<string, string>): K8sManifest {
+  const podSpec: Record<string, unknown> = {
+    serviceAccountName: workload.name,
+    restartPolicy: "Never",
+    containers: [{ name: workload.name, image: imageFor(workload, images) }],
+  };
+  const nodeSelector = workload.placement?.nodeSelector;
+  if (nodeSelector && Object.keys(nodeSelector).length > 0) {
+    podSpec["nodeSelector"] = Object.fromEntries(
+      Object.entries(nodeSelector).map(([key, values]) => [key, values[0]]),
+    );
+  }
+  return {
+    apiVersion: "batch/v1",
+    kind: "Job",
+    metadata: { name: workload.name, namespace: ns, labels: jobLabels(workload) },
+    spec: {
+      template: { metadata: { labels: jobLabels(workload) }, spec: podSpec },
     },
   };
 }

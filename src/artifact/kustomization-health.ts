@@ -27,15 +27,18 @@ export type EmitKustomizationHealthOptions = {
   healthChecks: HealthCheck[];
   imageDigests?: Record<string, string>;
   pruneDecisions?: unknown[];
+  /** Override the default wait:true. Set to false for job-class workloads. */
+  waitOverride?: boolean;
 };
 
 export function emitKustomizationHealth(options: EmitKustomizationHealthOptions): KustomizationHealth {
   const timeout = resolveHealthTimeout(options.workloads);
+  const wait = options.waitOverride !== undefined ? options.waitOverride : true;
   return {
     apiVersion: "deployment.jorisjonkers.dev/kustomization-health/v1",
     kind: "KustomizationHealth",
     spec: {
-      wait: true,
+      wait,
       retryInterval: "30s",
       timeout,
       healthChecks: options.healthChecks,
