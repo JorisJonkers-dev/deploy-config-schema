@@ -19,7 +19,7 @@
           "namespace": { "type": "string" },
           "layer": { "type": "string" },
           "artifact_digest": { "type": "string", "pattern": "^sha256:" },
-          "health_class": { "type": "string", "enum": ["stateless", "stateful", "control-plane"] },
+          "health_class": { "type": "string", "enum": ["stateless", "stateful", "control-plane", "job"] },
           "prune_policy": { "type": "string" },
           "flux_ready": { "type": "string", "enum": ["True", "False", "Unknown"] },
           "observed_image_digest": { "oneOf": [{ "type": "string", "pattern": "^sha256:" }, { "type": "null" }] },

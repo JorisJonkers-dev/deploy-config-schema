@@ -11,6 +11,7 @@ export type RouteV2 = {
 export type WorkloadV2 = {
   name: string;
   image?: { alias?: string };
+  kind?: "deployment" | "statefulset" | "job";
   stateful?: boolean;
   migrationPolicy?: { required: boolean; strategy: "none" | "pre-deploy-job" | "external" };
   rollbackTargetRetention?: { minimumDays: number; acknowledged: boolean };

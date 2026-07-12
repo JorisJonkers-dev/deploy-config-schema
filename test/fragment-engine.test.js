@@ -7,6 +7,7 @@ import YAML from "yaml";
 import {
   assertNoFloatingImages,
   assertNoUnselectedMutations,
+  emitKustomizationHealth,
   buildOutputPaths,
   checkScopedParity,
   computeRenderHash,
@@ -499,4 +500,99 @@ test("CLI: parity check --service routes to scoped parity", async () => {
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+// ---------------------------------------------------------------------------
+// Job workload tests (Phase 1 — healthClass: job)
+// ---------------------------------------------------------------------------
+
+test("job workload: kubernetes fragment renders batch/v1 Job with migration label", () => {
+  const input = inputWith({
+    workloads: [{
+      name: "stalwart-provisioner",
+      kind: "job",
+      image: { alias: "app" },
+    }],
+  });
+  const rendered = renderKubernetesWorkloadFragment(input);
+  const job = rendered.manifests.find((m) => m.kind === "Job");
+  assert.ok(job, "Job manifest not found in rendered output");
+  assert.equal(job.apiVersion, "batch/v1");
+  assert.equal(job.metadata.labels["app.kubernetes.io/component"], "migration",
+    "Job must carry app.kubernetes.io/component=migration for prune-guardrails");
+  assert.equal(job.spec.template.spec.restartPolicy, "Never");
+  // No PVCs in output
+  assert.ok(!rendered.manifests.some((m) => m.kind === "PersistentVolumeClaim"),
+    "Job workload must not emit PVCs");
+  // No Deployment in output
+  assert.ok(!rendered.manifests.some((m) => m.kind === "Deployment"),
+    "Job workload must not emit Deployment");
+});
+
+test("job workload: emit-kustomization-health produces kind:Job health check and wait:false", async () => {
+  const tmpDir = mkdtempSync(join("dist", "kh-job-"));
+  try {
+    // Write a minimal job deployment.yml
+    const deployment = {
+      apiVersion: "deployment.jorisjonkers.dev/v2",
+      kind: "Deployment",
+      metadata: { name: "stalwart-provisioner" },
+      spec: {
+        namespace: "mail-system",
+        workloads: [{
+          name: "stalwart-provisioner",
+          kind: "job",
+          image: { alias: "stalwart-provisioner" },
+          health: { timeoutClass: "job" },
+        }],
+      },
+    };
+    const deployPath = join(tmpDir, "deployment.yml");
+    const imagesPath = join(tmpDir, "images.lock.json");
+    const outPath = join(tmpDir, "kustomization-health.yml");
+    writeFileSync(deployPath, YAML.stringify(deployment));
+    writeFileSync(imagesPath, JSON.stringify({ "stalwart-provisioner": PINNED_IMAGE }));
+
+    const stdout = stream();
+    const stderr = stream();
+    const code = await runCli([
+      "artifact", "emit-kustomization-health",
+      "--deployment", deployPath,
+      "--env", "production",
+      "--image-digests", imagesPath,
+      "--out", outPath,
+    ], { stdout, stderr });
+    assert.equal(code, 0, `emit-kustomization-health failed: ${stderr.text()}`);
+
+    const kh = YAML.parse(readFileSync(outPath, "utf8"));
+    assert.equal(kh.kind, "KustomizationHealth");
+    assert.equal(kh.spec.wait, false, "Job workload kustomization-health must have wait:false");
+    assert.equal(kh.spec.healthChecks.length, 1);
+    assert.equal(kh.spec.healthChecks[0].kind, "Job");
+    assert.equal(kh.spec.healthChecks[0].apiVersion, "batch/v1");
+    assert.equal(kh.spec.healthChecks[0].name, "stalwart-provisioner");
+    assert.equal(kh.spec.healthChecks[0].namespace, "mail-system");
+    assert.equal(kh.spec.timeout, "10m", "Job workload timeout should be 10m");
+  } finally {
+    rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("job workload: emitKustomizationHealth with waitOverride:false sets wait:false", () => {
+  const result = emitKustomizationHealth({
+    workloads: [{ health: { timeoutClass: "job" } }],
+    healthChecks: [{ apiVersion: "batch/v1", kind: "Job", name: "my-job", namespace: "default" }],
+    waitOverride: false,
+  });
+  assert.equal(result.spec.wait, false);
+  assert.equal(result.spec.healthChecks[0].kind, "Job");
+  assert.equal(result.spec.timeout, "10m");
+});
+
+test("job workload: emitKustomizationHealth default wait:true for non-job workloads", () => {
+  const result = emitKustomizationHealth({
+    workloads: [{ health: { timeoutClass: "stateless" } }],
+    healthChecks: [{ apiVersion: "apps/v1", kind: "Deployment", name: "svc", namespace: "default" }],
+  });
+  assert.equal(result.spec.wait, true);
 });

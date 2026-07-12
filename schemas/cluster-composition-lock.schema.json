@@ -65,7 +65,7 @@
               "namespace": { "type": "string" },
               "layer": { "type": "string" },
               "schemaVersion": { "type": "string" },
-              "healthClass": { "type": "string", "enum": ["stateless", "stateful", "control-plane"] },
+              "healthClass": { "type": "string", "enum": ["stateless", "stateful", "control-plane", "job"] },
               "prune": { "type": "boolean" },
               "imageDigests": { "type": "object", "additionalProperties": { "type": "string" } }
             }
