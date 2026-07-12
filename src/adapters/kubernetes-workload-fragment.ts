@@ -50,12 +50,6 @@ export function renderKubernetesWorkloadFragment(input: FragmentInput): Kubernet
       }
     }
 
-    for (const workload of deployment.spec.workloads) {
-      if (isJobWorkload(workload) && (workload as any).storage?.volumes?.some((v: any) => v.kind === "persistent")) {
-        throw new Error(`E_JOB_WORKLOAD_PVC_FORBIDDEN: workload '${workload.name}' is a job and must not declare persistent storage; PVCs on job workloads are not supported`);
-      }
-    }
-
     for (const manifest of result) {
       if (manifest.kind === "Secret") {
         throw new Error("E_FORBIDDEN_KIND: raw Secret output forbidden in kubernetes-workload-fragment");

@@ -8,6 +8,7 @@ import {
   assertNoFloatingImages,
   assertNoUnselectedMutations,
   emitKustomizationHealth,
+  validateDeploymentSemantics,
   buildOutputPaths,
   checkScopedParity,
   computeRenderHash,
@@ -595,4 +596,79 @@ test("job workload: emitKustomizationHealth default wait:true for non-job worklo
     healthChecks: [{ apiVersion: "apps/v1", kind: "Deployment", name: "svc", namespace: "default" }],
   });
   assert.equal(result.spec.wait, true);
+});
+
+test("job workload: mixed job+stateless deployment uses wait:true (only all-job deployments get wait:false)", async () => {
+  const tmpDir = mkdtempSync(join("dist", "kh-mixed-"));
+  try {
+    const deployment = {
+      apiVersion: "deployment.jorisjonkers.dev/v2",
+      kind: "Deployment",
+      metadata: { name: "mixed-svc" },
+      spec: {
+        namespace: "mixed-ns",
+        workloads: [
+          {
+            name: "worker-job",
+            kind: "job",
+            image: { alias: "app" },
+            health: { timeoutClass: "job" },
+          },
+          {
+            name: "api-server",
+            image: { alias: "app" },
+            health: { timeoutClass: "stateless" },
+          },
+        ],
+      },
+    };
+    const deployPath = join(tmpDir, "deployment.yml");
+    const imagesPath = join(tmpDir, "images.lock.json");
+    const outPath = join(tmpDir, "kustomization-health.yml");
+    writeFileSync(deployPath, YAML.stringify(deployment));
+    writeFileSync(imagesPath, JSON.stringify({ app: PINNED_IMAGE }));
+
+    const stdout = stream();
+    const stderr = stream();
+    const code = await runCli([
+      "artifact", "emit-kustomization-health",
+      "--deployment", deployPath,
+      "--env", "production",
+      "--image-digests", imagesPath,
+      "--out", outPath,
+    ], { stdout, stderr });
+    assert.equal(code, 0, `emit-kustomization-health failed: ${stderr.text()}`);
+
+    const kh = YAML.parse(readFileSync(outPath, "utf8"));
+    // Mixed deployment: wait must NOT be forced to false (stateless workload needs wait:true)
+    assert.equal(kh.spec.wait, true, "Mixed job+stateless deployment must use wait:true");
+    // Both workloads produce health checks
+    assert.equal(kh.spec.healthChecks.length, 2);
+    const jobCheck = kh.spec.healthChecks.find((hc) => hc.kind === "Job");
+    const depCheck = kh.spec.healthChecks.find((hc) => hc.kind === "Deployment");
+    assert.ok(jobCheck, "Job workload must produce kind:Job healthCheck");
+    assert.ok(depCheck, "Stateless workload must produce kind:Deployment healthCheck");
+  } finally {
+    rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("job workload: kind:job + stateful:true conflict → E_JOB_STATEFUL_CONFLICT", () => {
+  const deployment = {
+    apiVersion: "deployment.jorisjonkers.dev/v2",
+    kind: "Deployment",
+    metadata: { name: "bad-svc" },
+    spec: {
+      namespace: "test-ns",
+      workloads: [{
+        name: "bad-workload",
+        kind: "job",
+        stateful: true,
+        image: { alias: "app" },
+        migrationPolicy: { required: false, strategy: "none" },
+      }],
+    },
+  };
+  const ctx = fixtureInput().context;
+  assert.throws(() => validateDeploymentSemantics(deployment, ctx), /E_JOB_STATEFUL_CONFLICT/);
 });

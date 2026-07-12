@@ -566,7 +566,10 @@ function runEmitKustomizationHealth(args, streams, parseOptions) {
     const deployment = parseDeploymentV2(YAML.parse(readFileSync(deploymentPath, "utf8")));
     const imageDigests = normalizeImageLock(JSON.parse(readFileSync(options.imageDigests, "utf8")));
 
-    const hasJobWorkload = deployment.spec.workloads.some((w) => resolveWorkloadKind(w) === "job");
+    // wait:false only when ALL workloads are job-kind. Mixed job+stateless deployments
+    // would incorrectly suppress wait for the stateless service if we set waitOverride globally.
+    const allJobWorkloads = deployment.spec.workloads.length > 0 &&
+      deployment.spec.workloads.every((w) => resolveWorkloadKind(w) === "job");
 
     const healthChecks = deployment.spec.workloads
       .filter((workload) => workload.health?.mandatory !== false)
@@ -595,7 +598,7 @@ function runEmitKustomizationHealth(args, streams, parseOptions) {
       healthChecks,
       imageDigests,
       pruneDecisions: [],
-      ...(hasJobWorkload ? { waitOverride: false } : {}),
+      ...(allJobWorkloads ? { waitOverride: false } : {}),
     });
     mkdirSync(dirname(options.out), { recursive: true });
     writeFileSync(options.out, YAML.stringify(health, { lineWidth: 0 }));

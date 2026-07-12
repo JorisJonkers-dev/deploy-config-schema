@@ -82,6 +82,9 @@ export function validateDeploymentSemantics(deployment: DeploymentV2, context: C
   }
 
   for (const workload of deployment.spec.workloads) {
+    if (workload.kind === "job" && workload.stateful === true) {
+      throw new Error(`E_JOB_STATEFUL_CONFLICT: workload '${workload.name}' declares both kind:job and stateful:true; these are mutually exclusive`);
+    }
     if (workload.stateful === true) {
       if (!workload.migrationPolicy) {
         throw new Error(`E_STATEFUL_MIGRATION_POLICY_REQUIRED: workload '${workload.name}' is stateful and must declare migrationPolicy`);
