@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.17.0](https://github.com/JorisJonkers-dev/deploy-config-schema/compare/v0.16.1...v0.17.0) (2026-07-12)
+
+
+### Features
+
+* add job workload support to healthClass schema and fragment pipeline ([86a757d](https://github.com/JorisJonkers-dev/deploy-config-schema/commit/86a757d0e90a1860b76e28f17b1c9b01f8876c28))
+
 ## [0.16.1](https://github.com/JorisJonkers-dev/deploy-config-schema/compare/v0.16.0...v0.16.1) (2026-07-10)
 
 
