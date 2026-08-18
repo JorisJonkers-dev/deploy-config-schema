@@ -20,11 +20,11 @@ inputs:
       paths:
         - collections/data
   homelabHosts:
-    repo: JorisJonkers-dev/homelab-hosts
+    repo: JorisJonkers-dev/nix-config
     ref: main
     sha: cccccccccccccccccccccccccccccccccccccccc
   platformBlueprints:
-    repo: JorisJonkers-dev/platform-blueprints
+    repo: JorisJonkers-dev/flux-modules
     ref: v0.8.0
   charts: {}
   images:

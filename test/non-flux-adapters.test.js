@@ -302,14 +302,14 @@ test("nix-hosts adapter renders flake and guarded host scaffolds from fleet role
   const readme = file(files, "platform/nix/hosts/frankfurt-contabo-1/README.md").content;
 
   assert.deepEqual(files, renderNixHosts(context));
-  assert.match(flake, /platform-blueprints.url = "github:JorisJonkers-dev\/platform-blueprints"/);
+  assert.match(flake, /flux-modules.url = "github:JorisJonkers-dev\/flux-modules"/);
   assert.match(flake, /frankfurt-contabo-1 = \{/);
-  assert.match(controlPlane, /inputs.platform-blueprints.nixosModules.roleControlPlane/);
+  assert.match(controlPlane, /inputs.flux-modules.nixosModules.roleControlPlane/);
   assert.ok(controlPlane.includes("builtins.pathExists ./network.nix"));
   assert.ok(controlPlane.includes("builtins.pathExists ./disko.nix"));
   assert.ok(controlPlane.includes("builtins.pathExists ./secrets.nix"));
   assert.ok(controlPlane.includes("builtins.pathExists ./overrides.nix"));
-  assert.match(gpuWorker, /inputs.platform-blueprints.nixosModules.roleGpuAmd/);
+  assert.match(gpuWorker, /inputs.flux-modules.nixosModules.roleGpuAmd/);
   assert.match(gpuWorker, /platformBlueprints.roles.gpuAmd.enable = lib.mkDefault true/);
   assert.match(labels, /"personal-stack\/capability-amd-gpu" = "true";/);
   assert.match(metadata, /roles = \[ "base" "k3s-control-plane" "k3s-worker" \];/);
@@ -333,9 +333,9 @@ test("nix-hosts adapter maps roles through injected blueprint registry", () => {
   const files = renderNixHosts(context);
   const host = file(files, "platform/nix/hosts/frankfurt-contabo-1/default.nix").content;
 
-  assert.match(host, /inputs.platform-blueprints.nixosModules.customBase/);
-  assert.match(host, /inputs.platform-blueprints.nixosModules.customServer/);
-  assert.match(host, /inputs.platform-blueprints.nixosModules.customAgent/);
+  assert.match(host, /inputs.flux-modules.nixosModules.customBase/);
+  assert.match(host, /inputs.flux-modules.nixosModules.customServer/);
+  assert.match(host, /inputs.flux-modules.nixosModules.customAgent/);
   assert.doesNotMatch(host, /roleControlPlane/);
 });
 

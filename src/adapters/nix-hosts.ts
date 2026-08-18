@@ -112,11 +112,11 @@ function renderFlake(cluster: NixCluster, nodes: NormalizedNode[]): string {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     deploy-rs.url = "github:serokell/deploy-rs";
     disko.url = "github:nix-community/disko";
-    platform-blueprints.url = "github:JorisJonkers-dev/platform-blueprints";
+    flux-modules.url = "github:JorisJonkers-dev/flux-modules";
   };
 
   outputs =
-    inputs@{ self, nixpkgs, deploy-rs, disko, platform-blueprints, ... }:
+    inputs@{ self, nixpkgs, deploy-rs, disko, flux-modules, ... }:
     let
       lib = nixpkgs.lib;
       mkHost =
@@ -168,7 +168,7 @@ function renderDeployNode(node: NormalizedNode & { ssh: SshTarget }): string {
 }
 
 function renderHostDefault(context: AdapterContext, cluster: NixCluster, node: NormalizedNode): string {
-  const imports = modulesFor(context, node).map((module) => `      inputs.platform-blueprints.nixosModules.${module}`);
+  const imports = modulesFor(context, node).map((module) => `      inputs.flux-modules.nixosModules.${module}`);
   imports.push(`      ../../generated/${node.id}-labels.nix`);
   imports.push(`      ../../generated/${node.id}-deploy-metadata.nix`);
   const importBlock = imports.join("\n");

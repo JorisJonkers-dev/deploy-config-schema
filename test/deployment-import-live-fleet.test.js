@@ -98,15 +98,15 @@ test("importLiveFleet imports fleet intent, workload details, Flux layers, and p
 test("importLiveFleet records external source roots for sourced parity manifests", () => {
   const result = importLiveFleet({
     ...options(),
-    platformBlueprintsPath: "vendor/platform-blueprints",
+    platformBlueprintsPath: "vendor/flux-modules",
     collectionsRootPath: "vendor/homelab-collections",
   });
 
   assert.deepEqual(result.documents.sources.spec.platformBlueprints, {
-    repo: "JorisJonkers-dev/platform-blueprints",
+    repo: "JorisJonkers-dev/flux-modules",
     ref: "local-import",
     sha: "0000000000000000000000000000000000000000",
-    paths: ["vendor/platform-blueprints"],
+    paths: ["vendor/flux-modules"],
   });
   assert.deepEqual(result.documents.sources.spec.collections.homelab, {
     repo: "JorisJonkers-dev/homelab-collections",
@@ -116,7 +116,7 @@ test("importLiveFleet records external source roots for sourced parity manifests
   });
   const edge = result.model.parityImports.existingFiles.find((file) => file.path === "apps/edge/traefik-ingressroutes.yaml");
   assert.equal(edge.source.kind, "pack-sourced");
-  assert.match(edge.source.reason, /platform-blueprints pack/);
+  assert.match(edge.source.reason, /flux-modules pack/);
 });
 
 test("importLiveFleet falls back to Kubernetes service discovery and defaults optional inputs", () => {

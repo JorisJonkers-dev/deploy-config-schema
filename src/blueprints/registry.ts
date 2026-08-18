@@ -50,7 +50,7 @@ export function resolveBlueprintRegistry(
     ok: true,
     registry: loaded.registry,
     provenance: {
-      source: "platform-blueprints-checkout",
+      source: "flux-modules-checkout",
       ...(version ? { version } : {}),
     },
   };
@@ -61,7 +61,7 @@ export function loadBlueprintRegistry(root: string | URL): BlueprintRegistryResu
   const packsRoot = posix.join(absoluteRoot, "packs");
 
   if (!existsSync(packsRoot) || !statSync(packsRoot).isDirectory()) {
-    return unavailable(root, "expected a platform-blueprints checkout containing packs/");
+    return unavailable(root, "expected a flux-modules checkout containing packs/");
   }
 
   const files = walk(packsRoot);

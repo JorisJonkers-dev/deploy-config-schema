@@ -19,7 +19,7 @@ const singleNode = readYaml("../fixtures/platform/single-node.platform.yaml");
 const multiSite = readYaml("../fixtures/platform/multi-site.platform.yaml");
 const fullTree = readYaml("../fixtures/platform/full-tree.platform.yaml");
 const blueprintsRoot = fileURLToPath(new URL("fixtures/blueprint-packs", import.meta.url));
-const blueprintsVersion = "platform-blueprints-v0.0.0-test";
+const blueprintsVersion = "flux-modules-v0.0.0-test";
 
 function readYaml(relativePath) {
   return YAML.parse(readFileSync(new URL(relativePath, import.meta.url), "utf8"));
@@ -225,7 +225,7 @@ test("CLI render-tree renders flux packs from pinned snapshot root deterministic
 
   const first = JSON.parse(firstStdout.text());
   const second = JSON.parse(secondStdout.text());
-  assert.equal(first.plan.provenance.blueprints.source, "platform-blueprints-checkout");
+  assert.equal(first.plan.provenance.blueprints.source, "flux-modules-checkout");
   assert.equal(first.plan.provenance.blueprints.version, blueprintsVersion);
   const firstSnapshot = snapshotTree(firstRoot);
   assert.ok(Object.hasOwn(firstSnapshot, "platform/cluster/flux/apps/observability/gatus/deployment.yaml"));

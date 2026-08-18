@@ -26,7 +26,7 @@ spec:
         source:
           kind: pack-sourced
           pack: edge-pack
-          reason: Platform support manifest should be sourced from platform-blueprints; no pack checkout path was provided during import.
+          reason: Platform support manifest should be sourced from flux-modules; no pack checkout path was provided during import.
       - path: apps/stateless/kustomization.yaml
         content: |
           apiVersion: kustomize.config.k8s.io/v1beta1
