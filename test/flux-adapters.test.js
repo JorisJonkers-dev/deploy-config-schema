@@ -167,7 +167,7 @@ function realBlueprintRegistry() {
   const entries = {};
   for (const definition of Object.values(FLUX_PACKS)) {
     // Pack source is vendored under test/fixtures/blueprint-packs so the test is
-    // self-contained in CI (no sibling platform-blueprints checkout on disk).
+    // self-contained in CI (no sibling flux-modules checkout on disk).
     const absolutePath = fileURLToPath(
       new URL(`fixtures/blueprint-packs/${definition.sourcePath}`, import.meta.url),
     );

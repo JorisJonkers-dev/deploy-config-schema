@@ -875,7 +875,7 @@ export function buildProjectModel(input: CompilerInputSet): ProjectModel {
     providerGraph,
     flux: {
       source: {
-        url: "ssh://git@github.com/JorisJonkers-dev/homelab-deploy.git",
+        url: "ssh://git@github.com/JorisJonkers-dev/fleet-infra.git",
         branch: "main",
         secretRefName: "flux-system",
       },

@@ -81,7 +81,7 @@ export function importLiveFleet(options: ImportLiveFleetOptions): ImportLiveFlee
   };
   persistImportedNetworkPolicies(deployment, networkPolicies);
   const platformBlueprints: { repo: string; ref: string; sha: string; paths: string[] } | undefined = options.platformBlueprintsPath
-    ? gitRef("JorisJonkers-dev/platform-blueprints", options.platformBlueprintsPath)
+    ? gitRef("JorisJonkers-dev/flux-modules", options.platformBlueprintsPath)
     : undefined;
   const collections: Record<string, { repo: string; ref: string; sha: string; paths: string[] }> = options.collectionsRootPath ? {
     homelab: gitRef("JorisJonkers-dev/homelab-collections", options.collectionsRootPath),
@@ -466,9 +466,9 @@ function sourceFor(path: string, options: { platformBlueprintsPath?: string; col
       ...(sourcePath ? { path: sourcePath } : {}),
       reason: options.platformBlueprintsPath
         ? sourcePath
-          ? "Platform support manifest owned by the platform-blueprints pack and resolved from the supplied pack checkout."
-          : "Platform support manifest owned by the platform-blueprints pack; embedded content is retained as a parity fallback when the rendered pack output is not byte-identical."
-        : "Platform support manifest should be sourced from platform-blueprints; no pack checkout path was provided during import.",
+          ? "Platform support manifest owned by the flux-modules pack and resolved from the supplied pack checkout."
+          : "Platform support manifest owned by the flux-modules pack; embedded content is retained as a parity fallback when the rendered pack output is not byte-identical."
+        : "Platform support manifest should be sourced from flux-modules; no pack checkout path was provided during import.",
     };
   }
   const collection = collectionForPath(path);

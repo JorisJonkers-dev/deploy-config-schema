@@ -34,7 +34,7 @@ The committed fixture reaches behavioral parity through the classified import/co
 
 | Path | Source classification | Reason |
 | --- | --- | --- |
-| `apps/edge/traefik-ingressroutes.yaml` | pack-sourced | Edge support belongs to `platform-blueprints`; fixture import did not provide a checkout path, so embedded content is retained as fallback. |
+| `apps/edge/traefik-ingressroutes.yaml` | pack-sourced | Edge support belongs to `flux-modules`; fixture import did not provide a checkout path, so embedded content is retained as fallback. |
 | `apps/stateless/kustomization.yaml` | model-rendered | First-party workload group Kustomization is rendered from the deployment model. |
 | `apps/stateless/web-api/kustomization.yaml` | model-rendered | First-party workload support Kustomization is rendered from the deployment model. |
 | `apps/stateless/web-api/workload.yaml` | model-rendered | First-party workload objects are selected from genuine model renderer output and written at the legacy path for parity review. |
@@ -71,8 +71,8 @@ Intentional redesign diffs:
 
 ## Live Fleet Run
 
-- Fleet input: `/workspace/homelab-deploy/inventory/fleet.yaml`
-- Live tree: `/workspace/homelab-deploy/cluster/flux`
+- Fleet input: `/workspace/fleet-infra/inventory/fleet.yaml`
+- Live tree: `/workspace/fleet-infra/cluster/flux`
 - Rendered path: `import-live-fleet` writes persisted deployment inputs, then `compile --env production` renders the candidate tree.
 
 Before this update, the live fleet run did not reach parity comparison: `import-live-fleet` failed model validation with eight `E_ROUTE_PORT_UNKNOWN` diagnostics, and the persisted input set also failed schema validation on duplicate reachability hosts, uppercase/dashed Secret keys, and missing imported GPU memory values.
@@ -108,14 +108,14 @@ The 346 missing objects were dominated by support manifests that are not first-p
 
 After this update, `import-live-fleet` persists the imported Flux files in `spec.parityImports.existingFiles` with required source classifications:
 
-- `pack-sourced`: platform support manifests owned by `platform-blueprints` packs.
+- `pack-sourced`: platform support manifests owned by `flux-modules` packs.
 - `collection-sourced`: manifests owned by `homelab-collections` collection specs.
 - `carried`: explicit last-resort passthrough with a reason.
 - `model-rendered`: first-party workload/support manifests selected from deployment model renderers. Generic workload renderers own objects they can produce; parity support manifests fill the remaining first-party support identities through the model-rendered adapter.
 
 The compiler resolves source-backed entries from `deployment-sources.yml` when a direct source path is available and otherwise uses the embedded content as an explicit fallback. It rejects unclassified parity imports at schema validation time. First-party workload files are no longer silent passthrough: their object identities are selected from model-rendered output, and the behavioral gate classifies any structural redesign diffs.
 
-With `/workspace/platform-blueprints` and `/workspace/homelab-collections` supplied to `import-live-fleet`, the live run now reaches:
+With `/workspace/flux-modules` and `/workspace/homelab-collections` supplied to `import-live-fleet`, the live run now reaches:
 
 ```json
 {

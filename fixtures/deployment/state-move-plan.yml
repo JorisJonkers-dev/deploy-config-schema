@@ -6,7 +6,7 @@ metadata:
 moves:
   - resource: pvc/assistant-api-postgres
     from: old-source
-    to: homelab-deploy
+    to: fleet-infra
     operation: adopt
     safety:
       gateOn:

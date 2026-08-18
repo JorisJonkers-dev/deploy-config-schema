@@ -14,13 +14,13 @@ The Round-2 MVP validates the full deploy config shape and implements the common
 - `nix-hosts`: renders fleet inventory into `platform/flake.nix`, generated NixOS host defaults, and generated k3s label modules.
 - `vso`: renders Vault Secrets Operator references from `vault-dynamic-secrets` into CRs and namespace-local ServiceAccounts without secret values.
 - `flux-root`: renders `clusters/<environment>/kustomization.yaml` plus ordered Flux `Kustomization` CRs in `kustomizations.yaml`. It infers layer sets from packs and service groups, including website-style `core/data/vso-secrets/edge/utility-system/mail/stateless` graphs and personal-stack-style optional `metallb-config`, `observability`, `grafana-dashboards`, and `media` layers. Dependencies are deterministic and can be overridden through `overrides["flux-root"].layers`.
-- `flux-source`: renders Flux `HelmRepository`, OCI-style Helm repository, and `HelmRelease` manifests for known core/data packs and declared chart services. Known platform pack sources/releases are grounded in `platform-blueprints/packs/**`; declared charts can provide `source`, `chart`, `namespace`, `interval`, and `values`.
-- `flux-packs`: composes known `platform-blueprints/packs/**` manifests into consumer-owned `platform/cluster/flux/apps/**` paths. It fills placeholders from platform data and substitutions, leaves source/release ownership to `flux-source`, rewrites the Gatus pack to consume the generated endpoints ConfigMap, and emits group `kustomization.yaml` files for copied pack directories.
+- `flux-source`: renders Flux `HelmRepository`, OCI-style Helm repository, and `HelmRelease` manifests for known core/data packs and declared chart services. Known platform pack sources/releases are grounded in `flux-modules/packs/**`; declared charts can provide `source`, `chart`, `namespace`, `interval`, and `values`.
+- `flux-packs`: composes known `flux-modules/packs/**` manifests into consumer-owned `platform/cluster/flux/apps/**` paths. It fills placeholders from platform data and substitutions, leaves source/release ownership to `flux-source`, rewrites the Gatus pack to consume the generated endpoints ConfigMap, and emits group `kustomization.yaml` files for copied pack directories.
 
-Blueprint-backed Flux adapters require an explicit pinned `platform-blueprints`
+Blueprint-backed Flux adapters require an explicit pinned `flux-modules`
 checkout. Use `--blueprints-root <dir>` or `DEPLOY_CONFIG_BLUEPRINTS_ROOT` to
 point at the checkout, and pass `--blueprints-version <tag>` to record the
-declared platform-blueprints tag/ref in render plan provenance. The toolkit does
+declared flux-modules tag/ref in render plan provenance. The toolkit does
 not guess a local checkout path.
 
 ### `kubernetes`
@@ -43,7 +43,7 @@ The adapter only renders Vault mounts, paths, role names, destination Secret nam
 
 Input: canonical `fleet-inventory`, plus deploy metadata from the expanded deploy config when available.
 
-Output: `platform/flake.nix`, `platform/nix/hosts/<host>/default.nix`, and `platform/nix/generated/<host>-labels.nix`. Host roles map to `platform-blueprints.nixosModules.*` exports:
+Output: `platform/flake.nix`, `platform/nix/hosts/<host>/default.nix`, and `platform/nix/generated/<host>-labels.nix`. Host roles map to `flux-modules.nixosModules.*` exports:
 
 - `base` -> `base`
 - `k3s-control-plane` and `control-plane` -> `roleControlPlane`
