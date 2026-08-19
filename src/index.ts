@@ -9,8 +9,6 @@ export { createPathAllocator } from "./render-plan/paths.js";
 export { generatedHeader, renderManagedContent, writeGeneratedFiles } from "./render-plan/writer.js";
 export { BLUEPRINTS_ROOT_ENV, loadBlueprintRegistry, resolveBlueprintRegistry } from "./blueprints/registry.js";
 export { normalizeServiceIntentForRender } from "./service-intent-normalizer.js";
-export { fleetToDeployConfig, type FleetInventoryInput } from "./fleet-to-deploy-config.js";
-export { HostEnvError, hostEnvLines, type HostEnvOptions } from "./host-env.js";
 export {
   annotationsForNode,
   contractStatus,
@@ -77,14 +75,6 @@ export {
   type WorkloadModel as WorkloadModelType,
 } from "./deployment/model.js";
 export {
-  compileProject,
-  renderManagedDeploymentContent,
-  renderProject,
-  writeDeploymentFiles,
-  type CompileOptions,
-  type CompileResult,
-} from "./deployment/compiler.js";
-export {
   loadYamlDocument,
   loadYamlDocuments,
   writeYamlDocument,
@@ -97,35 +87,19 @@ export {
   resolveSources,
 } from "./deployment/source-resolver.js";
 export {
-  extractLockedImages,
   readDeploymentLock,
   updateDeploymentLock,
 } from "./deployment/lockfile.js";
 export {
-  hasExplicitImageVersion,
-  isLatestRef,
-  serviceFromImageRef,
-  validateImageTags,
-  type ImageTagValidationOptions,
-  type ImageTagValidationResult,
-} from "./deployment/image-tags.js";
-export {
-  createCutoverPlan,
-  type CutoverPlan,
-  type CutoverPlanOptions,
-} from "./deployment/cutover.js";
-export {
-  normalizeParityTree,
-  compareParityTrees,
-  unifiedDiff,
-  type ParityObject,
-  type ParityReport,
-} from "./deployment/parity.js";
-export {
-  importLiveFleet,
-  type ImportLiveFleetOptions,
-  type ImportLiveFleetResult,
-} from "./deployment/import/live-fleet.js";
+  assertNoUnselectedMutations,
+  behavioralDiff,
+  checkScopedParity,
+  filterBySelector,
+  loadManifests,
+  type ScopedManifest,
+  type ScopedParityOptions,
+  type ScopedParityResult,
+} from "./deployment/parity-scoped.js";
 export {
   validateClusterContext,
   enforce_visibility_rules,
@@ -201,14 +175,4 @@ export { renderGatusEndpointFragment, type GatusEndpoint, type GatusEndpointFrag
 export { renderEdgeCatalogFragment, type CatalogEntry, type EdgeCatalogFragment } from "./adapters/edge-catalog-fragment.js";
 export { renderImageMetadataFragment, type ImageMeta, type ImageMetadataFragment } from "./adapters/image-metadata-fragment.js";
 export { buildOutputPaths } from "./artifact/contract.js";
-export {
-  assertNoUnselectedMutations,
-  behavioralDiff,
-  checkScopedParity,
-  filterBySelector,
-  loadManifests,
-  type ScopedManifest,
-  type ScopedParityOptions,
-  type ScopedParityResult,
-} from "./deployment/parity-scoped.js";
 export { RAW_REASON_ANNOTATION } from "./artifact/raw-manifests.js";

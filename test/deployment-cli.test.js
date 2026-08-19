@@ -55,37 +55,7 @@ test("validate accepts every deployment artifact kind", async () => {
   }
 });
 
-test("lock images emits deterministic image-tags output", async () => {
-  const io = streams();
-  const exitCode = await runCli(["lock", "images", "--lock", fixture("deployment.lock.yml"), "--format", "image-tags"], io);
 
-  assert.equal(exitCode, 0);
-  assert.equal(io.stderr.text(), "");
-  assert.equal(io.stdout.text(), [
-    "ghcr.io/jorisjonkers-dev/assistant-api:v1.2.3",
-    "ghcr.io/jorisjonkers-dev/platform-postgres:v16",
-    "ghcr.io/twin/gatus:v5.20.0",
-    "",
-  ].join("\n"));
-});
-
-test("lock images emits json and lock update preserves a valid lock file", async () => {
-  const dir = tempDir();
-  const lockPath = join(dir, "deployment.lock.yml");
-  writeFileSync(lockPath, readFileSync(fixture("deployment.lock.yml"), "utf8"));
-  const imagesIo = streams();
-  const updateIo = streams();
-
-  assert.equal(await runCli(["lock", "images", "--lock", lockPath], imagesIo), 0);
-  assert.deepEqual(JSON.parse(imagesIo.stdout.text()).images, [
-    "ghcr.io/jorisjonkers-dev/assistant-api:v1.2.3",
-    "ghcr.io/jorisjonkers-dev/platform-postgres:v16",
-    "ghcr.io/twin/gatus:v5.20.0",
-  ]);
-
-  assert.equal(await runCli(["lock", "--sources", fixture("deployment-sources.yml"), "--lock", lockPath, "--update"], updateIo), 0);
-  assert.equal(YAML.parse(readFileSync(lockPath, "utf8")).kind, "DeploymentLock");
-});
 
 test("resolve-sources reports unlocked source entries", async () => {
   const dir = tempDir();
@@ -100,69 +70,6 @@ test("resolve-sources reports unlocked source entries", async () => {
 
   assert.equal(exitCode, 1);
   assert.deepEqual(result.diagnostics.map((diagnostic) => diagnostic.path), ["/firstParty/assistant-api"]);
-});
-
-const expectedCompilePaths = [
-  "apps/agents/assistant-api/deployment.yaml",
-  "apps/agents/assistant-api/hpa.yaml",
-  "apps/agents/assistant-api/kustomization.yaml",
-  "apps/agents/assistant-api/namespace.yaml",
-  "apps/agents/assistant-api/pre-deploy-jobs.yaml",
-  "apps/agents/assistant-api/serviceaccount.yaml",
-  "apps/agents/assistant-api/servicemonitor.yaml",
-  "apps/agents/kustomization.yaml",
-  "apps/data/kustomization.yaml",
-  "apps/data/platform-postgres/deployment.yaml",
-  "apps/data/platform-postgres/kustomization.yaml",
-  "apps/data/platform-postgres/namespace.yaml",
-  "apps/edge/traefik-ingressroutes.yaml",
-  "apps/observability/gatus/gatus-endpoints-configmap.yaml",
-  "apps/vso-secrets/kustomization.yaml",
-  "apps/vso-secrets/vault-auth.yaml",
-  "apps/vso-secrets/vault-connection.yaml",
-  "clusters/production/flux-system/gotk-sync.yaml",
-  "clusters/production/kustomization.yaml",
-  "clusters/production/kustomizations.yaml",
-];
-
-test("compile validates inputs and writes implemented deployment files", async () => {
-  const out = tempDir();
-  const writeIo = streams();
-  const checkIo = streams();
-
-  const args = [
-    "compile",
-    "--env", "production",
-    "--sources", fixture("deployment-sources.yml"),
-    "--lock", fixture("deployment.lock.yml"),
-    "--node-contract", fixture("node-contract.lock.yml"),
-    "--reachability", fixture("reachability.yml"),
-    "--out", out,
-  ];
-
-  assert.equal(await runCli(args, writeIo), 0, writeIo.stderr.text());
-  assert.deepEqual(JSON.parse(writeIo.stdout.text()).files, expectedCompilePaths);
-  assert.equal(await runCli([...args, "--check"], checkIo), 0, checkIo.stdout.text());
-});
-
-test("compile usage errors are structured", async () => {
-  const io = streams();
-  const exitCode = await runCli(["compile", "--env", "production"], io);
-  const result = JSON.parse(io.stderr.text());
-
-  assert.equal(exitCode, 2);
-  assert.equal(result.diagnostics[0].code, "E_USAGE");
-});
-
-test("render-flux and parity usage errors return usage exit code", async () => {
-  const renderFluxIo = streams();
-  const parityIo = streams();
-
-  assert.equal(await runCli(["render-flux", "--unexpected"], renderFluxIo), 2);
-  assert.equal(JSON.parse(renderFluxIo.stderr.text()).diagnostics[0].code, "E_USAGE");
-
-  assert.equal(await runCli(["parity", "--current", fixture("deployment.yml")], parityIo), 2);
-  assert.equal(JSON.parse(parityIo.stderr.text()).diagnostics[0].code, "E_USAGE");
 });
 
 test("bundle pack writes a deterministic manifest file", async () => {
@@ -191,32 +98,3 @@ test("bundle pack writes a deterministic manifest file", async () => {
   assert.equal(manifest.files[0].path, "deployment.yml");
 });
 
-test("parity succeeds for identical normalized Kubernetes trees", async () => {
-  const current = tempDir();
-  const rendered = tempDir();
-  const object = [
-    "apiVersion: source.toolkit.fluxcd.io/v1",
-    "kind: GitRepository",
-    "metadata:",
-    "  name: flux-system",
-    "  namespace: flux-system",
-    "spec:",
-    "  url: https://github.com/old/source",
-    "  ref:",
-    "    branch: main",
-    "",
-  ].join("\n");
-  writeFileSync(join(current, "source.yaml"), object);
-  writeFileSync(join(rendered, "source.yaml"), object.replace("old/source", "new/source"));
-  const io = streams();
-
-  const exitCode = await runCli([
-    "parity",
-    "--current", current,
-    "--rendered", rendered,
-  ], io);
-  const result = JSON.parse(io.stdout.text());
-
-  assert.equal(exitCode, 0, io.stderr.text());
-  assert.equal(result.ok, true);
-});

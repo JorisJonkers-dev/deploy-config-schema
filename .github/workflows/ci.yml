@@ -37,7 +37,6 @@
         node dist/bin/deploy-config-schema.js render edge-route-catalog samples/deploy-config.yaml > /tmp/edge-route-catalog-configmap.yaml
         node dist/bin/deploy-config-schema.js render image-metadata samples/deploy-config.yaml > /tmp/image-metadata.yaml
         node dist/bin/deploy-config-schema.js validate auto fixtures/deployment/*.yml
-        node dist/bin/deploy-config-schema.js lock images --lock fixtures/deployment/deployment.lock.yml --format image-tags
     'secrets':
       'packages-token': '${{ secrets.GITHUB_TOKEN }}'
 

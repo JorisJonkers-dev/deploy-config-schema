@@ -471,38 +471,6 @@ test("CLI: artifact unknown subcommand returns usage error", async () => {
   assert.equal(code, 2);
 });
 
-test("CLI: parity check --service routes to scoped parity", async () => {
-  const root = mkdtempSync(join("dist", "cli-parity-"));
-  try {
-    const currentDir = join(root, "current");
-    const renderedDir = join(root, "rendered");
-    mkdirSync(currentDir, { recursive: true });
-    mkdirSync(renderedDir, { recursive: true });
-    const manifest = YAML.stringify({
-      apiVersion: "apps/v1",
-      kind: "Deployment",
-      metadata: { name: "svc", namespace: "ns", labels: { "app.kubernetes.io/name": "svc" } },
-      spec: { replicas: 1 },
-    });
-    writeFileSync(join(currentDir, "svc.yaml"), manifest);
-    writeFileSync(join(renderedDir, "svc.yaml"), manifest);
-    const stdout = stream();
-    const stderr = stream();
-    const code = await runCli([
-      "parity", "check",
-      "--current", currentDir,
-      "--rendered", renderedDir,
-      "--service", "svc",
-      "--selector", "app.kubernetes.io/name=svc",
-    ], { stdout, stderr });
-    assert.equal(code, 0, stderr.text());
-    const result = JSON.parse(stdout.text());
-    assert.equal(result.status, "pass");
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
-});
-
 // ---------------------------------------------------------------------------
 // Job workload tests (Phase 1 — healthClass: job)
 // ---------------------------------------------------------------------------

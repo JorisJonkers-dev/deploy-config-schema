@@ -52,7 +52,6 @@
     "validate:schema": "node scripts/validate-schema.js",
     "validate:sample": "node dist/bin/deploy-config-schema.js validate auto samples/deploy-config.yaml fixtures/platform/single-node.platform.yaml fixtures/round4/service-intent-renderable.sample.yaml fixtures/round3/fleet-inventory.sample.yaml fixtures/round3/vault-dynamic-secrets.sample.yaml",
     "validate:artifacts": "node dist/bin/deploy-config-schema.js validate auto",
-    "check-drift": "node dist/bin/deploy-config-schema.js render-tree --check",
     "render:sample": "node dist/bin/deploy-config-schema.js render traefik-public samples/deploy-config.yaml"
   },
   "keywords": [

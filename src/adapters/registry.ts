@@ -5,7 +5,6 @@ import { renderFluxSource } from "./flux-source.js";
 import { renderGatus } from "./gatus.js";
 import { renderImageMetadata } from "./image-metadata.js";
 import { renderKubernetes } from "./kubernetes.js";
-import { renderNixHosts } from "./nix-hosts.js";
 import { renderTraefik } from "./traefik.js";
 import { renderVso } from "./vso.js";
 import type { RenderResult } from "./model.js";
@@ -98,15 +97,6 @@ registerAdapter({
   status: "implemented",
   defaultPath: "platform/cluster/flux/apps",
   render: renderKubernetes,
-});
-
-registerAdapter({
-  name: "nix-hosts",
-  target: "nix",
-  input: "canonical-artifacts",
-  status: "implemented",
-  defaultPath: "platform",
-  render: renderNixHosts,
 });
 
 registerAdapter({
