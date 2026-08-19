@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.20.0](https://github.com/JorisJonkers-dev/deploy-config-schema/compare/v0.19.0...v0.20.0) (2026-08-19)
+
+
+### Features
+
+* **artifact:** emit an applyable bundle from the rendered fragments ([#49](https://github.com/JorisJonkers-dev/deploy-config-schema/issues/49)) ([fb1a9df](https://github.com/JorisJonkers-dev/deploy-config-schema/commit/fb1a9dfbaf2cc1bfb682aa9f567d3cb303712196))
+
 ## [0.19.0](https://github.com/JorisJonkers-dev/deploy-config-schema/compare/v0.18.0...v0.19.0) (2026-08-19)
 
 
