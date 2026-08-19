@@ -585,6 +585,14 @@ function parseOptions(args) {
         options.reachability = value;
         index += 1;
       }
+    } else if (arg === "--manifests") {
+      const value = args[index + 1];
+      if (!value) {
+        diagnostics.push({ code: "E_USAGE", message: "--manifests requires a directory", path: "/" });
+      } else {
+        appendOption(options, "manifests", value);
+        index += 1;
+      }
     } else if (arg === "--deployment") {
       const value = args[index + 1];
       if (!value) {
@@ -865,6 +873,7 @@ function usage() {
     "  deploy-config-schema render <fragment-id> <deploy-dir> --env <env> --images <images.lock.json> (--context-dir <dir> | --context <ref@sha256:..> --context-path <file>) [--output <path>]",
     "  deploy-config-schema artifact emit-contract --artifact-name <name> --environments <e1,e2> --images <lock> --context-ref <ref@sha256:..> --deployment <deployment.yml> --context <context.yml> --out <path> [--provenance-verified true|false] [--output-root <dir>]",
     "  deploy-config-schema artifact emit-kustomization-health --deployment <deployment.yml> --env <env> --image-digests <lock> --out <path>",
+    "  deploy-config-schema artifact emit-apply-bundle --manifests <dir> --out <dir>",
     "  deploy-config-schema bundle pack --deploy-dir <dir> --images <file> --repo <repo> --git-sha <sha> --version <version> --out <file>",
     "  deploy-config-schema hosts validate --inventory inventory/fleet.yml",
     "  deploy-config-schema hosts render-node-contract --inventory inventory/fleet.yml --out generated/node-contract.lock.yml [--labels-out generated/k3s-labels.yml]",
