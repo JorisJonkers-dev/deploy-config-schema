@@ -11,27 +11,9 @@ import { adapterContract, adapterNames, getAdapter } from "./adapters/registry.j
 import { resolveBlueprintRegistry } from "./blueprints/registry.js";
 import { expandPlatform } from "./minimal/expand.js";
 import { validatePlatform } from "./minimal/schema.js";
-import { createRenderPlan, renderPlanFiles } from "./render-plan/plan.js";
-import { writeGeneratedFiles } from "./render-plan/writer.js";
+import { createRenderPlan } from "./render-plan/plan.js";
 import { normalizeServiceIntentForRender } from "./service-intent-normalizer.js";
-import { fleetToDeployConfig } from "./fleet-to-deploy-config.js";
-import { HostEnvError, hostEnvLines } from "./host-env.js";
-import {
-  runArtifact,
-  runBundle,
-  runCollections,
-  runCompile,
-  runCutover,
-  runHosts,
-  runImportLiveFleet,
-  runLock,
-  runParity,
-  runParityCheck,
-  runRender as runFragmentRender,
-  runRenderFlux,
-  runResolveSources,
-  runState,
-} from "./deployment/commands.js";
+import { runArtifact, runBundle, runCollections, runHosts, runRender as runFragmentRender, runRenderFlux, runResolveSources } from "./deployment/commands.js";
 
 const allAdapters = new Set(adapterNames());
 const platformTemplatePaths = {
@@ -58,12 +40,6 @@ export async function runCli(args, streams = { stdout: process.stdout, stderr: p
   if (command === "render-plan") {
     return runRenderPlan(rest, streams);
   }
-  if (command === "render-tree") {
-    return runRenderTree(rest, streams);
-  }
-  if (command === "fleet-to-deploy-config") {
-    return runFleetToDeployConfig(rest, streams);
-  }
   if (command === "bundle") {
     return runBundle(rest, streams, parseOptions);
   }
@@ -76,38 +52,11 @@ export async function runCli(args, streams = { stdout: process.stdout, stderr: p
   if (command === "resolve-sources") {
     return runResolveSources(rest, streams, parseOptions);
   }
-  if (command === "lock") {
-    return runLock(rest, streams, parseOptions);
-  }
-  if (command === "compile") {
-    return runCompile(rest, streams, parseOptions);
-  }
   if (command === "render-flux") {
     return runRenderFlux(rest, streams, parseOptions);
   }
-  if (command === "import-live-fleet") {
-    return runImportLiveFleet(rest, streams, parseOptions);
-  }
-  if (command === "parity") {
-    if (rest.includes("--service")) {
-      return runParityCheck(rest, streams, parseOptions);
-    }
-    return runParity(rest, streams, parseOptions);
-  }
-  if (command === "state") {
-    return runState(rest, streams, parseOptions);
-  }
-  if (command === "cutover") {
-    return runCutover(rest, streams, parseOptions);
-  }
   if (command === "artifact") {
     return runArtifact(rest, streams, parseOptions);
-  }
-  if (command === "show-host-env") {
-    return runShowHostEnv(rest, streams, { install: false });
-  }
-  if (command === "show-install-host-env") {
-    return runShowHostEnv(rest, streams, { install: true });
   }
   if (command === "adapter-contract") {
     streams.stdout.write(`${JSON.stringify(adapterContract(), null, 2)}\n`);
@@ -230,46 +179,6 @@ function runRenderPlan(args, streams) {
   return 0;
 }
 
-function runRenderTree(args, streams) {
-  const { positionals, options, diagnostics } = parseOptions(args);
-  if (diagnostics.length > 0 || positionals.length !== 1) {
-    writeDiagnostics(streams.stderr, diagnostics.length > 0 ? diagnostics : usageDiagnostic("render-tree <platform.yaml> --output <root> [--target edge|adapter] [--dry-run|--diff|--force]"));
-    return 1;
-  }
-  const expanded = loadValidateAndExpand(positionals[0]);
-  if (!expanded.valid) {
-    writeValidationResult(streams.stderr, expanded.validation);
-    return 1;
-  }
-  const blueprints = resolveBlueprintsForRender(expanded.expansion, options);
-  if (!blueprints.ok) {
-    writeDiagnostics(streams.stderr, blueprints.diagnostics);
-    return 1;
-  }
-  const plan = createRenderPlan(expanded.expansion, {
-    target: options.target ?? "all",
-    output: options.output ?? ".",
-    blueprintRegistry: blueprints.registry,
-    blueprints: blueprints.provenance,
-  });
-  const files = renderPlanFiles(expanded.expansion, plan, {
-    blueprintRegistry: blueprints.registry,
-  });
-  const result = writeGeneratedFiles(files, {
-    root: options.output ?? ".",
-    dryRun: options.dryRun,
-    diff: options.diff || options.check,
-    force: options.force,
-  });
-  const response = {
-    ok: result.ok,
-    plan,
-    results: result.results.map(({ path, adapter, action, currentHash, nextHash }) => ({ path, adapter, action, currentHash, nextHash })),
-    diagnostics: result.diagnostics,
-  };
-  streams.stdout.write(`${JSON.stringify(response, null, 2)}\n`);
-  return result.ok ? 0 : 1;
-}
 
 function runRender(args, streams) {
   const { positionals, options, diagnostics } = parseOptions(args);
@@ -337,38 +246,7 @@ function runRender(args, streams) {
   return 0;
 }
 
-function runFleetToDeployConfig(args, streams) {
-  const { positionals, diagnostics } = parseOptions(args);
-  if (diagnostics.length > 0 || positionals.length !== 1) {
-    writeDiagnostics(streams.stderr, diagnostics.length > 0 ? diagnostics : usageDiagnostic("fleet-to-deploy-config <fleet.yaml>"));
-    return 1;
-  }
 
-  const fleet = loadConfig(positionals[0]);
-  streams.stdout.write(`${JSON.stringify(fleetToDeployConfig(fleet), null, 2)}\n`);
-  return 0;
-}
-
-function runShowHostEnv(args, streams, options) {
-  const { positionals, diagnostics } = parseOptions(args);
-  const command = options.install ? "show-install-host-env" : "show-host-env";
-  if (diagnostics.length > 0 || positionals.length !== 2) {
-    writeDiagnostics(streams.stderr, diagnostics.length > 0 ? diagnostics : usageDiagnostic(`${command} <fleet.yaml> <node>`));
-    return 1;
-  }
-
-  const fleet = loadConfig(positionals[0]);
-  try {
-    streams.stdout.write(hostEnvLines(fleet, positionals[1], options));
-    return 0;
-  } catch (error) {
-    if (error instanceof HostEnvError) {
-      streams.stderr.write(`${error.message}\n`);
-      return 1;
-    }
-    throw error;
-  }
-}
 
 function validateFiles(paths, kind) {
   const results = paths.map((path) => {
@@ -983,13 +861,10 @@ function usage() {
     "  deploy-config-schema init platform --template single-node|multi-site --output <path>",
     "  deploy-config-schema expand <platform.yaml> [--output <dir>]",
     "  deploy-config-schema render-plan <platform.yaml> [--target edge|adapter] [--output <root>] [--blueprints-root <dir>] [--blueprints-version <tag>]",
-    "  deploy-config-schema render-tree <platform.yaml> --output <root> [--target edge|adapter] [--dry-run|--diff|--check|--force] [--blueprints-root <dir>] [--blueprints-version <tag>]",
     "  deploy-config-schema render <adapter> <config> [--input deploy-config|service-intent] [--output <path>]",
     "  deploy-config-schema render <fragment-id> <deploy-dir> --env <env> --images <images.lock.json> (--context-dir <dir> | --context <ref@sha256:..> --context-path <file>) [--output <path>]",
     "  deploy-config-schema artifact emit-contract --artifact-name <name> --environments <e1,e2> --images <lock> --context-ref <ref@sha256:..> --deployment <deployment.yml> --context <context.yml> --out <path> [--provenance-verified true|false] [--output-root <dir>]",
     "  deploy-config-schema artifact emit-kustomization-health --deployment <deployment.yml> --env <env> --image-digests <lock> --out <path>",
-    "  deploy-config-schema parity check --current <tree> --rendered <tree> --service <name> --selector <key=value> [--profile flux] [--mode behavioral]",
-    "  deploy-config-schema fleet-to-deploy-config <fleet.yaml>",
     "  deploy-config-schema bundle pack --deploy-dir <dir> --images <file> --repo <repo> --git-sha <sha> --version <version> --out <file>",
     "  deploy-config-schema hosts validate --inventory inventory/fleet.yml",
     "  deploy-config-schema hosts render-node-contract --inventory inventory/fleet.yml --out generated/node-contract.lock.yml [--labels-out generated/k3s-labels.yml]",
@@ -997,16 +872,7 @@ function usage() {
     "  deploy-config-schema collections validate --root collections",
     "  deploy-config-schema collections index --root collections --out generated/collections.lock.yml",
     "  deploy-config-schema resolve-sources --sources deployment-sources.yml --lock deployment.lock.yml [--check]",
-    "  deploy-config-schema lock --sources deployment-sources.yml --lock deployment.lock.yml [--update]",
-    "  deploy-config-schema lock images --lock deployment.lock.yml --format image-tags [--reject-latest]",
-    "  deploy-config-schema compile --env <name> --sources <path> --lock <path> --node-contract <path> --reachability <path> --out <dir> [--collections <path>] [--check]",
     "  deploy-config-schema render-flux --repo <repo> --env <name> [--check]",
-    "  deploy-config-schema import-live-fleet --fleet <fleet.yaml> --flux-tree <dir> --out <dir> [--flux-modules <dir>] [--collections-root <dir>]",
-    "  deploy-config-schema parity check --rendered <current-tree> --compiled <compiled-tree> [--profile flux] [--mode behavioral|byte]",
-    "  deploy-config-schema state move-plan validate <state/move-plan.yml>",
-    "  deploy-config-schema cutover plan --current <current-tree> --candidate <candidate-tree> [--out state/cutover-plan.yml]",
-    "  deploy-config-schema show-host-env <fleet.yaml> <node>",
-    "  deploy-config-schema show-install-host-env <fleet.yaml> <node>",
     "  deploy-config-schema adapter-contract",
     "",
     "Artifact kinds:",

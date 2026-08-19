@@ -267,36 +267,3 @@ test("CLI: artifact usage errors return exit code 2", async () => {
   assert.equal(missingHealth, 2);
 });
 
-test("CLI: parity check usage and drift exit codes", async () => {
-  const usage = await runCli(["parity", "check", "--service", "svc"], { stdout: stream(), stderr: stream() });
-  assert.equal(usage, 2);
-  const missingValue = await runCli(["parity", "check", "--service"], { stdout: stream(), stderr: stream() });
-  assert.equal(missingValue, 2);
-  const root = mkdtempSync(join("dist", "cli-parity-drift-"));
-  try {
-    const currentDir = join(root, "current");
-    const renderedDir = join(root, "rendered");
-    mkdirSync(currentDir, { recursive: true });
-    mkdirSync(renderedDir, { recursive: true });
-    const manifest = (replicas) => YAML.stringify({
-      apiVersion: "apps/v1",
-      kind: "Deployment",
-      metadata: { name: "svc", namespace: "ns", labels: { "app.kubernetes.io/name": "svc" } },
-      spec: { replicas },
-    });
-    writeFileSync(join(currentDir, "svc.yaml"), manifest(1));
-    writeFileSync(join(renderedDir, "svc.yaml"), manifest(2));
-    const stdout = stream();
-    const code = await runCli([
-      "parity", "check",
-      "--current", currentDir,
-      "--rendered", renderedDir,
-      "--service", "svc",
-      "--selector", "app.kubernetes.io/name=svc",
-    ], { stdout, stderr: stream() });
-    assert.equal(code, 1);
-    assert.equal(JSON.parse(stdout.text()).status, "drift");
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
-});

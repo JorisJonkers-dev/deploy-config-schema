@@ -3,7 +3,6 @@ import { test } from "node:test";
 import YAML from "yaml";
 import { renderGatus } from "../src/adapters/gatus.js";
 import { renderKubernetes } from "../src/adapters/kubernetes.js";
-import { renderNixHosts } from "../src/adapters/nix-hosts.js";
 import { renderVso } from "../src/adapters/vso.js";
 import { validatePlatform } from "../src/minimal/schema.js";
 import { normalizeServiceIntentForRender } from "../src/service-intent-normalizer.js";
@@ -143,39 +142,6 @@ test("kubernetes adapter handles workload variants, namespace defaults, and skip
   assert.match(file(files, "stateful/statefulset.yaml").content, /serviceName: stateful/);
   assert.match(file(files, "batch/job.yaml").content, /restartPolicy: Never/);
   assert.match(file(files, "cron/cronjob.yaml").content, /schedule: '\*\/5 \* \* \* \*'/);
-});
-
-test("nix-hosts adapter handles empty input, arch variants, ssh forms, and role aliases", () => {
-  assert.deepEqual(renderNixHosts({ artifacts: {} }), []);
-
-  const files = renderNixHosts({
-    artifacts: {
-      "fleet-inventory": {
-        fleet: {
-          cluster: { name: "lab", domain: "example.net" },
-          nodes: {
-            pi: { site: "home", arch: "arm64", roles: ["worker", "raspberry-pi-image"], addresses: { ssh: "root@pi.local:2222" } },
-            sensor: { site: "home", arch: "armv7", roles: ["utility", "tailscale-network"], addresses: { management: "sensor.local" } },
-            cp: { site: "edge", arch: "amd64", roles: ["control-plane", "gpu-nvidia"], capabilities: ["cuda"] },
-          },
-        },
-      },
-    },
-  });
-  const flake = file(files, "platform/flake.nix").content;
-  const pi = file(files, "platform/nix/hosts/pi/default.nix").content;
-  const sensor = file(files, "platform/nix/hosts/sensor/default.nix").content;
-  const cpLabels = file(files, "platform/nix/generated/cp-labels.nix").content;
-
-  assert.match(flake, /system = "aarch64-linux"/);
-  assert.match(flake, /sshOpts = \[ "-p" "2222" \]/);
-  assert.match(flake, /hostname = "sensor.local"/);
-  assert.match(pi, /roleRaspberryPiImage/);
-  assert.match(pi, /apiServerEndpoint = lib\.mkDefault "https:\/\/lab\.example\.net:6443"/);
-  assert.match(sensor, /roleNetworkTailscale/);
-  assert.match(sensor, /nixpkgs.hostPlatform = lib.mkDefault "armv7l-linux"/);
-  assert.match(cpLabels, /node-role\.kubernetes\.io\/control-plane=true:NoSchedule/);
-  assert.ok(file(files, "platform/nix/generated/sensor-deploy-metadata.nix"));
 });
 
 test("vso adapter covers overrides, empty input, path normalization, and optional rollout targets", () => {

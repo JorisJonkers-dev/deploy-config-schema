@@ -96,44 +96,8 @@ test("collections validate and index command surfaces are deterministic", async 
   assert.equal(YAML.parse(readFileSync(out, "utf8")).kind, "CollectionIndex");
 });
 
-test("lock image tag validation rejects latest when requested", async () => {
+test("image tag validation rejects latest when requested", () => {
   assert.equal(validateImageTags(["ghcr.io/example/api:v1.0.0"], { rejectLatest: true }).valid, true);
   assert.equal(validateImageTags(["api=latest"], { rejectLatest: true }).valid, false);
-
-  const dir = tempDir();
-  const lockPath = join(dir, "deployment.lock.yml");
-  cpSync(deploymentFixture("deployment.lock.yml"), lockPath);
-  const lock = YAML.parse(readFileSync(lockPath, "utf8"));
-  lock.inputs.images.gatus = "ghcr.io/example/gatus:latest";
-  writeFileSync(lockPath, YAML.stringify(lock));
-  const io = streams();
-
-  assert.equal(await runCli(["lock", "images", "--lock", lockPath, "--reject-latest"], io), 1);
-  assert.equal(JSON.parse(io.stderr.text()).diagnostics[0].code, "E_IMAGE_TAG_LATEST");
 });
 
-test("state, parity check, and cutover plan command aliases are non-applying", async () => {
-  const stateIo = streams();
-  assert.equal(await runCli(["state", "move-plan", "validate", deploymentFixture("state-move-plan.yml")], stateIo), 0, stateIo.stderr.text());
-
-  const parityIo = streams();
-  assert.equal(await runCli([
-    "parity", "check",
-    "--rendered", "test/fixtures/deployment/parity/current",
-    "--compiled", "test/fixtures/deployment/parity/rendered",
-    "--profile", "flux",
-  ], parityIo), 0, parityIo.stdout.text());
-
-  const dir = tempDir();
-  const out = join(dir, "cutover-plan.yml");
-  const cutoverIo = streams();
-  assert.equal(await runCli([
-    "cutover", "plan",
-    "--current", "test/fixtures/deployment/parity/current",
-    "--candidate", "test/fixtures/deployment/parity/rendered",
-    "--out", out,
-  ], cutoverIo), 0, cutoverIo.stdout.text());
-  const plan = YAML.parse(readFileSync(out, "utf8"));
-  assert.equal(plan.kind, "CutoverPlan");
-  assert.equal(plan.applying, false);
-});

@@ -13,13 +13,9 @@ import {
   stringifyHostYaml,
   validateHostInventory,
 } from "../hosts/inventory.js";
-import { compileProject } from "./compiler.js";
-import { createCutoverPlan } from "./cutover.js";
 import { validateImageTags } from "./image-tags.js";
-import { importLiveFleet } from "./import/live-fleet.js";
 import { loadYamlDocument } from "./io.js";
-import { extractLockedImages, readDeploymentLock, updateDeploymentLock } from "./lockfile.js";
-import { compareParityTrees } from "./parity.js";
+import { extractLockedImages, readDeploymentLock } from "./lockfile.js";
 import { resolveSources } from "./source-resolver.js";
 import { fileURLToPath } from "node:url";
 import { getAdapter } from "../adapters/registry.js";
@@ -29,7 +25,6 @@ import { normalizeImageLock } from "./v2-model.js";
 import { emitKustomizationHealth } from "../artifact/kustomization-health.js";
 import { emitArtifactContract, buildOutputPaths } from "../artifact/contract.js";
 import { getPackageVersion } from "../cluster-context/schema.js";
-import { checkScopedParity } from "./parity-scoped.js";
 
 export function runBundle(args, streams, parseOptions) {
   const [subcommand, ...rest] = args;
@@ -93,61 +88,7 @@ export function runResolveSources(args, streams, parseOptions) {
   return report.valid ? 0 : 1;
 }
 
-export function runLock(args, streams, parseOptions) {
-  if (args[0] === "images") {
-    return runLockImages(args.slice(1), streams, parseOptions);
-  }
-  const { options, diagnostics } = parseOptions(args);
-  if (diagnostics.length > 0 || !options.sources || !options.lock) {
-    writeDiagnostics(streams.stderr, diagnostics.length > 0 ? diagnostics : usageDiagnostic("lock --sources deployment-sources.yml --lock deployment.lock.yml [--update]"));
-    return 1;
-  }
-  const validation = validateNamedInputs([
-    ["deployment-sources", options.sources],
-    ["deployment-lock", options.lock],
-  ]);
-  if (!validation.valid) {
-    writeValidationResult(streams.stdout, validation);
-    return 1;
-  }
-  const report = sourceReport(options.sources, options.lock);
-  if (options.update) {
-    const lock = readDeploymentLock(loadYamlDocument(options.lock));
-    writeFileSync(options.lock, stringifyDocument(options.lock, {
-      apiVersion: "deployment.jorisjonkers.dev/lock",
-      kind: "DeploymentLock",
-      ...updateDeploymentLock(lock),
-    }));
-  }
-  streams.stdout.write(`${JSON.stringify({ ...report, updated: Boolean(options.update) }, null, 2)}\n`);
-  return report.valid ? 0 : 1;
-}
 
-export function runCompile(args, streams, parseOptions) {
-  const { options, diagnostics } = parseOptions(args);
-  if (diagnostics.length > 0 || !options.env || !options.sources || !options.lock || !options.nodeContract || !options.reachability || !options.out) {
-    writeDiagnostics(streams.stderr, diagnostics.length > 0 ? diagnostics : usageDiagnostic("compile --env <name> --sources <path> --lock <path> --node-contract <path> --reachability <path> --out <dir> [--deployment <path>] [--collection <path>] [--check]"));
-    return 2;
-  }
-  const result = compileProjectResult(() => compileProject({
-    environment: options.env,
-    sourcesPath: options.sources,
-    lockPath: options.lock,
-    nodeContractPath: options.nodeContract,
-    reachabilityPath: options.reachability,
-    deploymentPaths: optionList(options.deployment),
-    collectionPaths: optionList(options.collection),
-    outDir: options.out,
-    check: Boolean(options.check),
-  }));
-  streams.stdout.write(`${JSON.stringify({
-    ok: result.ok,
-    files: result.files.map((file) => file.path),
-    results: result.writeResults ?? [],
-    diagnostics: result.diagnostics,
-  }, null, 2)}\n`);
-  return result.ok ? 0 : 1;
-}
 
 export function runHosts(args, streams, parseOptions) {
   const [subcommand, ...rest] = args;
@@ -272,76 +213,9 @@ export function runRenderFlux(args, streams, parseOptions) {
   ], streams, parseOptions);
 }
 
-export function runImportLiveFleet(args, streams, parseOptions) {
-  const { options, diagnostics } = parseOptions(args);
-  if (diagnostics.length > 0 || !options.fleet || !options.fluxTree || !options.out) {
-    writeDiagnostics(streams.stderr, diagnostics.length > 0 ? diagnostics : usageDiagnostic("import-live-fleet --fleet <fleet.yaml> --flux-tree <dir> --out <dir>"));
-    return 1;
-  }
-  const result = importLiveFleet({
-    fleetPath: options.fleet,
-    fluxTreePath: options.fluxTree,
-    outDir: options.out,
-    deploymentName: options.deploymentName,
-    platformBlueprintsPath: options.platformBlueprints,
-    collectionsRootPath: options.collectionsRoot,
-  });
-  streams.stdout.write(`${JSON.stringify({
-    out: options.out,
-    files: result.files.map((file) => file.path),
-    services: Object.keys(result.model.workloads).length,
-  }, null, 2)}\n`);
-  return 0;
-}
 
-export function runParity(args, streams, parseOptions) {
-  const checkMode = args[0] === "check";
-  const rest = checkMode ? args.slice(1) : args;
-  const { options, diagnostics } = parseOptions(rest);
-  const current = options.current ?? options.rendered;
-  const rendered = options.compiled ?? options.candidate ?? options.rendered;
-  if (diagnostics.length > 0 || !current || !rendered || (checkMode && !options.compiled)) {
-    writeDiagnostics(streams.stderr, diagnostics.length > 0 ? diagnostics : usageDiagnostic("parity check --rendered <current-tree> --compiled <compiled-tree> [--profile flux]"));
-    return 2;
-  }
-  const report = compareParityTrees({ current, rendered, mode: options.mode ?? "behavioral" });
-  streams.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
-  return report.ok ? 0 : 1;
-}
 
-export function runState(args, streams, parseOptions) {
-  if (args[0] !== "move-plan" || args[1] !== "validate") {
-    writeDiagnostics(streams.stderr, usageDiagnostic("state move-plan validate <state/move-plan.yml>"));
-    return 2;
-  }
-  const { positionals, diagnostics } = parseOptions(args.slice(2));
-  if (diagnostics.length > 0 || positionals.length !== 1) {
-    writeDiagnostics(streams.stderr, diagnostics.length > 0 ? diagnostics : usageDiagnostic("state move-plan validate <state/move-plan.yml>"));
-    return 2;
-  }
-  const validation = validateNamedInputs([["state-move-plan", positionals[0]]]);
-  streams.stdout.write(`${JSON.stringify(validation, null, 2)}\n`);
-  return validation.valid ? 0 : 1;
-}
 
-export function runCutover(args, streams, parseOptions) {
-  if (args[0] !== "plan") {
-    writeDiagnostics(streams.stderr, usageDiagnostic("cutover plan --current cluster/flux --candidate build/flux [--out state/cutover-plan.yml]"));
-    return 2;
-  }
-  const { options, diagnostics } = parseOptions(args.slice(1));
-  if (diagnostics.length > 0 || !options.current || !options.candidate) {
-    writeDiagnostics(streams.stderr, diagnostics.length > 0 ? diagnostics : usageDiagnostic("cutover plan --current cluster/flux --candidate build/flux [--out state/cutover-plan.yml]"));
-    return 2;
-  }
-  const plan = createCutoverPlan({ current: options.current, candidate: options.candidate, profile: options.profile });
-  if (options.out) {
-    mkdirSync(dirname(options.out), { recursive: true });
-    writeFileSync(options.out, stringifyDocument(options.out, plan));
-  }
-  streams.stdout.write(`${JSON.stringify(plan, null, 2)}\n`);
-  return plan.diagnostics.length === 0 ? 0 : 1;
-}
 
 function runLockImages(args, streams, parseOptions) {
   const { options, diagnostics } = parseOptions(args);
@@ -525,29 +399,6 @@ export function runArtifact(args, streams, parseOptions) {
 }
 
 // deploy-config-schema parity check --current C --rendered R --service S --selector K=V [--profile flux] [--mode behavioral]
-export function runParityCheck(args, streams, parseOptions) {
-  const rest = args[0] === "check" ? args.slice(1) : args;
-  const { options, diagnostics } = parseOptions(rest);
-  if (diagnostics.length > 0 || !options.current || !options.rendered || !options.service || !options.selector) {
-    writeDiagnostics(streams.stderr, diagnostics.length > 0 ? diagnostics : usageDiagnostic("parity check --current <tree> --rendered <tree> --service <name> --selector <key=value> [--profile flux] [--mode behavioral]"));
-    return 2;
-  }
-  try {
-    const result = checkScopedParity({
-      currentManifestRoot: options.current,
-      renderedManifestRoot: options.rendered,
-      profile: options.profile ?? "flux",
-      mode: options.mode ?? "behavioral",
-      service: options.service,
-      selector: options.selector,
-    });
-    streams.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
-    return result.status === "pass" ? 0 : 1;
-  } catch (error) {
-    writeDiagnostics(streams.stderr, [{ code: extractErrorCode(error), message: error instanceof Error ? error.message : String(error), path: "/" }]);
-    return 1;
-  }
-}
 
 function resolveWorkloadKind(workload) {
   if (workload.kind === "job") return "job";
