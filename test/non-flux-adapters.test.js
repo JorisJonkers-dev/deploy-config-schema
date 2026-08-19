@@ -1,8 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { spawnSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import YAML from "yaml";
 import { renderKubernetes } from "../src/adapters/kubernetes.js";
@@ -11,7 +8,6 @@ import { expandPlatform } from "../src/minimal/expand.js";
 import { createPathAllocator } from "../src/render-plan/paths.js";
 
 const singleNode = readYaml("../fixtures/platform/single-node.platform.yaml");
-const multiSite = readYaml("../fixtures/platform/multi-site.platform.yaml");
 const vaultFixture = readYaml("../fixtures/round3/vault-dynamic-secrets.sample.yaml");
 
 function readYaml(relativePath) {

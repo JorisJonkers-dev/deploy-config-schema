@@ -27,13 +27,6 @@ export function updateDeploymentLock(lock: DeploymentLockModel, options: { rende
   };
 }
 
-export function extractLockedImages(lock: DeploymentLockModel): string[] {
-  return [...new Set([
-    ...Object.values(lock.inputs.firstParty ?? {}).flatMap((entry) => entry.images ?? []),
-    ...Object.values(lock.inputs.images ?? {}),
-  ])].sort();
-}
-
 function renderedRootDigest(files: RenderFile[]): string {
   const hash = createHash("sha256");
   for (const file of [...files].sort((left, right) => left.path.localeCompare(right.path))) {

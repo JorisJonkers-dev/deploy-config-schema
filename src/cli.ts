@@ -427,10 +427,10 @@ function parseOptions(args) {
       }
     } else if (arg === "--format") {
       const value = args[index + 1];
-      if (!["json", "text", "image-tags"].includes(value)) {
+      if (!["json", "text"].includes(value)) {
         diagnostics.push({
           code: "E_USAGE",
-          message: "--format must be json, text, or image-tags",
+          message: "--format must be json or text",
           path: "/",
         });
       } else {

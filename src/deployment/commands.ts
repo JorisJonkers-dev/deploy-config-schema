@@ -13,9 +13,8 @@ import {
   stringifyHostYaml,
   validateHostInventory,
 } from "../hosts/inventory.js";
-import { validateImageTags } from "./image-tags.js";
 import { loadYamlDocument } from "./io.js";
-import { extractLockedImages, readDeploymentLock } from "./lockfile.js";
+import { readDeploymentLock } from "./lockfile.js";
 import { resolveSources } from "./source-resolver.js";
 import { fileURLToPath } from "node:url";
 import { getAdapter } from "../adapters/registry.js";
@@ -217,33 +216,6 @@ export function runRenderFlux(args, streams, parseOptions) {
 
 
 
-function runLockImages(args, streams, parseOptions) {
-  const { options, diagnostics } = parseOptions(args);
-  if (diagnostics.length > 0 || !options.lock) {
-    writeDiagnostics(streams.stderr, diagnostics.length > 0 ? diagnostics : usageDiagnostic("lock images --lock deployment.lock.yml --format image-tags|json"));
-    return 1;
-  }
-  const validation = validateNamedInputs([["deployment-lock", options.lock]]);
-  if (!validation.valid) {
-    writeValidationResult(streams.stdout, validation);
-    return 1;
-  }
-  const tags = extractLockedImages(readDeploymentLock(loadYamlDocument(options.lock)));
-  if (options.rejectLatest) {
-    const validation = validateImageTags(tags, { rejectLatest: true });
-    if (!validation.valid) {
-      writeDiagnostics(streams.stderr, validation.diagnostics);
-      return 1;
-    }
-  }
-  if (options.format === "image-tags") {
-    streams.stdout.write(`${tags.join("\n")}${tags.length > 0 ? "\n" : ""}`);
-  } else {
-    streams.stdout.write(`${JSON.stringify({ images: tags }, null, 2)}\n`);
-  }
-  return 0;
-}
-
 function sourceReport(sourcesPath, lockPath) {
   const document = loadYamlDocument(sourcesPath);
   const sources = {
@@ -314,22 +286,6 @@ function writeDiagnostics(stream, diagnostics) {
     valid: false,
     diagnostics,
   });
-}
-
-function compileProjectResult(build) {
-  try {
-    return build();
-  } catch (error) {
-    return {
-      ok: false,
-      files: [],
-      diagnostics: [{
-        code: "E_COMPILE",
-        path: "/",
-        message: error instanceof Error ? error.message : String(error),
-      }],
-    };
-  }
 }
 
 function usageDiagnostic(command) {

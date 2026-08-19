@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { cpSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -14,12 +14,9 @@ import {
   buildCollectionIndex,
   validateCollectionTree,
 } from "../src/collections/index.js";
-import { validateImageTags } from "../src/deployment/image-tags.js";
 
 const hostsFixture = "test/fixtures/hosts/fleet.yml";
 const collectionsFixture = "test/fixtures/collections";
-const deploymentFixture = (name) => `fixtures/deployment/${name}`;
-
 function stream() {
   return {
     chunks: [],
@@ -94,10 +91,5 @@ test("collections validate and index command surfaces are deterministic", async 
   const io = streams();
   assert.equal(await runCli(["collections", "index", "--root", collectionsFixture, "--out", out], io), 0, io.stderr.text());
   assert.equal(YAML.parse(readFileSync(out, "utf8")).kind, "CollectionIndex");
-});
-
-test("image tag validation rejects latest when requested", () => {
-  assert.equal(validateImageTags(["ghcr.io/example/api:v1.0.0"], { rejectLatest: true }).valid, true);
-  assert.equal(validateImageTags(["api=latest"], { rejectLatest: true }).valid, false);
 });
 

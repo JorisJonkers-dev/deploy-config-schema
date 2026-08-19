@@ -1,9 +1,8 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 import YAML from "yaml";
 import { adapterContract, adapterNames } from "../src/adapters/registry.js";
@@ -17,10 +16,6 @@ import { generatedHeader, renderManagedContent, writeGeneratedFiles } from "../s
 
 const singleNode = readYaml("../fixtures/platform/single-node.platform.yaml");
 const multiSite = readYaml("../fixtures/platform/multi-site.platform.yaml");
-const fullTree = readYaml("../fixtures/platform/full-tree.platform.yaml");
-const blueprintsRoot = fileURLToPath(new URL("fixtures/blueprint-packs", import.meta.url));
-const blueprintsVersion = "flux-modules-v0.0.0-test";
-
 function readYaml(relativePath) {
   return YAML.parse(readFileSync(new URL(relativePath, import.meta.url), "utf8"));
 }
@@ -159,24 +154,6 @@ test("CLI platform commands init, validate, expand, and render-plan", async () =
   assert.match(planStdout.text(), /traefik-public/);
   assert.ok(existsSync(join(root, ".render", "service-intent.generated.yaml")));
 });
-
-function snapshotTree(root) {
-  return Object.fromEntries(walkFiles(root).map((path) => [
-    path,
-    readFileSync(join(root, path), "utf8"),
-  ]));
-}
-
-function walkFiles(root, prefix = "") {
-  const dir = join(root, prefix);
-  if (!existsSync(dir)) return [];
-  return readdirSync(dir).sort().flatMap((entry) => {
-    const relative = prefix ? `${prefix}/${entry}` : entry;
-    const absolute = join(root, relative);
-    if (statSync(absolute).isDirectory()) return walkFiles(root, relative);
-    return [relative];
-  });
-}
 
 test("CLI platform command usage errors are structured", async () => {
   const badTemplateStdout = stream();

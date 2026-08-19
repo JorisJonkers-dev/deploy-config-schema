@@ -87,18 +87,9 @@ export {
   resolveSources,
 } from "./deployment/source-resolver.js";
 export {
-  extractLockedImages,
   readDeploymentLock,
   updateDeploymentLock,
 } from "./deployment/lockfile.js";
-export {
-  hasExplicitImageVersion,
-  isLatestRef,
-  serviceFromImageRef,
-  validateImageTags,
-  type ImageTagValidationOptions,
-  type ImageTagValidationResult,
-} from "./deployment/image-tags.js";
 export {
   assertNoUnselectedMutations,
   behavioralDiff,

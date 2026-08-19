@@ -72,32 +72,6 @@ test("resolve-sources reports unlocked source entries", async () => {
   assert.deepEqual(result.diagnostics.map((diagnostic) => diagnostic.path), ["/firstParty/assistant-api"]);
 });
 
-const expectedCompilePaths = [
-  "apps/agents/assistant-api/deployment.yaml",
-  "apps/agents/assistant-api/hpa.yaml",
-  "apps/agents/assistant-api/kustomization.yaml",
-  "apps/agents/assistant-api/namespace.yaml",
-  "apps/agents/assistant-api/pre-deploy-jobs.yaml",
-  "apps/agents/assistant-api/serviceaccount.yaml",
-  "apps/agents/assistant-api/servicemonitor.yaml",
-  "apps/agents/kustomization.yaml",
-  "apps/data/kustomization.yaml",
-  "apps/data/platform-postgres/deployment.yaml",
-  "apps/data/platform-postgres/kustomization.yaml",
-  "apps/data/platform-postgres/namespace.yaml",
-  "apps/edge/traefik-ingressroutes.yaml",
-  "apps/observability/gatus/gatus-endpoints-configmap.yaml",
-  "apps/vso-secrets/kustomization.yaml",
-  "apps/vso-secrets/vault-auth.yaml",
-  "apps/vso-secrets/vault-connection.yaml",
-  "clusters/production/flux-system/gotk-sync.yaml",
-  "clusters/production/kustomization.yaml",
-  "clusters/production/kustomizations.yaml",
-];
-
-
-
-
 test("bundle pack writes a deterministic manifest file", async () => {
   const dir = tempDir();
   const deployDir = join(dir, "deploy");

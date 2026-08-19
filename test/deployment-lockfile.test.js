@@ -1,18 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { loadYamlDocument } from "../src/deployment/io.js";
-import { extractLockedImages, readDeploymentLock, updateDeploymentLock } from "../src/deployment/lockfile.js";
-
-test("extractLockedImages returns sorted unique image refs", () => {
-  const lock = readDeploymentLock(loadYamlDocument("fixtures/deployment/deployment.lock.yml"));
-  lock.inputs.images.duplicate = "ghcr.io/twin/gatus:v5.20.0";
-
-  assert.deepEqual(extractLockedImages(lock), [
-    "ghcr.io/jorisjonkers-dev/assistant-api:v1.2.3",
-    "ghcr.io/jorisjonkers-dev/platform-postgres:v16",
-    "ghcr.io/twin/gatus:v5.20.0",
-  ]);
-});
+import { readDeploymentLock, updateDeploymentLock } from "../src/deployment/lockfile.js";
 
 test("updateDeploymentLock can refresh rendered root digest", () => {
   const lock = readDeploymentLock(loadYamlDocument("fixtures/deployment/deployment.lock.yml"));
