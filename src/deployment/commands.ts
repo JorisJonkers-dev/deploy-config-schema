@@ -1,6 +1,7 @@
 // @ts-nocheck -- CLI command handlers intentionally accept the untyped option
 // bag produced by src/cli.ts and route it into typed deployment modules.
 import { createHash } from "node:crypto";
+import { buildApplyBundle } from "../artifact/apply-bundle.js";
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import YAML from "yaml";
@@ -350,8 +351,32 @@ export function runArtifact(args, streams, parseOptions) {
   if (subcommand === "emit-contract") {
     return runEmitContract(rest, streams, parseOptions);
   }
-  writeDiagnostics(streams.stderr, usageDiagnostic("artifact emit-contract|emit-kustomization-health <options>"));
+  if (subcommand === "emit-apply-bundle") {
+    return runEmitApplyBundle(rest, streams, parseOptions);
+  }
+  writeDiagnostics(streams.stderr, usageDiagnostic("artifact emit-apply-bundle|emit-contract|emit-kustomization-health <options>"));
   return 2;
+}
+
+function runEmitApplyBundle(args, streams, parseOptions) {
+  const { options, diagnostics } = parseOptions(args);
+  const manifests = Array.isArray(options.manifests) ? options.manifests[0] : options.manifests;
+  if (diagnostics.length > 0 || !manifests || !options.out) {
+    writeDiagnostics(
+      streams.stderr,
+      diagnostics.length > 0
+        ? diagnostics
+        : usageDiagnostic("artifact emit-apply-bundle --manifests <dir> --out <dir>"),
+    );
+    return 2;
+  }
+  const result = buildApplyBundle(manifests, options.out);
+  if (!result.valid) {
+    writeDiagnostics(streams.stderr, result.diagnostics);
+    return 1;
+  }
+  streams.stdout.write(`${JSON.stringify({ valid: true, resources: result.resources, skipped: result.skipped }, null, 2)}\n`);
+  return 0;
 }
 
 // deploy-config-schema parity check --current C --rendered R --service S --selector K=V [--profile flux] [--mode behavioral]

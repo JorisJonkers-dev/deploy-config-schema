@@ -176,3 +176,4 @@ export { renderEdgeCatalogFragment, type CatalogEntry, type EdgeCatalogFragment 
 export { renderImageMetadataFragment, type ImageMeta, type ImageMetadataFragment } from "./adapters/image-metadata-fragment.js";
 export { buildOutputPaths } from "./artifact/contract.js";
 export { RAW_REASON_ANNOTATION } from "./artifact/raw-manifests.js";
+export { buildApplyBundle, type ApplyBundleResult } from "./artifact/apply-bundle.js";

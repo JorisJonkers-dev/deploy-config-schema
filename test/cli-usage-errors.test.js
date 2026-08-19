@@ -11,6 +11,7 @@ const stream = () => {
 // diagnostic rather than silently consuming the next argument as its value.
 const VALUE_FLAGS = [
   ["--output", "--output requires a path"],
+  ["--manifests", "--manifests requires a directory"],
   ["--template", "--template requires a value"],
   ["--target", "--target requires a value"],
   ["--blueprints-root", "--blueprints-root requires a directory"],
