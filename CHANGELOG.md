@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.19.0](https://github.com/JorisJonkers-dev/deploy-config-schema/compare/v0.18.0...v0.19.0) (2026-08-19)
+
+
+### ⚠ BREAKING CHANGES
+
+* drop the whole-tree compile and parity surface ([#47](https://github.com/JorisJonkers-dev/deploy-config-schema/issues/47))
+
+### Code Refactoring
+
+* drop the whole-tree compile and parity surface ([#47](https://github.com/JorisJonkers-dev/deploy-config-schema/issues/47)) ([ca96607](https://github.com/JorisJonkers-dev/deploy-config-schema/commit/ca966077bffa6b861857373a91e408e4dedc1d86))
+
 ## [0.18.0](https://github.com/JorisJonkers-dev/deploy-config-schema/compare/v0.17.0...v0.18.0) (2026-07-12)
 
 
