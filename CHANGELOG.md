@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.22.0](https://github.com/JorisJonkers-dev/deploy-config-schema/compare/v0.21.0...v0.22.0) (2026-08-20)
+
+
+### Features
+
+* **workload:** mount existing claims, and stop inferring the controller kind ([#53](https://github.com/JorisJonkers-dev/deploy-config-schema/issues/53)) ([e38c2cc](https://github.com/JorisJonkers-dev/deploy-config-schema/commit/e38c2cce0435d7eb8eddbc8865bfebac67ef96c6))
+
 ## [0.21.0](https://github.com/JorisJonkers-dev/deploy-config-schema/compare/v0.20.0...v0.21.0) (2026-08-20)
 
 
