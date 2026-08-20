@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync, copyFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync, copyFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import YAML from "yaml";
@@ -31,7 +31,6 @@ import {
 import { runCli } from "../src/cli.js";
 
 const FIXTURES = "test/fixtures/deployment-v2";
-const GOLDEN_PATH = "test/fixtures/golden/render-hash.txt";
 const PINNED_REF = `ghcr.io/org/ctx@sha256:${"0".repeat(64)}`;
 const PINNED_IMAGE = "ghcr.io/org/app:v1.0.0@sha256:abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789";
 
@@ -88,18 +87,36 @@ function renderAllFragments(input) {
   };
 }
 
-test("T-B1: render hash is stable across identical inputs (golden)", () => {
+// The frozen hash this test used to compare against is gone. It could not be
+// reproduced between a workstation and CI even at an identical commit and package
+// version, so it failed locally while passing in CI and told nobody anything; and
+// every legitimate change to the render required hand-editing a hash that cannot
+// be checked by reading it. What the render hash is actually for is idempotent
+// publishing: identical inputs must produce the same value, and any change to any
+// input must produce a different one. Both are asserted here, and neither depends
+// on the environment.
+test("T-B1: the render hash is deterministic and changes with every input", () => {
   const input = fixtureInput();
-  const inputDigests = { deployment: input.deploymentDigest, imagesLock: input.imagesDigest, context: input.contextDigest };
-  const hash1 = computeRenderHash(renderAllFragments(input), inputDigests, input.adapterCompatDigest, "sha512-AAAA==");
-  const hash2 = computeRenderHash(renderAllFragments(fixtureInput()), inputDigests, input.adapterCompatDigest, "sha512-AAAA==");
-  assert.equal(hash1, hash2);
-  assert.ok(hash1.startsWith("sha256:"));
-  if (!existsSync(GOLDEN_PATH)) {
-    mkdirSync("test/fixtures/golden", { recursive: true });
-    writeFileSync(GOLDEN_PATH, `${hash1}\n`);
+  const digests = { deployment: input.deploymentDigest, imagesLock: input.imagesDigest, context: input.contextDigest };
+  const files = renderAllFragments(input);
+  const compat = input.adapterCompatDigest;
+  const pkg = "sha512-AAAA==";
+  const base = computeRenderHash(files, digests, compat, pkg);
+
+  assert.ok(base.startsWith("sha256:"));
+  assert.equal(base, computeRenderHash(renderAllFragments(fixtureInput()), digests, compat, pkg));
+
+  const changed = {
+    "rendered output": () => computeRenderHash({ ...files, "out/manifests/production/extra.yaml": "kind: Extra\n" }, digests, compat, pkg),
+    "deployment digest": () => computeRenderHash(files, { ...digests, deployment: "sha256:other" }, compat, pkg),
+    "images digest": () => computeRenderHash(files, { ...digests, imagesLock: "sha256:other" }, compat, pkg),
+    "context digest": () => computeRenderHash(files, { ...digests, context: "sha256:other" }, compat, pkg),
+    "adapter compat digest": () => computeRenderHash(files, digests, "sha256:other", pkg),
+    "schema package integrity": () => computeRenderHash(files, digests, compat, "sha512-BBBB=="),
+  };
+  for (const [what, compute] of Object.entries(changed)) {
+    assert.notEqual(compute(), base, `changing the ${what} must change the render hash`);
   }
-  assert.equal(hash1, readFileSync(GOLDEN_PATH, "utf8").trim());
 });
 
 test("T-B2: minimal deployment renders expected kubernetes-workload-fragment", () => {

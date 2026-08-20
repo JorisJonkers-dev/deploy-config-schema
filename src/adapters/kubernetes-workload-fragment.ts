@@ -97,9 +97,14 @@ function buildWorkloadManifest(workload: WorkloadV2, ns: string, images: Record<
   if (isJobWorkload(workload)) {
     return buildJobManifest(workload, ns, images);
   }
+  const container: Record<string, unknown> = { name: workload.name, image: imageFor(workload, images) };
+  if (workload.resources) container["resources"] = structuredClone(workload.resources);
+  const probes = buildProbes(workload);
+  if (probes) Object.assign(container, probes);
+
   const podSpec: Record<string, unknown> = {
     serviceAccountName: workload.name,
-    containers: [{ name: workload.name, image: imageFor(workload, images) }],
+    containers: [container],
   };
   const nodeSelector = workload.placement?.nodeSelector;
   if (nodeSelector && Object.keys(nodeSelector).length > 0) {
@@ -107,16 +112,41 @@ function buildWorkloadManifest(workload: WorkloadV2, ns: string, images: Record<
       Object.entries(nodeSelector).map(([key, values]) => [key, values[0]]),
     );
   }
+  const spec: Record<string, unknown> = {
+    selector: { matchLabels: labels(workload) },
+    template: { metadata: { labels: labels(workload) }, spec: podSpec },
+  };
+  // Emitted only when declared: an unset replicas must leave the running count
+  // alone rather than silently resetting it to a default.
+  if (workload.replicas !== undefined) spec["replicas"] = workload.replicas;
   return {
     apiVersion: "apps/v1",
     kind: workload.stateful ? "StatefulSet" : "Deployment",
     metadata: { name: workload.name, namespace: ns, labels: labels(workload) },
-    spec: {
-      selector: { matchLabels: labels(workload) },
-      template: { metadata: { labels: labels(workload) }, spec: podSpec },
-    },
+    spec,
   };
 }
+
+/**
+ * Container probes come from the health block, which every HTTP workload already
+ * declares for the Flux timeout class. A workload with no health block gets no
+ * probes: the ingest worker is not an HTTP service and has none in the cluster
+ * either. Readiness and liveness are separate because Spring actuator exposes
+ * them at different paths; livenessPath falls back to path for the
+ * single-endpoint case. timeoutSeconds defaults to 5, which is what every probed
+ * workload in the cluster uses today.
+ */
+function buildProbes(workload: WorkloadV2): Record<string, unknown> | undefined {
+  const health = workload.health;
+  if (!health?.path || health.port === undefined) return undefined;
+  const timeoutSeconds = health.probeTimeoutSeconds ?? 5;
+  const probe = (path: string) => ({ httpGet: { path, port: health.port }, timeoutSeconds });
+  return {
+    readinessProbe: probe(health.path),
+    livenessProbe: probe(health.livenessPath ?? health.path),
+  };
+}
+
 
 /** TTL after job completion (Option B decision). Allows Flux to re-apply a
  *  new Job after the previous one is automatically cleaned up, avoiding
