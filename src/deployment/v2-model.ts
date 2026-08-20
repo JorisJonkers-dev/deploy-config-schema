@@ -33,6 +33,17 @@ export type WorkloadV2 = {
   };
   /** Desired replica count, declared so the owning repository decides it. */
   replicas?: number;
+  /**
+   * Existing PersistentVolumeClaims to mount, referenced by claim name.
+   *
+   * Deliberately narrow: a claim name binds to storage that outlives the
+   * workload, so renaming or moving the workload keeps the data. A
+   * volumeClaimTemplate would instead tie the volume to the workload's own
+   * identity, and renaming it would orphan the old claim and start empty, so
+   * templates are never rendered from a service repository. Storage is declared
+   * where the cluster is declared.
+   */
+  volumes?: Array<{ name: string; claimName: string; mountPath: string; subPath?: string; readOnly?: boolean }>;
   resources?: { requests?: Record<string, string>; limits?: Record<string, string> };
   credentials?: Array<{ kind: string; [key: string]: unknown }>;
   rawManifests?: { enabled: boolean; path: string };
@@ -77,6 +88,9 @@ export const ERROR_CODES = Object.freeze([
   "E_REPLICAS_INVALID",
   "E_RESOURCES_INVALID",
   "E_PROBE_TIMEOUT_INVALID",
+  "E_VOLUME_INVALID",
+  "E_VOLUME_NAME_DUPLICATE",
+  "E_VOLUME_CLAIM_TEMPLATE_FORBIDDEN",
   "E_RAW_MANIFESTS_VIOLATIONS",
 ] as const);
 
@@ -131,6 +145,30 @@ export function validateDeploymentSemantics(deployment: DeploymentV2, context: C
             throw new Error(`E_RESOURCES_INVALID: workload '${workload.name}' resources.${bucket}.${key} must be a non-empty quantity string`);
           }
         }
+      }
+    }
+
+    if (workload.volumes) {
+      if (!Array.isArray(workload.volumes)) {
+        throw new Error(`E_VOLUME_INVALID: workload '${workload.name}' volumes must be a list`);
+      }
+      const seen = new Set<string>();
+      for (const [index, volume] of workload.volumes.entries()) {
+        for (const field of ["name", "claimName", "mountPath"] as const) {
+          const value = volume?.[field];
+          if (typeof value !== "string" || value.trim() === "") {
+            throw new Error(`E_VOLUME_INVALID: workload '${workload.name}' volumes[${index}].${field} must be a non-empty string`);
+          }
+        }
+        // A service repository declares which claim to mount, never how to create
+        // one: a template would bind the volume to this workload's name.
+        if ("volumeClaimTemplate" in (volume as object) || "volumeClaimTemplates" in (volume as object)) {
+          throw new Error(`E_VOLUME_CLAIM_TEMPLATE_FORBIDDEN: workload '${workload.name}' volumes[${index}] declares a claim template; declare the claim in the cluster repository and reference it by claimName`);
+        }
+        if (seen.has(volume.name)) {
+          throw new Error(`E_VOLUME_NAME_DUPLICATE: workload '${workload.name}' declares volume '${volume.name}' more than once`);
+        }
+        seen.add(volume.name);
       }
     }
 

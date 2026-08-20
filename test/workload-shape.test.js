@@ -89,9 +89,9 @@ test("health without a port produces no probes rather than an invalid one", () =
   assert.equal("readinessProbe" in containerOf(rendered), false);
 });
 
-test("the shape fields apply to a stateful workload too", () => {
+test("the shape fields apply to a StatefulSet too", () => {
   const rendered = renderKubernetesWorkloadFragment(
-    input({ stateful: true, replicas: 1, resources: { requests: { cpu: "100m" } }, health: { path: "/", port: 80 } }),
+    input({ kind: "statefulset", replicas: 1, resources: { requests: { cpu: "100m" } }, health: { path: "/", port: 80 } }),
   );
   const w = workloadOf(rendered);
   assert.equal(w.kind, "StatefulSet");

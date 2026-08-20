@@ -193,13 +193,16 @@ test("kubernetes fragment: VaultStaticSecret credentials allowed, others forbidd
   assert.throws(() => renderKubernetesWorkloadFragment(bad), /E_FORBIDDEN_KIND/);
 });
 
-test("kubernetes fragment: stateful workload renders StatefulSet with nodeSelector", () => {
+test("kubernetes fragment: a statefulset workload renders StatefulSet with nodeSelector", () => {
+  // The controller kind comes from `kind`, not from `stateful`. This used to
+  // assert that stateful: true alone produced a StatefulSet, which meant a
+  // workload keeping its state in Postgres or a mounted claim was rendered with
+  // an identity that names its own storage.
   const input = inputWith({
     workloads: [{
       name: "db",
       image: { alias: "app" },
-      stateful: true,
-      migrationPolicy: { required: false, strategy: "none" },
+      kind: "statefulset",
       placement: { nodeSelector: { "kubernetes.io/arch": ["amd64"] } },
     }],
   });
@@ -207,6 +210,21 @@ test("kubernetes fragment: stateful workload renders StatefulSet with nodeSelect
   const sts = rendered.manifests.find((m) => m.kind === "StatefulSet");
   assert.ok(sts);
   assert.deepEqual(sts.spec.template.spec.nodeSelector, { "kubernetes.io/arch": "amd64" });
+});
+
+test("kubernetes fragment: a stateful deployment keeps its declared kind", () => {
+  const input = inputWith({
+    workloads: [{
+      name: "worker",
+      image: { alias: "app" },
+      kind: "deployment",
+      stateful: true,
+      migrationPolicy: { required: false, strategy: "none" },
+    }],
+  });
+  const rendered = renderKubernetesWorkloadFragment(input);
+  assert.ok(rendered.manifests.find((m) => m.kind === "Deployment"));
+  assert.equal(rendered.manifests.some((m) => m.kind === "StatefulSet"), false);
 });
 
 test("T-B4: :latest image throws E_FLOATING_IMAGE (latest-tag)", () => {
