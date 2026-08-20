@@ -101,11 +101,27 @@ function buildWorkloadManifest(workload: WorkloadV2, ns: string, images: Record<
   if (workload.resources) container["resources"] = structuredClone(workload.resources);
   const probes = buildProbes(workload);
   if (probes) Object.assign(container, probes);
+  const volumes = workload.volumes ?? [];
+  if (volumes.length > 0) {
+    container["volumeMounts"] = volumes.map((volume) => ({
+      name: volume.name,
+      mountPath: volume.mountPath,
+      ...(volume.subPath ? { subPath: volume.subPath } : {}),
+      ...(volume.readOnly ? { readOnly: true } : {}),
+    }));
+  }
 
   const podSpec: Record<string, unknown> = {
     serviceAccountName: workload.name,
     containers: [container],
   };
+  if (volumes.length > 0) {
+    // Always a claim reference, never a template: the claim outlives the workload.
+    podSpec["volumes"] = volumes.map((volume) => ({
+      name: volume.name,
+      persistentVolumeClaim: { claimName: volume.claimName },
+    }));
+  }
   const nodeSelector = workload.placement?.nodeSelector;
   if (nodeSelector && Object.keys(nodeSelector).length > 0) {
     podSpec["nodeSelector"] = Object.fromEntries(
@@ -121,7 +137,11 @@ function buildWorkloadManifest(workload: WorkloadV2, ns: string, images: Record<
   if (workload.replicas !== undefined) spec["replicas"] = workload.replicas;
   return {
     apiVersion: "apps/v1",
-    kind: workload.stateful ? "StatefulSet" : "Deployment",
+    // The declared kind wins. `stateful` describes the data, not the controller:
+    // a workload whose state lives in Postgres or a mounted claim is still a
+    // Deployment, and rendering a StatefulSet for it would change its identity
+    // and, with it, how its storage is named.
+    kind: workload.kind === "statefulset" ? "StatefulSet" : "Deployment",
     metadata: { name: workload.name, namespace: ns, labels: labels(workload) },
     spec,
   };
