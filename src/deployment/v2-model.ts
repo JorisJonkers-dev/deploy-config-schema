@@ -17,7 +17,23 @@ export type WorkloadV2 = {
   rollbackTargetRetention?: { minimumDays: number; acknowledged: boolean };
   routes?: RouteV2[];
   routeDefaults?: { owner?: string; authMode?: string };
-  health?: { path?: string; port?: number; timeoutClass?: string; mandatory?: boolean };
+  /**
+   * timeoutClass drives the Flux Kustomization health-check timeout, not container
+   * probe timings. path + port additionally seed the container probes: readiness
+   * uses path, liveness uses livenessPath and falls back to path, which is what
+   * Spring actuator services need since their two endpoints differ.
+   */
+  health?: {
+    path?: string;
+    port?: number;
+    timeoutClass?: string;
+    mandatory?: boolean;
+    livenessPath?: string;
+    probeTimeoutSeconds?: number;
+  };
+  /** Desired replica count, declared so the owning repository decides it. */
+  replicas?: number;
+  resources?: { requests?: Record<string, string>; limits?: Record<string, string> };
   credentials?: Array<{ kind: string; [key: string]: unknown }>;
   rawManifests?: { enabled: boolean; path: string };
   placement?: { nodeSelector?: Record<string, string[]> };
@@ -58,6 +74,9 @@ export const ERROR_CODES = Object.freeze([
   "E_UNKNOWN_NODE_LABEL_KEY",
   "E_REDACT_LEAK_RESIDUAL",
   "E_UNKNOWN_HEALTH_TIMEOUT_CLASS",
+  "E_REPLICAS_INVALID",
+  "E_RESOURCES_INVALID",
+  "E_PROBE_TIMEOUT_INVALID",
   "E_RAW_MANIFESTS_VIOLATIONS",
 ] as const);
 
@@ -91,6 +110,34 @@ export function validateDeploymentSemantics(deployment: DeploymentV2, context: C
       }
       if (!MIGRATION_STRATEGIES.has(workload.migrationPolicy.strategy)) {
         throw new Error(`E_MIGRATION_POLICY_STRATEGY_INVALID: workload '${workload.name}' strategy '${workload.migrationPolicy.strategy}' not in [none, pre-deploy-job, external]`);
+      }
+    }
+
+    if (workload.replicas !== undefined) {
+      if (!Number.isInteger(workload.replicas) || workload.replicas < 0) {
+        throw new Error(`E_REPLICAS_INVALID: workload '${workload.name}' replicas ${workload.replicas} must be a non-negative integer`);
+      }
+    }
+
+    if (workload.resources) {
+      for (const bucket of ["requests", "limits"] as const) {
+        const values = workload.resources[bucket];
+        if (values === undefined) continue;
+        if (typeof values !== "object" || values === null || Array.isArray(values)) {
+          throw new Error(`E_RESOURCES_INVALID: workload '${workload.name}' resources.${bucket} must be a mapping of resource name to quantity`);
+        }
+        for (const [key, value] of Object.entries(values)) {
+          if (typeof value !== "string" || value.trim() === "") {
+            throw new Error(`E_RESOURCES_INVALID: workload '${workload.name}' resources.${bucket}.${key} must be a non-empty quantity string`);
+          }
+        }
+      }
+    }
+
+    if (workload.health?.probeTimeoutSeconds !== undefined) {
+      const seconds = workload.health.probeTimeoutSeconds;
+      if (!Number.isInteger(seconds) || seconds <= 0) {
+        throw new Error(`E_PROBE_TIMEOUT_INVALID: workload '${workload.name}' health.probeTimeoutSeconds ${seconds} must be a positive integer`);
       }
     }
 
