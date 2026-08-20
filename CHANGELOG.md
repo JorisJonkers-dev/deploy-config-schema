@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.21.0](https://github.com/JorisJonkers-dev/deploy-config-schema/compare/v0.20.0...v0.21.0) (2026-08-20)
+
+
+### Features
+
+* **workload:** declare replicas, resources and probes in the owning repository ([#51](https://github.com/JorisJonkers-dev/deploy-config-schema/issues/51)) ([238981e](https://github.com/JorisJonkers-dev/deploy-config-schema/commit/238981e5ffacd786c924da54f69a257e072a8e1b))
+
 ## [0.20.0](https://github.com/JorisJonkers-dev/deploy-config-schema/compare/v0.19.0...v0.20.0) (2026-08-19)
 
 
