@@ -31,6 +31,26 @@ all 32 classes on every PR; only execution is missing, because `tasks.test` call
 exist… Both have zero runs, ever - the only missing piece is a caller."* The 147
 tests move into relationship-scoped projects rather than being rewritten.
 
+## It also became the deploy unit
+
+ADR-0019 makes the aggregator the thing that applies to the cluster, so a System
+Test Project carries two lists:
+
+- `exercises` — many-to-many. `auth-api` is exercised by its pairing with
+  `auth-ui` and by the OIDC federation set, and the twelve auth relationship
+  classes span both.
+- `deploys` — one-to-one across the estate. Exactly one project may apply a given
+  Service.
+
+That distinction is what makes overlap safe: many gates, one applier. It is
+enforced by `E_NO_DEPLOYER` and `E_MULTIPLE_DEPLOYERS` at composition, and
+independently by the API server, because the `deploys` list generates the
+project's RBAC — a workflow applying a Service it does not own gets a 403.
+
+Every domain needs a default project, or a Service in none of them cannot deploy
+at all. The media services need one: `jellyfin`, `sonarr`, `radarr`, `prowlarr`,
+`bazarr`, `qbittorrent` and `immich` have zero test classes between them.
+
 ## Consequences
 
 - A Service's gate must discover which projects name it, which requires the

@@ -40,6 +40,19 @@ effect, while keeping a render exactly reproducible from its recorded digests.
 `deployment-sources`, `deployment.lock.yml` and `cluster-composition-lock`'s
 `lockChain` already provide the shape for recording it.
 
+## The rationale after ADR-0019
+
+ADR-0019 introduces a pull request between a published fragment and a deployed
+cluster, which reads against this decision's premise. The distinction that keeps
+both true: the merge is **per-relationship rather than estate-wide**, and it
+exists to **run tests rather than to record pointers**.
+
+Composition itself is unchanged and still requires no merge — a fragment
+publishes, composition runs, a lock is published. What now needs a merge is
+*deploying* a composed lock, and that merge is where a relationship's system tests
+run. Aggregators pin the composed lock rather than individual fragments, so the
+estate-wide invariants are still evaluated exactly once.
+
 ## Consequences
 
 - A render is only as current as the last publish. A domain that has not

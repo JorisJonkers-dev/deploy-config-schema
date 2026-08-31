@@ -142,9 +142,16 @@ A collision is a build error, not a last-write-wins merge.
 
 ## Prune is the reason coverage matters
 
-Flux prunes. **An object the render omits is an object deleted from the cluster on
-the next reconcile.** That converts every coverage gap from an inconvenience into
-a deletion risk, and it is why the three assertions below are not hygiene.
+An object the render omits is an object deleted from the cluster — which converts
+every coverage gap from an inconvenience into a deletion risk, and is why the
+assertions below are not hygiene.
+
+**How that deletion happens differs by class after ADR-0019.** For class B, Flux
+prunes on the next reconcile, because a Kustomization keeps an inventory of what
+it applied. For class A there is no reconcile and `kubectl` keeps no inventory, so
+one is supplied: every applied object carries a `deploy.jorisjonkers.dev/deployer`
+label, and the delete pass is the difference between that query and the current
+render (chapter 50). The consequence is identical; the mechanism is not.
 
 It is also why ADR-0015's participants list exists: a domain that silently fails
 to publish does not merely go stale, it gets deleted, and the render that deletes
@@ -228,10 +235,13 @@ needs a decision, not an allowlist entry."*
    `availability` (6) do not exist at all — 22 objects. `prometheus` (11) and
    `networking` (3) have working renderers that were never registered as
    adapters — 14 objects, and the cheaper half of the gap.
-3. **Grafana dashboards need a home.** 45 objects, 10% of the tree, and not
-   derivable. Either a pack, or an Asset-like authored artefact, or a permanent
-   coverage-ledger class — but the ledger is bidirectional, so "permanent" needs
-   a decision rather than accumulating by default.
+3. ~~**Grafana dashboards need a home.**~~ **Resolved in chapter 50.** The 45
+   objects divide by nature: 14 service-specific dashboards become Assets on the
+   owning Service, 3 runtime-family dashboards ship with the Runtime Profile
+   alongside the values it already injects, 14 platform dashboards ship in the
+   observability pack, and `service-overview` / `service-template` become derived
+   per Service from `scrape`, `runtime` and `exposure`. Coverage can therefore
+   reach 100%, and the ledger needs no permanent entries.
 4. **The gitops root path is still `platform/cluster/flux` in the allocator** while
    `fleet-infra` uses `cluster/flux`. One of the two is stale; the packs' Fragment
    paths carry the `platform/` prefix, which suggests the allocator predates the

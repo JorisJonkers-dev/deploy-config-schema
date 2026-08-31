@@ -41,6 +41,7 @@ which layer is decided by the contention test in ADR-0003.
 | [0016](../../docs/adr/0016-deliverables-and-ledgers.md) | Adapters own Deliverables; holes are bidirectional ledgers |
 | [0017](../../docs/adr/0017-resolved-deployment-publish-back.md) | Assignments written back to the owning repository |
 | [0018](../../docs/adr/0018-derived-value-overrides.md) | Derived values overridable inline; assignments are not |
+| [0019](../../docs/adr/0019-push-delivery-via-aggregators.md) | Push delivery via aggregators; Flux keeps the foundation |
 
 ## Chapters
 
@@ -57,8 +58,8 @@ spends its time removing.
 | [`16-dependencies.md`](16-dependencies.md) | **written** — edges, inbound derivations, the derivation map | embedded |
 | [`20-resolved-deployment.md`](20-resolved-deployment.md) | **written** — the purity rule, the assignment catalogue, publish-back | embedded |
 | [`30-deliverables.md`](30-deliverables.md) | **written** — Fragments, the adapter set, measured coverage, ledgers | embedded |
-| [`40-composition.md`](40-composition.md) | **written** — Intent Fragments, the 22 estate-wide invariants, the lock | embedded |
-| `50-lifecycle.md` | build, co-test, publish, compose, render, reconcile | embedded |
+| [`40-composition.md`](40-composition.md) | **written** — Intent Fragments, the 26 estate-wide invariants, the lock | embedded |
+| [`50-lifecycle.md`](50-lifecycle.md) | **written** — push delivery, aggregators, prune, drift, rollback | embedded |
 
 **Chapter 16's derivation map is the load-bearing artefact**, and its value is
 that it is checkable by a script rather than read by eye. Three properties hold
@@ -127,16 +128,24 @@ Decisions this specification depends on and does not itself make.
 9. **The `resolved.yml` drift check's failure mode.** ADR-0017 requires the
    published projection to be guarded but not what a stale copy does — block that
    service's own pipeline, or merely report.
-10. **Fragment publication trigger** (chapter 40). "On release" is
-    underspecified: a service repository releases when its image does, so a change
-    to `service.yml` alone may sit unpublished behind a staleness window. Either
-    intent publishes on merge independently of the image release, or `maxAge` is
-    doing work it should not.
-11. **Who runs composition, and how often** (chapter 40). On a schedule, on any
-    fragment publish, or on demand — this decides how quickly a merged change
-    reaches the cluster.
-12. **Whether the union may span clusters** (chapter 40). The lock is keyed by
+10. ~~**Fragment publication trigger**~~ and ~~**who runs composition**~~ —
+    **both resolved by chapter 50.** Fragments publish on merge, independently of
+    any image release; composition runs automatically on any publish with no pull
+    request.
+11. **Whether the union may span clusters** (chapter 40). The lock is keyed by
     cluster, but Service Id uniqueness is estate-wide. Invisible with one cluster.
-13. **Fragment signing** (chapter 40). Composition verifies `MANIFEST.sha256` per
+12. **Fragment signing** (chapter 40). Composition verifies `MANIFEST.sha256` per
     file but not provenance, while `deploy-artifact.yml` already carries
     `id-token: write` and `attestations: write`.
+13. **Aggregator CI cost** (chapter 50). A change anywhere invalidates every
+    aggregator's pin, so ~6 suites run per service change. `CLAUDE.md` measures
+    the shape — *"561 minutes of real compute billed 2,845"* — and advises one job
+    with many steps, which sharded Gradle execution contradicts.
+14. **Whether the test vcluster runs Flux for class B** (chapter 50). It does
+    today; if production keeps Flux for the foundation, the test target should, or
+    the paths diverge exactly where the foundation lives.
+15. **The lag bound** (chapter 50). "More than N locks behind is reported" needs an
+    N, and a decision on whether exceeding it blocks that aggregator's next merge.
+16. **What replaces `deploy/production`** (chapter 50). Flux still reads it for
+    class B, so it survives but narrowed to the foundation. ADR-0008 in the
+    workspace records its current semantics.

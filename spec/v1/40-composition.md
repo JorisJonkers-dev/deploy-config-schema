@@ -188,6 +188,10 @@ those keys.
 | reachability equals derived ∪ registered exactly | `E_UNREGISTERED_SURFACE` |
 | every live object is attributable or ledgered (chapter 30) | `E_UNATTRIBUTED_OBJECT` |
 | every ledger entry still matches something | `E_STALE_EXEMPTION` |
+| every Service has a deploying aggregator (ADR-0019) | `E_NO_DEPLOYER` |
+| no Service has two deploying aggregators | `E_MULTIPLE_DEPLOYERS` |
+| no object is claimed by both delivery classes | `E_CLASS_BOUNDARY_CONFLICT` |
+| no derived value is removed while a slice still depends on it | `E_CONTRACT_TOO_EARLY` |
 
 `E_PARTICIPANT_MISSING` is not pedantry. **Flux prunes**, so a domain that fails
 to publish is not merely absent from the render — it is deleted from the cluster
@@ -264,16 +268,15 @@ identity moving.
 
 ## Open in this chapter
 
-1. **Fragment publication trigger.** "On release" is underspecified. A service
-   repository releases when its image releases, but a change to `service.yml`
-   alone may not cut a release — so an intent change could sit unpublished
-   behind a `maxAge` window. Either intent publishes on merge to the default
-   branch independently of the image release, or `maxAge` is doing work it should
-   not.
-2. **Who runs composition, and how often.** Nothing here says whether it runs on
-   a schedule, on any fragment publish, or only on demand. That choice determines
-   how quickly a merged change reaches the cluster and how many renders happen
-   per day.
+1. ~~**Fragment publication trigger.**~~ **Resolved by chapter 50.** A fragment
+   publishes on merge to the default branch, independently of any image release,
+   and the aggregator gates production. So an intent-only change — a changed
+   exposure, secret grant or dependency — produces a new fragment digest and gets
+   system-tested in combination, which was the hole.
+2. ~~**Who runs composition, and how often.**~~ **Resolved by chapter 50.**
+   Automatically on any fragment publish, with no pull request. Aggregators pin the
+   resulting composed lock, so the 26 invariants are evaluated exactly once per
+   composition rather than once per aggregator.
 3. **Whether the union may span clusters.** The lock is keyed by cluster, but the
    invariants — Service Id uniqueness in particular — are estate-wide rather than
    per-cluster. With one cluster the distinction is invisible; with two it needs
