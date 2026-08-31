@@ -56,7 +56,7 @@ spends its time removing.
 | [`10-service-intent.md`](10-service-intent.md) | **written** — Service, Workload, and every layer-1 field by concern | embedded |
 | [`16-dependencies.md`](16-dependencies.md) | **written** — edges, inbound derivations, the derivation map | embedded |
 | [`20-resolved-deployment.md`](20-resolved-deployment.md) | **written** — the purity rule, the assignment catalogue, publish-back | embedded |
-| `30-deliverables.md` | Adapters, Fragments, coverage, ledgers | embedded |
+| [`30-deliverables.md`](30-deliverables.md) | **written** — Fragments, the adapter set, measured coverage, ledgers | embedded |
 | `40-composition.md` | Intent Fragments, participants, the lock | embedded |
 | `50-lifecycle.md` | build, co-test, publish, compose, render, reconcile | embedded |
 
@@ -116,9 +116,13 @@ Decisions this specification depends on and does not itself make.
    `minAvailable` (since `replicas` is contended, and `auth-api`'s two were a
    capacity decision). All three are marked `<<proposed>>` in chapter 10's
    diagram and need grading before it is approved.
-8. **Per-adapter totality measurement.** ADR-0016's cost is the gap between
-   "attributable" and "total" across 342 files. That gap should be measured per
-   adapter before any schedule is set.
+8. **Closing the measured coverage gap.** Chapter 30 measured it, so this is no
+   longer an unknown: of 450 objects, 364 should come from an adapter and 328 do.
+   The 36-object gap is `rbac` (16) and `availability` (6), which need writing,
+   plus `prometheus` (11) and `networking` (3), which have working renderers that
+   were never registered. Separately, four duplicated adapter pairs must collapse
+   before attribution can be enforced, and Grafana's 45 authored objects need a
+   home that is not "the ledger, indefinitely".
 9. **The `resolved.yml` drift check's failure mode.** ADR-0017 requires the
    published projection to be guarded but not what a stale copy does — block that
    service's own pipeline, or merely report.
