@@ -54,18 +54,32 @@ spends its time removing.
 | Chapter | Covers | Diagram |
 |---|---|---|
 | [`10-service-intent.md`](10-service-intent.md) | **written** — Service, Workload, and every layer-1 field by concern | embedded |
-| `16-dependencies.md` | Edges, Surfaces, the four derivations | embedded |
+| [`16-dependencies.md`](16-dependencies.md) | **written** — edges, inbound derivations, the derivation map | embedded |
 | `20-resolved-deployment.md` | what layer 2 assigns, and publish-back | embedded |
 | `30-deliverables.md` | Adapters, Fragments, coverage, ledgers | embedded |
 | `40-composition.md` | Intent Fragments, participants, the lock | embedded |
 | `50-lifecycle.md` | build, co-test, publish, compose, render, reconcile | embedded |
 
-**Chapter 16's derivation map is the load-bearing diagram.** It maps each declared field
-to every Deliverable derived from it, and its acceptance criterion is structural:
-**any node with two inbound arrows is a bled concern.** One declaration of
-`exposure.audience` must reach the hostname, the IngressRoute, the reachability
-entry, the Gatus check and both edge catalogs — the six sites that previously
-each declared `kb.jorisjonkers.dev` independently.
+**Chapter 16's derivation map is the load-bearing artefact**, and its value is
+that it is checkable by a script rather than read by eye. Three properties hold
+over it:
+
+1. **Totality** — no Deliverable has in-degree zero. An object reachable from no
+   declaration is hand-written, and must either become derived or be entered in a
+   Bidirectional Ledger. This is what was violated seven ways over by
+   `kb.jorisjonkers.dev`.
+2. **Single authority** — no field of a Deliverable has two declaring sites.
+   Checked against the renderer's attribution table, not the diagram, because the
+   diagram is object-level and this property is field-level.
+3. **No dead declarations** — no declaration has out-degree zero. A declared field
+   that derives nothing is ceremony, which is exactly what
+   `rollbackTargetRetention` and `platform.layer` were.
+
+An earlier draft of this section claimed the criterion was "any node with two
+inbound arrows is a bled concern". That was wrong and is superseded: a
+`Deployment` legitimately draws on `image`, `config`, `claims`, `health` and
+`placement`. Convergence on an object is normal; convergence on the same *field*
+of an object is the defect.
 
 ## Open items
 
