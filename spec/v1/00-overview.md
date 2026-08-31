@@ -55,7 +55,7 @@ spends its time removing.
 |---|---|---|
 | [`10-service-intent.md`](10-service-intent.md) | **written** — Service, Workload, and every layer-1 field by concern | embedded |
 | [`16-dependencies.md`](16-dependencies.md) | **written** — edges, inbound derivations, the derivation map | embedded |
-| `20-resolved-deployment.md` | what layer 2 assigns, and publish-back | embedded |
+| [`20-resolved-deployment.md`](20-resolved-deployment.md) | **written** — the purity rule, the assignment catalogue, publish-back | embedded |
 | `30-deliverables.md` | Adapters, Fragments, coverage, ledgers | embedded |
 | `40-composition.md` | Intent Fragments, participants, the lock | embedded |
 | `50-lifecycle.md` | build, co-test, publish, compose, render, reconcile | embedded |
@@ -85,31 +85,40 @@ of an object is the defect.
 
 Decisions this specification depends on and does not itself make.
 
-1. **Kubernetes secrets-at-rest encryption.** ADR-0005 makes `mode: env` and
-   `mode: file` conditional on it. No `--secrets-encryption` configuration exists
-   in `nix-config` or the bootstrap tree today. Blocks those two modes; `fetch`
-   and `write` are unaffected.
-2. **Default-deny promotion.** ADR-0011 requires audit mode first. The criterion
+1. **`exposure[].name` and apex hosts.** Chapter 20 corrects ADR-0003 by
+   separating *identity* (unique, declared, checked) from *pool* (finite,
+   assigned), because not one live hostname is derivable from a Service Id. An
+   exposure entry therefore carries a `name`, and `apex: true` is proposed for
+   `home-portal`. Both need grading — the first moves a value the contention test
+   had placed on the platform side.
+2. **Kubernetes secrets-at-rest encryption.** ADR-0005 makes `delivery: env` and
+   `delivery: file` conditional on it. No `--secrets-encryption` configuration exists
+   in `nix-config` or the bootstrap tree today. Blocks those two deliveries;
+   `delivery: self` and `access: custody` persist nothing and are unaffected.
+3. **Default-deny promotion.** ADR-0011 requires audit mode first. The criterion
    for promoting to enforce is unstated.
-3. **Four images to build.** ADR-0007 moves `hermes-bootstrap` (221 lines of
+4. **Four images to build.** ADR-0007 moves `hermes-bootstrap` (221 lines of
    shell), `n8n-hooks` (499 lines of JavaScript) and the `garage` bootstrap out of
    ConfigMaps, and retires the `alpine:3.21` plus ConfigMap pattern.
    `postgres-init-script` needs no image because it becomes derived.
-4. **Label prefix retirement.** ADR-0009 keeps one prefix. Retiring
+5. **Label prefix retirement.** ADR-0009 keeps one prefix. Retiring
    `personal-stack/*` means relabelling live nodes, and `CLAUDE.md` is explicit
    that a `kubectl label` drifts back on the next reconcile — so it must go
    through the generated contract.
-5. **Where third-party Service Intent lives.** ADR-0015 has each Domain publish
+6. **Where third-party Service Intent lives.** ADR-0015 has each Domain publish
    its own Intent Fragment, but whether `homelab-collections` splits into
    per-domain repositories or stays one repository publishing several fragments is
    undecided.
-6. **Three fields chapter 10 had to propose.** `sidecars` (a Workload holds more
+7. **Three fields chapter 10 had to propose.** `sidecars` (a Workload holds more
    than one container: `postgres` plus `postgres-exporter`, `stalwart` plus
    `stalwart-apply`, `agent-runner` plus the `agent-gateway` jar), `size` (a
    closed resource class, since requests and limits are contended), and
    `minAvailable` (since `replicas` is contended, and `auth-api`'s two were a
    capacity decision). All three are marked `<<proposed>>` in chapter 10's
    diagram and need grading before it is approved.
-7. **Per-adapter totality measurement.** ADR-0016's cost is the gap between
+8. **Per-adapter totality measurement.** ADR-0016's cost is the gap between
    "attributable" and "total" across 342 files. That gap should be measured per
    adapter before any schedule is set.
+9. **The `resolved.yml` drift check's failure mode.** ADR-0017 requires the
+   published projection to be guarded but not what a stale copy does — block that
+   service's own pipeline, or merely report.
