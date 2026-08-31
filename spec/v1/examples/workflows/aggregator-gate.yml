@@ -1,0 +1,103 @@
+# systest-auth-federation/.github/workflows/gate.yml
+#
+# The PR gate. Applies the pinned ComposedIntent to an ephemeral vcluster and
+# runs this relationship's suite.
+#
+#   Renovate bumps composedLock -> vcluster -> apply -> suite -> green -> merge
+#
+# Nearly every step already exists in
+# tests/stack-integration-tests/deploy-harness. This workflow rewires it from a
+# single central compose gate to a per-relationship Aggregator.
+name: Gate
+
+on:
+  pull_request:
+    paths: ['pins.yml', 'system-tests/**', '.github/workflows/gate.yml']
+
+permissions: {}
+
+concurrency:
+  group: gate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    name: System tests against a vcluster
+    runs-on: [self-hosted, k3s-t2]
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      packages: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oras-project/setup-oras@v1
+
+      - name: Pull the pinned ComposedIntent
+        run: |
+          LOCK="$(yq -r '.pins.composedLock' pins.yml)"
+          oras pull "$LOCK" --output candidate/
+
+      - name: Assert the triple digest before touching a cluster
+        if: ${{ !cancelled() }}
+        run: |
+          # SC-6. prepare-candidate.mjs already does this:
+          #   sha256Tree(candidate) == lock.composedDigest == the pinned digest
+          # It stops a tampered or mismatched candidate from being tested, and
+          # it runs BEFORE provisioning so a bad candidate costs nothing.
+          node deploy-harness/scripts/prepare-candidate.mjs \
+            --candidate candidate/ \
+            --lock candidate/composition-lock.yml
+
+      - name: Provision an ephemeral vcluster
+        id: target
+        if: ${{ !cancelled() }}
+        run: node deploy-harness/scripts/provision-vcluster.mjs
+
+      - name: Seed a scoped Vault AppRole for this namespace
+        if: ${{ !cancelled() }}
+        run: node deploy-harness/scripts/seed-vault-approle.mjs
+
+      - name: Apply the whole composed estate
+        if: ${{ !cancelled() }}
+        run: |
+          # The WHOLE estate, not just this Aggregator's slice: the suite
+          # exercises a relationship, and a relationship needs its peers.
+          #
+          # Class B (18 HelmReleases and the foundation) goes through Flux
+          # inside the vcluster, because a HelmRelease applied with kubectl
+          # does nothing without helm-controller. Class A is server-side
+          # applied per DAG layer. The test target therefore mirrors
+          # production's split rather than diverging from it.
+          node deploy-harness/scripts/apply-candidate.mjs \
+            --candidate candidate/ \
+            --rewrite-domain jorisjonkers.dev=jorisjonkers.test
+
+      - name: Wait for readiness
+        if: ${{ !cancelled() }}
+        run: |
+          node deploy-harness/scripts/wait-flux-ready.mjs
+          node deploy-harness/scripts/wait-runtime-healthy.mjs
+
+      - name: Run this relationship's suite
+        if: ${{ !cancelled() }}
+        run: |
+          # exercises: auth-api, auth-ui, home-portal, agents-ui, grafana,
+          #            n8n, platform-rabbitmq
+          # The twelve auth relationship classes live here: AuthFlow,
+          # ForwardAuthChain, GrafanaOidc, N8nOidc, RabbitMqOidc,
+          # DownstreamOidcAuthorization and the rest.
+          node deploy-harness/scripts/run-gradle-suite.mjs \
+            --suite auth-federation
+
+      - name: Aggregate shard results
+        if: ${{ !cancelled() }}
+        run: node deploy-harness/scripts/rerun-policy.mjs
+
+      - name: Emit the gate summary
+        if: ${{ !cancelled() }}
+        run: node deploy-harness/scripts/emit-gate-summary.mjs
+
+      - name: Tear down
+        if: ${{ always() }}
+        run: node deploy-harness/scripts/cleanup-target.mjs

@@ -1,0 +1,118 @@
+# deploy-config-schema/.github/workflows/compose.yml  (or its own repository)
+#
+# Composes every published Intent Fragment into one ComposedIntent, checks the
+# 26 estate-wide invariants, and publishes the result with its lock.
+#
+#   fragment publishes -> repository_dispatch -> pull all participants
+#                                             -> verify + union
+#                                             -> assert 26 invariants
+#                                             -> publish ComposedIntent + lock
+#
+# Triggered by the publish, NOT by a schedule. CLAUDE.md: scheduled workflows
+# deliver four to seven runs per repo per day regardless of the declared
+# interval and run late by hours, and raising the frequency does not help. A
+# fragment publish needs a prompt reaction, so it pushes rather than being
+# polled. The nightly schedule below is a safety net for a missed dispatch, not
+# the primary path.
+name: Compose
+
+on:
+  repository_dispatch:
+    types: [fragment-published]
+  workflow_dispatch:
+  schedule:
+    - cron: '41 2 * * *'      # safety net only; see the note above
+
+permissions: {}
+
+concurrency:
+  # Composition must be serialised: two concurrent runs would race on
+  # previousLockDigest and break the lock chain.
+  group: compose-production
+  cancel-in-progress: false
+
+jobs:
+  compose:
+    name: Compose and assert
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    outputs:
+      composed-digest: ${{ steps.publish.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oras-project/setup-oras@v1
+
+      - name: Resolve every participant
+        id: pull
+        run: |
+          # participants.yml is the one central artefact. It changes when a
+          # domain or an Aggregator is added or retired, not when a
+          # declaration changes.
+          npx deploy-config-schema compose pull \
+            --participants participants.yml \
+            --out fragments/ \
+            --record fragments/RESOLVED.json
+          # Fails with E_PARTICIPANT_MISSING or E_PARTICIPANT_STALE. Not
+          # pedantry: Flux prunes, so a domain that silently stops publishing
+          # is deleted from the cluster by a render that looks entirely valid.
+
+      - name: Verify each package against its own manifest
+        if: ${{ !cancelled() }}
+        run: |
+          for d in fragments/*/; do ( cd "$d" && sha256sum -c MANIFEST.sha256 ); done
+
+      - name: Union and assert the 26 invariants
+        if: ${{ !cancelled() }}
+        run: |
+          npx deploy-config-schema compose union \
+            --fragments fragments/ \
+            --context-ref "${{ vars.CONTEXT_REF }}" \
+            --out composed/ \
+            --report composed/invariants.json
+          # Identity, references, secrets, completeness. Any failure produces
+          # no ComposedIntent, so nothing downstream can render.
+
+      - name: Prove the gate can fail
+        if: ${{ !cancelled() }}
+        run: |
+          # CLAUDE.md: check your own gate can fail before trusting that it
+          # passed. A known-bad fixture must be rejected, or an assertion that
+          # silently stopped running looks identical to one that passes.
+          npx deploy-config-schema compose union \
+            --fragments spec/v1/examples/negative/duplicate-service-id/ \
+            --context-ref "${{ vars.CONTEXT_REF }}" \
+            --out /tmp/should-fail && { echo "gate did not fail"; exit 1; }
+          echo "gate rejects a duplicate Service Id as expected"
+
+      - name: Publish ComposedIntent and its lock
+        id: publish
+        if: ${{ !cancelled() }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          REF="ghcr.io/${{ github.repository_owner }}/composed:latest"
+          echo "$GH_TOKEN" | oras login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+          # The lock records what was composed -- every resolved fragment
+          # digest -- and is written INSIDE the package minus its own digest,
+          # which cannot exist yet.
+          npx deploy-config-schema compose lock \
+            --resolved fragments/RESOLVED.json \
+            --composed composed/ \
+            --previous "${{ vars.PREVIOUS_LOCK_DIGEST }}" \
+            --out composed/composition-lock.yml
+
+          ( cd composed && oras push "$REF" . )
+          DIGEST="$(oras resolve "$REF")"
+          echo "digest=${DIGEST}" >> "$GITHUB_OUTPUT"
+
+      - name: Read the composed digest back
+        if: ${{ !cancelled() }}
+        run: |
+          oras pull "ghcr.io/${{ github.repository_owner }}/composed@${{ steps.publish.outputs.digest }}" \
+            --output check/
+          npx deploy-config-schema compose verify --composed check/

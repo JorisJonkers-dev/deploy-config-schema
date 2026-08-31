@@ -1,0 +1,61 @@
+# GENERATED per Aggregator. Drift correction, in-cluster.
+#
+# Not a GitHub Actions schedule. CLAUDE.md: "Scheduled workflows fire far less
+# often than their cron says... four to seven runs per repo per day regardless
+# of the declared interval... Never build anything needing prompt reaction on a
+# schedule alone, and do not raise the frequency to compensate." Drift
+# correction IS a reaction to something having gone wrong.
+#
+# Same pattern as vault-metrics-token-renewal, chosen there for the same
+# reason: a cluster cron fires when it says it does.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: deployer-auth-federation-reapply
+  namespace: deploy-system
+  labels:
+    deploy.jorisjonkers.dev/aggregator: auth-federation
+spec:
+  schedule: '23 * * * *'
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          restartPolicy: OnFailure
+          # The same identity as the merge apply, so the re-apply cannot touch
+          # anything the merge apply could not.
+          serviceAccountName: deployer-auth-federation
+          containers:
+            - name: reapply
+              image: ghcr.io/jorisjonkers-dev/deploy-config-schema:1.0.0
+              command: [/bin/sh, -ec]
+              args:
+                - |
+                  # Re-apply MY OWN applied lock, read from my objects'
+                  # annotations -- NOT the globally newest lock. Applying the
+                  # newest would make this scheduler fight the Aggregators,
+                  # and would silently undo a break-glass rollback.
+                  LOCK="$(deploy-config-schema apply applied-lock \
+                            --deployer auth-federation)"
+                  echo "re-applying ${LOCK}"
+
+                  oras pull "$LOCK" --output /tmp/candidate
+                  deploy-config-schema render \
+                    --composed /tmp/candidate \
+                    --deployer auth-federation \
+                    --out /tmp/slice
+
+                  # Idempotent: a clean cluster is a no-op. A field-ownership
+                  # conflict means a human edited a field we own -- reported,
+                  # never forced.
+                  deploy-config-schema apply \
+                    --slice /tmp/slice \
+                    --field-manager auth-federation \
+                    --on-conflict report
+
+                  deploy-config-schema apply verify \
+                    --slice /tmp/slice --deployer auth-federation

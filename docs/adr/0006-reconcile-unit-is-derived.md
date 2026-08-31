@@ -27,6 +27,17 @@ on `apps-data` because `knowledge` depends on `platform-postgres` and
 services consume `knowledge`, and on `apps-vso-secrets` because they claim
 credentials; everything depends on `apps-core`.
 
+## Two meanings after ADR-0019
+
+Delivery is now split (ADR-0019), so the derived Reconcile Unit is consumed twice.
+For class B — the pack-delivered foundation — it remains a Flux `Kustomization`
+with a `dependsOn` graph. For class A — everything derived from Service Intent —
+it is the **apply order**: an aggregator applies its slice layer by layer in
+`lock.spec.dependencyGraph.order`, which
+`deploy-harness/scripts/apply-candidate.mjs` already does against a vcluster.
+
+The derivation is unchanged. Only the number of consumers is.
+
 ## Consequences
 
 - A service owner cannot pin their reconcile position. If ordering is wrong, the

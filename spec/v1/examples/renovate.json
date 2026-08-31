@@ -1,0 +1,26 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["local>JorisJonkers-dev/renovate-config"],
+  "customManagers": [
+    {
+      "description": "Track the composed lock pin. One pin per Aggregator, so a change anywhere in the estate produces exactly one PR here.",
+      "customType": "regex",
+      "managerFilePatterns": ["/^aggregator\\.yml$/"],
+      "matchStrings": [
+        "composedLock:\\s*(?<depName>[^@\\s]+)@(?<currentDigest>sha256:[a-f0-9]{64})"
+      ],
+      "datasourceTemplate": "docker",
+      "currentValueTemplate": "latest"
+    }
+  ],
+  "packageRules": [
+    {
+      "description": "A composed-lock bump is the whole point of this repository, so it is never grouped and never auto-merged: the gate must run and a human must read it.",
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["ghcr.io/jorisjonkers-dev/composed"],
+      "groupName": null,
+      "automerge": false,
+      "labels": ["type: chore", "area: deploy", "component: deploy"]
+    }
+  ]
+}

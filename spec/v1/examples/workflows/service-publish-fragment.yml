@@ -1,0 +1,121 @@
+# services/knowledge/.github/workflows/publish-fragment.yml
+#
+# Publishes this repository's Intent Fragment when platform intent changes.
+#
+#   merge to main (platform/**) -> validate -> build fragment -> oras push
+#                                                            -> oras resolve
+#                                                            -> verify digest
+#
+# Fires independently of any image release. That is deliberate: a change to
+# service.yml, an env file or a secret grant produces no image, and ADR-0019
+# requires such a change to reach an Aggregator so it gets system-tested in
+# combination. Tying this to a version tag would let intent-only changes sit
+# unpublished behind a staleness window.
+#
+# ONE job, many steps. CLAUDE.md: jobs are billed by the minute rounded up, so
+# splitting a fast pipeline across parallel jobs multiplies its cost while the
+# work stays identical. Each step carries `if: ${{ !cancelled() }}` so a single
+# failure still surfaces the rest.
+name: Publish Intent Fragment
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'platform/**'
+      - '.github/workflows/publish-fragment.yml'
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: publish-fragment-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Validate and publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    outputs:
+      digest: ${{ steps.resolve.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install the toolkit at the pinned version
+        run: |
+          # The version lives in one place: the repository's own pin. Restating
+          # it here is how the previous render-local.sh copies went stale by
+          # four minor releases.
+          VERSION="$(yq -r '.schemaVersion' platform/service.yml)"
+          npm i --no-save --save-exact \
+            "@jorisjonkers-dev/deploy-config-schema@${VERSION}"
+
+      - name: Validate intent locally
+        if: ${{ !cancelled() }}
+        run: |
+          # Local-only checks: schema shape, forbidden fields, placeholder to
+          # grant agreement within this repository. Estate-wide invariants
+          # cannot be checked here and are composition's job.
+          npx deploy-config-schema intent validate \
+            --service platform/service.yml \
+            --env-dir platform/env \
+            --strict
+
+      - name: Build the fragment tree
+        if: ${{ !cancelled() }}
+        run: |
+          npx deploy-config-schema intent pack \
+            --service platform/service.yml \
+            --env-dir platform/env \
+            --out fragment/
+
+          # inputsSha covers AUTHORED inputs only, never generated output.
+          # homelab-inventory derives inventorySourceSha the same way; a hash
+          # that included generated output would change on every publish and
+          # detect nothing.
+          find platform -type f -print0 | sort -z \
+            | xargs -0 sha256sum | sha256sum | cut -d' ' -f1 > fragment/INPUTS_SHA
+
+          # Per-file digests, so a consumer can verify the package it pulled.
+          ( cd fragment && find . -type f -not -name MANIFEST.sha256 \
+              | sort | xargs sha256sum > MANIFEST.sha256 )
+
+      - uses: oras-project/setup-oras@v1
+        if: ${{ !cancelled() }}
+
+      - name: Push and resolve
+        id: resolve
+        if: ${{ !cancelled() }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          REF="ghcr.io/${{ github.repository_owner }}/intent-knowledge:latest"
+          echo "$GH_TOKEN" | oras login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+          ( cd fragment && oras push "$REF" \
+              --annotation "org.opencontainers.image.revision=${{ github.sha }}" \
+              --annotation "dev.jorisjonkers.inputs-sha=$(cat INPUTS_SHA)" \
+              . )
+
+          # An artefact cannot contain its own digest, so it is resolved AFTER
+          # the push and recorded by the consumer. This is why the composition
+          # lock is an output rather than an input (ADR-0015).
+          DIGEST="$(oras resolve "$REF")"
+          echo "digest=${DIGEST}" >> "$GITHUB_OUTPUT"
+
+      - name: Verify the value, not the command
+        if: ${{ !cancelled() }}
+        run: |
+          # A successful push is not evidence that a consumer can read what we
+          # meant. Pull it back by digest and check the content.
+          oras pull "ghcr.io/${{ github.repository_owner }}/intent-knowledge@${{ steps.resolve.outputs.digest }}" \
+            --output verify/
+          ( cd verify && sha256sum -c MANIFEST.sha256 )
+          test "$(cat verify/INPUTS_SHA)" = "$(cat fragment/INPUTS_SHA)"
+          echo "verified: $(cat verify/INPUTS_SHA)"

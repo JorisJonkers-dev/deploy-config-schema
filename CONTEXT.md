@@ -58,8 +58,10 @@ credential paths its providers expose. `data`, `mail`, `media`,
 _Avoid_: group, area, collection, layer
 
 **Reconcile Unit**:
-A grouping of Deliverables that the cluster applies as one ordered step.
-Derived from the dependency graph, never declared.
+A grouping of Deliverables applied as one ordered step. Derived from the
+dependency graph, never declared. Consumed twice: as a Flux `Kustomization` for
+the pack-delivered foundation, and as the apply order for everything an
+Aggregator pushes.
 _Avoid_: layer, kustomization, apps-core, stage
 
 **Tier**:
@@ -70,10 +72,17 @@ _Avoid_: layer, channel, zone
 ### Authority
 
 **Contended Value**:
-A value that must be unique across the estate, or that draws on a shared finite
-resource. The platform assigns it; Service Intent may only express a need for
-it.
+A value drawn from a shared finite resource — node capacity, disk, a Vault
+mount. The platform assigns it; Service Intent may only express a Need for it.
+Distinct from an Identity Value, which must also be unique but is not drawn from
+a pool.
 _Avoid_: shared value, global value, platform value
+
+**Identity Value**:
+A value that must be unique across the estate but is not drawn from a finite
+pool — a Service Id, an exposure name, a claim name. Declared in Service Intent
+and checked for uniqueness at composition, never assigned.
+_Avoid_: contended value, unique value, key
 
 **Need**:
 An expression in Service Intent of a requirement the platform must satisfy,
@@ -106,18 +115,25 @@ engines, and the Services permitted to read or write them. Composed with its
 siblings into the whole tree; no repository holds all of it.
 _Avoid_: vault config, secrets config, claims registry
 
-**Claim Mode**:
-How a claimed secret reaches the Workload. One of four: `env` (projected into a
-Secret and bound to named environment variables), `fetch` (retrieved at runtime
-by the application itself), `file` (written to a path on disk), `write` (a path
-prefix the application creates entries under).
-_Avoid_: delivery, injection, provisioning, binding
+**Access Tier**:
+What a Workload may do to a Secret Store path: `read`, `self-renew` (extend its
+own lease, needing no privilege and changing no value), `self-roll` (replace the
+value at named keys), `custody` (create and delete entries under a prefix).
+Declared as intent; the Vault capability is derived, preferring `patch` over
+`update` so a roller gains no read access to sibling keys.
+_Avoid_: capability, permission, write access
+
+**Delivery**:
+How a granted secret reaches the Workload: `env` (projected into a Secret and
+bound by a Placeholder), `file` (written to a path on disk), `self` (the
+application fetches it at runtime and nothing is injected).
+_Avoid_: mode, claim mode, injection, provisioning
 
 **Rotation Tolerance**:
 What a Workload can survive when a secret it holds is replaced: `restart`,
-`reload` or `none`. Declared by the Service and validated against its Claim
-Mode — `reload` is achievable only under `fetch`, because a pod's environment is
-fixed for its lifetime.
+`reload` or `none`. Declared by the Service and validated against its Delivery —
+`reload` is achievable only under `delivery: self`, because a pod's environment
+is fixed for its lifetime.
 _Avoid_: ttl, rotation policy, refresh
 
 ### Configuration
@@ -177,8 +193,8 @@ _Avoid_: authMode, auth scope, access level, visibility
 
 **Exposure**:
 A Workload's declaration that one of its ports is reachable by an Audience,
-optionally with per-path Audiences. Carries no hostname; the hostname is
-assigned.
+optionally with per-path Audiences. Carries a `name` — an Identity Value — but
+never a hostname; the fully-qualified name is assembled from it.
 _Avoid_: route, ingress, endpoint
 
 **Registered Unmanaged Surface**:
@@ -233,8 +249,47 @@ carries an owner, a reason and a review date, so the list cannot outlive what it
 excuses.
 _Avoid_: allowlist, exemption list, ignore file
 
-**System Test Project**:
-A repository owning the tests for a relationship between Services, declaring
-which Services it exercises and whose deployments it gates. Services declare no
-co-test list.
-_Avoid_: integration tests, e2e suite, test repo
+**Aggregator**:
+A repository owning a relationship between Services. Declares `exercises` — the
+Services its suite runs against, many-to-many — and `deploys` — the Services it
+alone may apply, one-to-one across the estate. Services declare no co-test list.
+_Avoid_: system test project, integration tests, e2e suite, test repo
+
+**Deployer**:
+The Aggregator entitled to apply a given Service. Exactly one per Service, and
+enforced twice: at composition, and by the Role generated from the Aggregator's
+`deploys` list.
+_Avoid_: owner, applier, publisher
+
+### Composition and delivery
+
+**Purity Rule**:
+Every assignment is a pure function of Service Intent, the pinned Cluster
+Context and the pinned locks. Nothing is allocated from a mutable pool or
+remembered between renders, which is what makes a render reproducible from its
+lock.
+_Avoid_: determinism, idempotence, statelessness
+
+**Placeholder**:
+A named reference in an env file or an Asset, resolved at render time from a
+declared source — `${dependency:…}` for a Dependency Coordinate,
+`${secret:…}` for a granted secret. Not a template language.
+_Avoid_: variable, interpolation, template
+
+**Composed Intent**:
+The union of every published Intent Fragment, after all estate-wide invariants
+have passed. The input to resolution, and the only place a global property such
+as hostname uniqueness or an inbound derivation can be evaluated.
+_Avoid_: merged intent, the union, global config
+
+**Composition Lock**:
+The record of what was composed — every fragment's resolved digest, the
+composed digest, and the chain of preceding locks. An output of composition,
+never an input, because an artefact cannot contain its own digest.
+_Avoid_: manifest, pin file, sources file
+
+**Participant**:
+A repository expected to publish an Intent Fragment, listed with a staleness
+bound. A missing or stale participant fails composition, because Flux prunes and
+a silently absent domain would be deleted rather than merely omitted.
+_Avoid_: member, contributor, source
