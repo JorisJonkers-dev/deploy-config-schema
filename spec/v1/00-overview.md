@@ -57,7 +57,7 @@ spends its time removing.
 | [`16-dependencies.md`](16-dependencies.md) | **written** — edges, inbound derivations, the derivation map | embedded |
 | [`20-resolved-deployment.md`](20-resolved-deployment.md) | **written** — the purity rule, the assignment catalogue, publish-back | embedded |
 | [`30-deliverables.md`](30-deliverables.md) | **written** — Fragments, the adapter set, measured coverage, ledgers | embedded |
-| `40-composition.md` | Intent Fragments, participants, the lock | embedded |
+| [`40-composition.md`](40-composition.md) | **written** — Intent Fragments, the 22 estate-wide invariants, the lock | embedded |
 | `50-lifecycle.md` | build, co-test, publish, compose, render, reconcile | embedded |
 
 **Chapter 16's derivation map is the load-bearing artefact**, and its value is
@@ -105,10 +105,11 @@ Decisions this specification depends on and does not itself make.
    `personal-stack/*` means relabelling live nodes, and `CLAUDE.md` is explicit
    that a `kubectl label` drifts back on the next reconcile — so it must go
    through the generated contract.
-6. **Where third-party Service Intent lives.** ADR-0015 has each Domain publish
-   its own Intent Fragment, but whether `homelab-collections` splits into
-   per-domain repositories or stays one repository publishing several fragments is
-   undecided.
+6. ~~**Where third-party Service Intent lives.**~~ **Resolved by chapter 40.**
+   Publication is repository-scoped and a fragment declares the domains it
+   contributes to, so `homelab-collections` may stay one repository publishing one
+   fragment for five domains, or split into five. Composition behaves identically,
+   which makes the split a convenience rather than a prerequisite.
 7. **Three fields chapter 10 had to propose.** `sidecars` (a Workload holds more
    than one container: `postgres` plus `postgres-exporter`, `stalwart` plus
    `stalwart-apply`, `agent-runner` plus the `agent-gateway` jar), `size` (a
@@ -126,3 +127,16 @@ Decisions this specification depends on and does not itself make.
 9. **The `resolved.yml` drift check's failure mode.** ADR-0017 requires the
    published projection to be guarded but not what a stale copy does — block that
    service's own pipeline, or merely report.
+10. **Fragment publication trigger** (chapter 40). "On release" is
+    underspecified: a service repository releases when its image does, so a change
+    to `service.yml` alone may sit unpublished behind a staleness window. Either
+    intent publishes on merge independently of the image release, or `maxAge` is
+    doing work it should not.
+11. **Who runs composition, and how often** (chapter 40). On a schedule, on any
+    fragment publish, or on demand — this decides how quickly a merged change
+    reaches the cluster.
+12. **Whether the union may span clusters** (chapter 40). The lock is keyed by
+    cluster, but Service Id uniqueness is estate-wide. Invisible with one cluster.
+13. **Fragment signing** (chapter 40). Composition verifies `MANIFEST.sha256` per
+    file but not provenance, while `deploy-artifact.yml` already carries
+    `id-token: write` and `attestations: write`.
