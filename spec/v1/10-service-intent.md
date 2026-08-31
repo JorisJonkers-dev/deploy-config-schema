@@ -495,7 +495,7 @@ diagram:
 
 | example | what it exercises |
 |---|---|
-| [`knowledge.service.yml`](examples/knowledge.service.yml) + [`env`](examples/knowledge-api.base.env) | two Workloads, two runtimes, five path rules, `probes: none`, secrets at **both** levels, a `0400` file secret, an `irreplaceable` volume |
+| [`knowledge.service.yml`](examples/knowledge.service.yml) + [`env`](examples/knowledge-api.base.env) + [`worker env`](examples/knowledge-ingest-worker.base.env) | two Workloads, two runtimes, five path rules, `probes: none`, secrets at **both** levels, a `0400` file secret, an `irreplaceable` volume |
 | [`auth-api.service.yml`](examples/auth-api.service.yml) + [`env`](examples/auth-api.base.env) | `delivery: self` with `tolerates: reload`, a `self-roll` Transit grant, four dependencies, inbound-derived CORS |
 | [`platform-postgres.service.yml`](examples/platform-postgres.service.yml) + [`env`](examples/platform-postgres.base.env) | third-party image with `runtime: none`, a proposed sidecar, TCP probes, a static Asset, `provides` consumed by eight Services |
 

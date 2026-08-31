@@ -78,7 +78,8 @@ reverting it as continuous reconciliation would.
   The difference is that the merge is per-relationship rather than estate-wide,
   and it exists to run tests rather than to record pointers. Composition itself
   still requires no merge.
-- **ADR-0014's `SystemTestProject` becomes the deploy unit**, gaining a `deploys`
+- **ADR-0014's relationship repository is renamed `Aggregator` and becomes the
+  deploy unit**, gaining a `deploys`
   list alongside `exercises`. Testing membership is many-to-many; deploy authority
   is exactly one, enforced by `E_NO_DEPLOYER` and `E_MULTIPLE_DEPLOYERS` and,
   independently, by the API server through generated RBAC.

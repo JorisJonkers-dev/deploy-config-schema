@@ -2,9 +2,9 @@
 status: proposed
 ---
 
-# System tests are owned by relationship-scoped projects, not by services
+# System tests are owned by Aggregators, not by services
 
-A System Test Project is its own repository declaring which Services it
+An **Aggregator** is its own repository declaring which Services it
 exercises and which Services' deployments it gates. A Service declares no
 co-test list. A Service's pre-deploy gate runs every project naming it, against
 the pinned image set.
@@ -33,8 +33,8 @@ tests move into relationship-scoped projects rather than being rewritten.
 
 ## It also became the deploy unit
 
-ADR-0019 makes the aggregator the thing that applies to the cluster, so a System
-Test Project carries two lists:
+ADR-0019 makes the Aggregator the thing that applies to the cluster, so it
+carries two lists:
 
 - `exercises` — many-to-many. `auth-api` is exercised by its pairing with
   `auth-ui` and by the OIDC federation set, and the twelve auth relationship
@@ -45,18 +45,18 @@ Test Project carries two lists:
 That distinction is what makes overlap safe: many gates, one applier. It is
 enforced by `E_NO_DEPLOYER` and `E_MULTIPLE_DEPLOYERS` at composition, and
 independently by the API server, because the `deploys` list generates the
-project's RBAC — a workflow applying a Service it does not own gets a 403.
+Aggregator's RBAC — a workflow applying a Service it does not own gets a 403.
 
-Every domain needs a default project, or a Service in none of them cannot deploy
+Every domain needs a default Aggregator, or a Service in none of them cannot deploy
 at all. The media services need one: `jellyfin`, `sonarr`, `radarr`, `prowlarr`,
 `bazarr`, `qbittorrent` and `immich` have zero test classes between them.
 
 ## Consequences
 
-- A Service's gate must discover which projects name it, which requires the
-  composition mechanism in ADR-0015. Test projects are participants like any
+- A Service's gate must discover which Aggregators name it, which requires the
+  composition mechanism in ADR-0015. Aggregators are participants like any
   other fragment publisher.
 - `tests/stack-integration-tests` is decomposed. The auth federation suite is the
   natural first project and carries twelve of the classes.
-- A relationship with no test project has no gate, and nothing announces that.
+- A relationship with no Aggregator has no gate, and nothing announces that.
   The participants list is the only place that absence can be made visible.

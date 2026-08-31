@@ -27,7 +27,7 @@ which layer is decided by the contention test in ADR-0003.
 | [0002](../../docs/adr/0002-three-layer-meta-model.md) | Three layers, the middle one a versioned contract |
 | [0003](../../docs/adr/0003-contention-decides-authority.md) | Contention decides who declares a value |
 | [0004](../../docs/adr/0004-flat-service-identity.md) | One flat Service Id; renames are data |
-| [0005](../../docs/adr/0005-credential-provisioning.md) | Claims by Vault path; four Claim Modes |
+| [0005](../../docs/adr/0005-credential-provisioning.md) | Secrets on the Service at two levels; access tiers and delivery |
 | [0006](../../docs/adr/0006-reconcile-unit-is-derived.md) | Reconcile Unit derived from the dependency graph |
 | [0007](../../docs/adr/0007-configuration-and-assets.md) | Config declares its source; code is not configuration |
 | [0008](../../docs/adr/0008-runtime-mechanics-derived-from-intent.md) | Runtime mechanics derived from declared intent |

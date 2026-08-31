@@ -53,7 +53,8 @@ A fragment carries:
 - Service documents (`service.yml`) and their env files
 - the Secret Subtree the domain owns — paths, keys, engines, readers
 - node declarations, for the fragment that owns the fleet
-- `SystemTestProject` documents (ADR-0014)
+- `Aggregator` documents — the repositories owning relationships (ADR-0014,
+  ADR-0019)
 - Registered Unmanaged Surfaces the domain is responsible for (ADR-0010)
 
 ## Publication, and why the lock is an output
