@@ -1,0 +1,98 @@
+# Worked example — services/auth-api/platform/service.yml
+#
+# Exercises: delivery: self with tolerates: reload (which auth-api already runs
+# in production), a self-roll Transit grant, four dependencies, and config that
+# is almost entirely derived.
+#
+# Companions: examples/auth-api.base.env
+apiVersion: intent.jorisjonkers.dev/v1
+kind: Service
+schemaVersion: 1.0.0
+
+id: auth-api
+domain: auth
+owner: joris
+alertClass: page          # every forward-auth protected route depends on this
+
+provides:
+  http: 8081
+
+# auth-api has one Workload, so every grant is shared by definition and sits at
+# Service level. All three use delivery: self -- the application fetches them
+# through spring-cloud-vault at runtime, which is what it already does in
+# production via SPRING_CONFIG_IMPORT: vault:// and VAULT_DB_ENABLED: true.
+# Consequently auth-api's env file contains no ${secret:...} placeholder at
+# all, and the dead-grant check correctly does not fire.
+secrets:
+  # Dynamic database credentials, re-read at runtime. The only combination
+  # achieving zero-downtime rotation: a pod's environment is fixed for its
+  # lifetime, so tolerates: reload with delivery: env would be a build error.
+  - path: secret/data/platform/postgres
+    keys: [auth.user, auth.password]
+    access: read
+    delivery: self
+    rotation:
+      tolerates: reload
+      maxAge: 168h
+
+  - path: secret/data/auth-api
+    keys: ['*']
+    access: read
+    delivery: self
+    rotation: {tolerates: reload}
+
+  # JWT signing through Vault Transit. auth-api rotates this key itself, so
+  # self-roll rather than read -- which derives the `patch` capability on the
+  # named key rather than `update`, granting no read access to anything else
+  # in the mount. No rollAffectsReaders acknowledgement is needed: composition
+  # shows no other Service reads it, and verifiers follow JWKS rather than
+  # caching the key.
+  - path: transit/keys/auth-api-jwt
+    keys: [auth-api-jwt]
+    access: self-roll
+    delivery: self
+    rotation: {tolerates: reload}
+
+workloads:
+  - name: auth-api
+    lifecycle: service
+    image: auth-api
+    runtime: jvm
+
+    dependsOn:
+      - {service: platform-postgres, surface: postgres}
+      - {service: platform-valkey,   surface: redis}
+      - {service: platform-rabbitmq, surface: amqp}
+      - {service: stalwart,          surface: smtp}
+
+    exposure:
+      - port: 8081
+        # The login and registration surface must be reachable
+        # unauthenticated -- auth-api is what performs authentication, so it
+        # cannot sit behind it. The application enforces its own
+        # authorization; this audience describes the edge only.
+        audience: anonymous
+
+    readiness:
+      path: /api/actuator/health/readiness
+      port: 8081
+    liveness:
+      path: /api/actuator/health/liveness
+      port: 8081
+
+    startupBudget: 600s
+    zeroDowntime: true
+
+    # PROPOSED FIELD -- chapter 10, "Still to be graded".
+    # Live runs replicas: 2. The manifest records that as a capacity decision
+    # on freed Frankfurt budget, not an availability requirement, and notes
+    # deploys were already zero-downtime through maxUnavailable: 0. So the
+    # availability requirement is 1 and the second replica is capacity.
+    minAvailable: 1
+
+    placement:
+      requires: [public-ingress]
+
+    scrape:
+      port: 8081
+      path: /api/actuator/prometheus

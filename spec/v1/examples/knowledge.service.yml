@@ -1,0 +1,127 @@
+# Worked example — services/knowledge/platform/service.yml
+#
+# Exercises: two Workloads on two runtimes, five path rules with mixed
+# audiences, probes: none for a Workload with no listener, secrets at BOTH
+# levels, and an irreplaceable volume. Every value is what knowledge runs today.
+#
+# Companions: examples/knowledge.base.env (one per workload)
+apiVersion: intent.jorisjonkers.dev/v1
+kind: Service
+schemaVersion: 1.0.0
+
+id: knowledge
+domain: knowledge
+owner: joris
+alertClass: business-hours
+
+# Surfaces other Services depend on. Flat map, integer ports. The rendered
+# k8s port name is the surface name, which is how 'http' survives.
+provides:
+  http: 8080
+
+# Shared secrets. Both Workloads read the same Postgres and RabbitMQ
+# credentials, so declaring them once here is the difference between one edit
+# and two when a key is added.
+secrets:
+  - path: secret/data/platform/postgres
+    keys: [kb.user, kb.password]
+    access: read
+    delivery: env
+    rotation: {tolerates: restart}
+
+  - path: secret/data/platform/rabbitmq
+    keys: [rabbitmq.user, rabbitmq.password]
+    access: read
+    delivery: env
+    rotation: {tolerates: restart}
+
+workloads:
+  # ---------------------------------------------------------------- api
+  - name: knowledge-api
+    lifecycle: service
+    image: knowledge-api
+    runtime: jvm            # -> otel-jvm profile: 10 OTEL + 6 PYROSCOPE keys
+
+    dependsOn:
+      - {service: platform-postgres, surface: postgres}
+      - {service: platform-rabbitmq, surface: amqp}
+
+    exposure:
+      - port: 8080          # integer, at its point of use
+        audience: authenticated
+        paths:
+          - {path: /mcp,               match: exact,  audience: anonymous}
+          - {path: /mcp/,              match: prefix, audience: anonymous}
+          - {path: /install.sh,        match: exact,  audience: anonymous}
+          - {path: /install-agents.sh, match: exact,  audience: anonymous}
+          - {path: /,                  match: prefix, audience: authenticated}
+        # No hostname. kb.jorisjonkers.dev is assigned, and this block
+        # replaces the six places it used to be declared independently.
+
+    readiness:
+      path: /api/actuator/health/readiness
+      port: 8080
+    liveness:
+      path: /api/actuator/health/liveness
+      port: 8080
+      # Distinct paths, stated. A liveness probe on the readiness endpoint
+      # turns a Postgres outage into a crash-loop.
+
+    startupBudget: 600s     # JVM cold start measured at ~250-300s
+    zeroDowntime: true      # the MCP endpoint 503s if a roll opens a gap
+
+    placement:
+      # frankfurt-contabo-1 is the only node advertising public-ingress, so
+      # this replaces nodeSelector site: frankfurt without naming a site.
+      requires: [public-ingress]
+
+    scrape:
+      port: 8080            # resolves to port name 'http' via provides
+      path: /api/actuator/prometheus
+
+    # Workload-specific: the API serves /mcp, the worker does not.
+    # Every key is named, so adding a device is one line here plus one in the
+    # env file -- accepted for being able to answer, from the repository
+    # alone, which variable carries which secret.
+    secrets:
+      - path: secret/data/knowledge-system/mcp-bearer
+        keys: [workstation]
+        access: read
+        delivery: env
+        rotation: {tolerates: restart}
+
+  # ------------------------------------------------------------- worker
+  - name: knowledge-ingest-worker
+    lifecycle: service
+    image: knowledge-ingest-worker
+    runtime: python         # a different profile: 5 OTEL keys plus
+                            # OTEL_PYTHON_LOG_CORRELATION, no JVM batch tuning
+
+    dependsOn:
+      - {service: platform-rabbitmq, surface: amqp}
+      - {service: platform-postgres, surface: postgres}
+
+    # A RabbitMQ consumer with no listener. Declared, not omitted, so the
+    # absence is a decision rather than an oversight.
+    probes: none
+
+    stateful: true
+    volumes:
+      - claim: knowledge-vault-clone
+        mountAt: /var/lib/knowledge-vault
+        durability: irreplaceable
+        # Renders a backup job with retention plus an off-cluster copy, and
+        # requires owner approval to relocate. local-path also pins this
+        # Workload to the node holding the PV -- derived, not declared.
+
+    # Workload-specific: an SSH private key cannot be an environment variable,
+    # and only the worker pushes to the knowledge vault. delivery: file is why
+    # file delivery exists at all.
+    secrets:
+      - path: secret/data/knowledge-system/vault-deploy-key
+        keys: [key]
+        access: read
+        delivery: file
+        mountAt: /home/worker/.ssh/id_ed25519
+        fileMode: "0400"
+        rotation: {tolerates: restart}

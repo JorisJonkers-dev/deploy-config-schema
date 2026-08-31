@@ -1,0 +1,115 @@
+# Worked example — the data domain's platform-postgres
+#
+# Exercises: a third-party image with runtime: none, TCP probes, a static
+# Asset, a proposed sidecar, and provides consumed by eight Services.
+#
+# postgres has no repository of its own; under ADR-0015 it ships in the data
+# domain's Intent Fragment. Whether that comes from a split-out per-domain
+# repository or from homelab-collections is open item 5.
+#
+# Companions: examples/platform-postgres.base.env
+apiVersion: intent.jorisjonkers.dev/v1
+kind: Service
+schemaVersion: 1.0.0
+
+id: platform-postgres
+domain: data
+owner: joris
+alertClass: page          # eight Services depend on it
+
+# Declared once; every consumer names the surface, never the port. The eight
+# consumers today: auth-api, agents-api, knowledge (api and ingest worker),
+# lightrag, n8n, outline, and the observability backup jobs.
+#
+# NOTE: the live cluster names this port 'db', not 'postgres'. Naming the
+# surface for what it serves is the right call, so this is a deliberate rename
+# recorded as a parity entry rather than a divergence.
+provides:
+  postgres: 5432
+  metrics: 9187
+
+workloads:
+  - name: postgres
+    lifecycle: service
+    # Third-party, so pinned upstream rather than resolved through our lock.
+    image: pgvector/pgvector:pg17
+    # No Runtime Profile. A third-party image cannot consume OTEL_* or
+    # PYROSCOPE_* wiring, and injecting it would be noise. 'none' says so
+    # deliberately rather than leaving runtime unset.
+    runtime: none
+
+    # PROPOSED FIELD -- chapter 10, "Still to be graded".
+    # postgres-exporter runs in the same pod and serves the metrics port.
+    # stalwart (stalwart-apply) and agent-runner (the agent-gateway jar) have
+    # the same shape, so this is not an edge case.
+    sidecars:
+      - name: postgres-exporter
+        image: quay.io/prometheuscommunity/postgres-exporter:v0.18.0
+
+    # TCP, not HTTP. postgres has no HTTP surface, and this is what the live
+    # probes do -- tcpSocket on port db for both.
+    readiness: {tcp: 5432}
+    liveness:  {tcp: 5432}
+
+    startupBudget: 60s
+    zeroDowntime: false
+    # Forced, not chosen. A ReadWriteOnce local-path volume cannot attach to
+    # two pods at once, so the strategy derives to Recreate -- which is what
+    # runs today, and why 21 of 30 workloads in this cluster use Recreate.
+
+    stateful: true
+    volumes:
+      - claim: postgres-data
+        mountAt: /var/lib/postgresql/data
+        durability: recoverable
+        # Renders a backup job with a retention sweep, closing the gap
+        # ADR-0011 in the workspace recommended: today each backup job writes
+        # a fixed filename, so the PVC holds only the newest copy and history
+        # exists solely in the Frankfurt node backup.
+        #
+        # Not declared: storageClass and 20Gi -- both draw on finite node disk
+        # and are assigned. Snapshots are unavailable regardless: local-path
+        # has no CSI snapshot support and no VolumeSnapshot CRDs exist.
+
+    assets:
+      # Fully static: zero derived values in 54 lines. Baking it into the image
+      # was rejected because that means a derived image, a build pipeline, a
+      # registry entry and a Renovate rule, plus a rebuild on every upstream
+      # pg17 bump -- to change one settings file.
+      - from: config/postgresql.conf
+        mountAt: /etc/postgresql/postgresql.conf
+        onChange: restart
+
+      # NOT declared: init-databases.sh.
+      #
+      # Its 98 lines create one database and one owning user per consuming
+      # Service -- auth_db, agents_db, knowledge_db, n8n_db -- which the
+      # dependency graph already knows from inbound edges and grants. It
+      # becomes a derived Deliverable (chapter 16).
+      #
+      # It also reads /run/secrets/<name>, a Docker Compose convention that
+      # does not exist in Kubernetes, then falls back to env vars. That dead
+      # path is how long the file has gone unexamined.
+
+    # No placement block. postgres-data pins this Workload to the node holding
+    # the PV, and the resolver states that rather than every stateful Service
+    # repeating it.
+
+    scrape:
+      port: 9187            # resolves to port name 'metrics' via provides
+      path: /metrics
+
+    # Declared on the Workload rather than the Service: it is consumed by the
+    # postgres-exporter sidecar, which lives inside this Workload.
+    #
+    # Deliberately absent: the per-consumer credentials (kb.*, auth.*,
+    # agents.*, n8n.*). postgres does not read them -- its consumers each
+    # declare their own grant. The Secret Subtree for this path is owned by the
+    # data domain and lists the readers, which is what makes "who breaks if I
+    # rotate this" answerable.
+    secrets:
+      - path: secret/data/platform/postgres
+        keys: [exporter.datasource]
+        access: read
+        delivery: env
+        rotation: {tolerates: restart}
