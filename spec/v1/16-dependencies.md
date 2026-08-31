@@ -66,15 +66,15 @@ flowchart LR
         d_dom["domain"]
         d_own["owner"]
         d_alert["alertClass"]
-        d_prov["provides"]
+        d_prov["provides<br/>surface: port"]
         d_dep["dependsOn"]
         d_img["image"]
         d_run["runtime"]
-        d_cfg["config"]
-        d_clm["claims"]
+        d_env["env files<br/>base + cluster overlay"]
+        d_sec["secrets<br/>service or workload level"]
         d_ast["assets"]
         d_exp["exposure"]
-        d_hlth["health"]
+        d_prb["readiness + liveness"]
         d_bud["startupBudget"]
         d_zdt["zeroDowntime"]
         d_life["lifecycle"]
@@ -138,13 +138,14 @@ flowchart LR
 
     d_img --> r_dig
     d_run --> k_dep
-    d_cfg --> k_dep
+    d_env --> k_dep
+    d_env --> k_sec
 
-    d_clm --> k_sec
-    d_clm --> k_pol
-    d_clm --> r_vp
-    d_clm --> k_np
-    d_clm --> k_dep
+    d_sec --> k_sec
+    d_sec --> k_pol
+    d_sec --> r_vp
+    d_sec --> k_np
+    d_sec --> k_dep
 
     d_ast --> k_cm
     d_ast --> k_dep
@@ -157,9 +158,9 @@ flowchart LR
     d_exp --> k_gat
     d_exp --> k_np
 
-    d_hlth --> r_prb
-    d_hlth --> r_tc
-    d_hlth --> k_gat
+    d_prb --> r_prb
+    d_prb --> r_tc
+    d_prb --> k_gat
     d_bud --> r_prb
     d_bud --> r_dl
     d_zdt --> r_strat
@@ -260,30 +261,54 @@ to detect when those six disagreed
 property 1 those tests have nothing left to check, because the six cannot
 disagree — they share a single upstream.
 
-## Worked trace — one credential claim
+## Worked trace — one secret grant
 
 ```yaml
-claims:
-  - path: secret/data/platform/postgres
-    mode: env
-    keys: {kb.user: DB_USER, kb.password: DB_PASSWORD}
-    rotation: {tolerates: restart}
+# platform/service.yml -- on the Service, since both Workloads hold it
+secrets:
+- path: secret/data/platform/postgres
+  keys: [kb.user, kb.password]
+  access: read
+  delivery: env
+  rotation: {tolerates: restart}
+```
+
+```
+# platform/env/knowledge-api/base.env
+DB_USER=${secret:platform/postgres#kb.user}
+DB_PASSWORD=${secret:platform/postgres#kb.password}
 ```
 
 | derives | detail |
 |---|---|
 | `VaultStaticSecret` | targeting the Workload's namespace |
-| `Secret` | projected, with the two named keys |
-| container `env` | `DB_USER`, `DB_PASSWORD` bound by the declared names |
-| Vault policy + Kubernetes auth role | read on the claimed path only |
+| `Secret` | projected, holding the two granted keys |
+| `envFrom` secretRef | the two placeholders resolve here, not to literal `env` entries |
+| Vault policy + Kubernetes auth role | `read` on the granted path and keys only |
 | `rolloutRestartTargets` | from `tolerates: restart`, no longer hand-declared |
-| engine choice | static, because `restart` does not require `fetch` |
+| engine choice | static, because `restart` does not require `delivery: self` |
 | `NetworkPolicy` egress | to Vault |
 | Secret Subtree cross-check | the `data` domain must list this Service as a reader |
 | **inbound**, on the provider | one database and one owning user in `init-databases.sh` |
 
-Nine derivations, one declaration. The ninth is only computable over the composed
-union, which is the dependency this chapter has on ADR-0015.
+Nine derivations from one grant plus two placeholders. The ninth is only
+computable over the composed union, which is this chapter's dependency on
+ADR-0015.
+
+Splitting access from binding adds a check the single-document form could not
+express, and it is bidirectional:
+
+| condition | error |
+|---|---|
+| `delivery: env` grant with no matching placeholder | dead grant — property 3 |
+| `${secret:…}` placeholder with no matching grant | unauthorised reference |
+| `delivery: env` with `tolerates: reload` | impossible; a pod's environment is fixed for its lifetime |
+| `access: self-roll` on a path other Services read, unacknowledged | roll affects other readers |
+
+The last is only computable over the composed union, and it is the check nothing
+in the estate has today: `secret/platform/observability` holds the Prometheus
+token, the Discord webhook and the Grafana client secret, and one CronJob rolls
+one of those keys.
 
 ## What the properties would have caught
 
@@ -294,6 +319,7 @@ union, which is the dependency this chapter has on ADR-0015.
 | `platform.layer` wrong in 7 of 7 services | 3 | out-degree zero — it fed a registry, never placement |
 | 41 Gatus checks, no notifier | 1 | `notifier route` unreachable from any declaration |
 | 60 duplicated `OTEL_*` lines | 2 | six declaring sites for one field |
+| a secret granted but never referenced | 3 | a `delivery: env` grant with out-degree zero |
 | unsatisfiable `gpu-model-gtx960m` preference | 1 | a declaration pointing at a capability no node advertises |
 
 ## Open in this chapter
