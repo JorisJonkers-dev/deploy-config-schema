@@ -20,6 +20,44 @@ The rule that makes this worth naming: **Layer 1 contains no mechanisms, Layer 3
 contains no decisions.** Every field is assignable to exactly one layer, and
 which layer is decided by the contention test in ADR-0003.
 
+## The system
+
+```mermaid
+flowchart TB
+    subgraph AUTH["authored, in each owning repository"]
+        a1["service.yml"]
+        a2["env/&lt;workload&gt;/*.env"]
+        a3["node declarations"]
+        a4["aggregator.yml"]
+    end
+
+    a1 --> FR["Intent Fragment<br/>OCI, per repository"]
+    a2 --> FR
+    a3 --> FR
+
+    FR --> CO["composition<br/>26 invariants<br/>automatic, no PR"]
+    CTX["Cluster Context<br/>pinned by digest"] --> CO
+    PAR["participants.yml"] --> CO
+
+    CO --> CI["ComposedIntent<br/>+ CompositionLock"]
+    CI --> RES["Resolved Deployment<br/>every assignment,<br/>a pure function"]
+    RES --> RS["resolved.yml<br/>committed back per Service"]
+    RES --> DS["Deliverable Set<br/>Fragments, one adapter each"]
+
+    a4 --> AG["Aggregator<br/>exercises + deploys"]
+    CI --> AG
+    AG --> GATE["vcluster + relationship suite"]
+    GATE --> AG
+
+    DS --> CA["class A, 364 objects<br/>kubectl apply --server-side<br/>by the Aggregator"]
+    DS --> CB["class B, 41 objects<br/>Flux reconciles<br/>18 HelmReleases + foundation"]
+    CA --> K["the cluster"]
+    CB --> K
+    K --> CRON["in-cluster CronJob<br/>re-applies its own lock"]
+    CRON --> K
+    RS -.->|"an owner reads their assignments"| AUTH
+```
+
 ## Decision register
 
 | ADR | Decision |
@@ -60,6 +98,7 @@ spends its time removing.
 | [`30-deliverables.md`](30-deliverables.md) | **written** — Fragments, the adapter set, measured coverage, ledgers | embedded |
 | [`40-composition.md`](40-composition.md) | **written** — Intent Fragments, the 26 estate-wide invariants, the lock | embedded |
 | [`50-lifecycle.md`](50-lifecycle.md) | **written** — push delivery, aggregators, prune, drift, rollback | embedded |
+| [`60-setup.md`](60-setup.md) | **written** — bootstrap order, onboarding, safe adoption of live Services | embedded |
 
 **Chapter 16's derivation map is the load-bearing artefact**, and its value is
 that it is checkable by a script rather than read by eye. Three properties hold
@@ -81,6 +120,30 @@ inbound arrows is a bled concern". That was wrong and is superseded: a
 `Deployment` legitimately draws on `image`, `config`, `claims`, `health` and
 `placement`. Convergence on an object is normal; convergence on the same *field*
 of an object is the defect.
+
+## Examples
+
+Every example is rendered from live state, and every YAML and JSON file is
+parse-checked in CI.
+
+| path | what it shows |
+|---|---|
+| `examples/{knowledge,auth-api,platform-postgres}.service.yml` | Service Intent: two-level secrets, `probes: none`, TCP probes, `runtime: none`, a proposed sidecar |
+| `examples/{knowledge-api,knowledge-ingest-worker,auth-api,platform-postgres}.base.env` | env files with `${dependency:…}` and `${secret:…}` placeholders |
+| `examples/aggregator.yml` | `exercises` many-to-many, `deploys` one-to-one, one pin |
+| `examples/renovate.json` | the custom manager tracking the composed-lock pin |
+| `examples/workflows/service-publish-fragment.yml` | publish on merge, `oras push` then `oras resolve`, read back |
+| `examples/workflows/compose.yml` | pull participants, assert 26 invariants, **prove the gate can fail** |
+| `examples/workflows/aggregator-gate.yml` | triple-digest assert, vcluster, suite, guaranteed teardown |
+| `examples/workflows/aggregator-deploy.yml` | prune by label query, SSA in DAG order, read back, report lag |
+| `examples/rendered/deployer-rbac.yaml` | the generated identity that makes deploy authority an API-server control |
+| `examples/rendered/reapply-cronjob.yaml` | in-cluster drift correction |
+| `examples/negative/duplicate-service-id/` | a negative fixture, so an invariant that stops running is detectable |
+
+All four workflows are **one job with many steps**, each carrying
+`if: ${{ !cancelled() }}`. `CLAUDE.md` measured why: *"561 minutes of real
+compute billed 2,845 — four fifths of the spend was rounding"*, and *"prefer one
+job with many steps."*
 
 ## Open items
 

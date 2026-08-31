@@ -224,6 +224,35 @@ flowchart TB
     L -.->|"Flux keeps reconciling"| B["class B: 18 HelmReleases<br/>+ the foundation"]
 ```
 
+## One change, end to end
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Dev as auth-api repo
+    participant GH as GHCR
+    participant Comp as composition
+    participant Agg as systest-auth-federation
+    participant VC as vcluster
+    participant K8s as production
+
+    Dev->>GH: merge -> publish Intent Fragment
+    Dev->>GH: oras resolve, then pull back and verify
+    GH-->>Comp: fragment-published
+    Comp->>Comp: pull all participants, union, 26 invariants
+    Comp->>GH: publish ComposedIntent + CompositionLock
+    GH-->>Agg: Renovate bumps the one pin
+    Agg->>VC: provision, apply whole composed estate
+    Note over VC: Flux for class B, SSA for class A<br/>so the test target mirrors production
+    VC-->>Agg: relationship suite green
+    Agg->>Agg: merge
+    Agg->>K8s: query my previous set by label
+    Agg->>K8s: delete what left the render
+    Agg->>K8s: server-side apply in DAG order
+    Agg->>K8s: read back observed digests and Ready
+    K8s-->>Agg: lag reported from lock annotations
+```
+
 ## What already exists
 
 Most of stage 4 is built, in `tests/stack-integration-tests/deploy-harness`:
@@ -242,6 +271,20 @@ Most of stage 4 is built, in `tests/stack-integration-tests/deploy-harness`:
 
 It is wired to a single central compose gate rather than to N aggregators. The
 work is rewiring, not writing.
+
+Worked workflows for all four stages:
+[`service-publish-fragment.yml`](examples/workflows/service-publish-fragment.yml),
+[`compose.yml`](examples/workflows/compose.yml),
+[`aggregator-gate.yml`](examples/workflows/aggregator-gate.yml),
+[`aggregator-deploy.yml`](examples/workflows/aggregator-deploy.yml), plus the
+[`Aggregator`](examples/aggregator.yml) declaration, its
+[`renovate.json`](examples/renovate.json), and the two Deliverables this chapter
+introduces —
+[`deployer-rbac.yaml`](examples/rendered/deployer-rbac.yaml) and
+[`reapply-cronjob.yaml`](examples/rendered/reapply-cronjob.yaml).
+
+Adoption of the ~30 live Services, including the ordering hazard that would
+delete production if reversed, is [chapter 60](60-setup.md).
 
 ## Open in this chapter
 

@@ -1,0 +1,15 @@
+# Same id, different domain. Identity is unique estate-wide, so the union of
+# these two fragments must fail with E_DUPLICATE_SERVICE_ID.
+apiVersion: intent.jorisjonkers.dev/v1
+kind: Service
+schemaVersion: 1.0.0
+id: knowledge
+domain: agents
+owner: joris
+alertClass: business-hours
+workloads:
+  - name: other-knowledge
+    lifecycle: service
+    image: other-knowledge
+    runtime: jvm
+    probes: none

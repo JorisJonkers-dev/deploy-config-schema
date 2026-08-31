@@ -1,0 +1,128 @@
+# systest-auth-federation/.github/workflows/deploy.yml
+#
+# Applies this Aggregator's slice to production on merge.
+#
+#   merge -> pull pinned ComposedIntent -> assert digest
+#         -> query the cluster for my previous set (the inventory)
+#         -> delete what left the render
+#         -> server-side apply what is in it, in DAG order
+#         -> read it back
+#
+# Runs on a self-hosted runner INSIDE the cluster under a ServiceAccount whose
+# Role is generated from this Aggregator's `deploys` list, so applying a
+# Service it does not own returns 403 rather than producing a bad deploy. No
+# kubeconfig exists outside the cluster.
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+    paths: ['pins.yml']
+  workflow_dispatch:
+    inputs:
+      lock:
+        description: >
+          BREAK-GLASS. Apply this composed lock digest directly, skipping the
+          suite. Use for incidents only. The applied lock is recorded in object
+          annotations, so the drift CronJob will re-apply THIS lock rather than
+          undoing the rollback. The normal rollback is to revert the pin commit,
+          which re-runs the suite against the previous combination.
+        required: true
+        type: string
+
+permissions: {}
+
+concurrency:
+  # One applier per Aggregator. Serialised so a deploy and a break-glass
+  # rollback cannot interleave.
+  group: deploy-auth-federation
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Apply my slice
+    runs-on: [self-hosted, k3s-prod]
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oras-project/setup-oras@v1
+
+      - name: Resolve which lock to apply
+        id: lock
+        run: |
+          if [ -n "${{ inputs.lock }}" ]; then
+            echo "::warning::BREAK-GLASS: applying ${{ inputs.lock }} without tests"
+            echo "digest=${{ inputs.lock }}" >> "$GITHUB_OUTPUT"
+            echo "break_glass=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "digest=$(yq -r '.pins.composedLock' pins.yml)" >> "$GITHUB_OUTPUT"
+            echo "break_glass=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Pull and assert
+        if: ${{ !cancelled() }}
+        run: |
+          oras pull "${{ steps.lock.outputs.digest }}" --output candidate/
+          node deploy-harness/scripts/prepare-candidate.mjs \
+            --candidate candidate/ --lock candidate/composition-lock.yml
+
+      - name: Render my slice
+        if: ${{ !cancelled() }}
+        run: |
+          # Only the Services this Aggregator deploys. Everything else in the
+          # composed estate belongs to another Aggregator or to Flux.
+          npx deploy-config-schema render \
+            --composed candidate/ \
+            --deployer auth-federation \
+            --out slice/
+
+      - name: Prune what left the render
+        if: ${{ !cancelled() }}
+        run: |
+          # The cluster is the inventory. kubectl keeps none, so the deployer
+          # label supplies one and the previous set is a query rather than a
+          # stored artefact -- nothing to lose, nothing to resync.
+          #
+          # On first adoption nothing is labelled, so this finds an empty
+          # previous set and deletes nothing. Adoption leaves ORPHANS, which
+          # are the coverage assertion's problem, not this step's.
+          npx deploy-config-schema apply prune \
+            --slice slice/ \
+            --deployer auth-federation \
+            --confirm-deletions
+          # Every deletion is named in the log. No label selector guessing.
+
+      - name: Server-side apply in DAG order
+        if: ${{ !cancelled() }}
+        run: |
+          npx deploy-config-schema apply \
+            --slice slice/ \
+            --field-manager auth-federation \
+            --order candidate/composition-lock.yml \
+            --label "deploy.jorisjonkers.dev/deployer=auth-federation" \
+            --annotate "deploy.jorisjonkers.dev/lock=${{ steps.lock.outputs.digest }}"
+          # A field-ownership CONFLICT means a human edited a field we own. It
+          # is reported and fails this step. --force-conflicts is never passed
+          # automatically, because that would silently discard the edit.
+
+      - name: Read the state back
+        if: ${{ !cancelled() }}
+        run: |
+          # CLAUDE.md: an accepted object is not evidence the consumer sees
+          # what you intended. Read observed image digests and Ready
+          # conditions, not the apply's exit code.
+          npx deploy-config-schema apply verify \
+            --slice slice/ --deployer auth-federation --timeout 300s
+
+      - name: Report lag and break-glass state
+        if: ${{ always() }}
+        run: |
+          # min(lock annotation) across my objects, against the newest
+          # published lock. Beyond the bound, or whenever break-glass was
+          # used, this must be visible -- an unreported break-glass state
+          # becomes the silent status quo.
+          npx deploy-config-schema apply lag --deployer auth-federation \
+            ${{ steps.lock.outputs.break_glass == 'true' && '--break-glass' || '' }}

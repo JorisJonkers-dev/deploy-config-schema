@@ -1,0 +1,13 @@
+apiVersion: intent.jorisjonkers.dev/v1
+kind: Service
+schemaVersion: 1.0.0
+id: knowledge
+domain: knowledge
+owner: joris
+alertClass: business-hours
+workloads:
+  - name: knowledge-api
+    lifecycle: service
+    image: knowledge-api
+    runtime: jvm
+    probes: none
