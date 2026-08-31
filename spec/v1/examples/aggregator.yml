@@ -1,0 +1,49 @@
+# systest-auth-federation/aggregator.yml
+#
+# An Aggregator owns a relationship between Services. It carries two lists, and
+# the distinction between them is what makes overlap safe.
+apiVersion: intent.jorisjonkers.dev/v1
+kind: Aggregator
+metadata:
+  repository: JorisJonkers-dev/systest-auth-federation
+
+spec:
+  # exercises: MANY-TO-MANY. The Services this suite runs against.
+  #
+  # auth-api appears here and also in systest-auth-pairing, because it
+  # genuinely participates in two relationships. The twelve auth relationship
+  # test classes span both: AuthFlow, ForwardAuthChain, ForwardAuthRedirect,
+  # GrafanaOidc, N8nOidc, RabbitMqOidc, OAuth2Flow, Registration,
+  # SessionSecurity, Totp, TotpReLogin, DownstreamOidcAuthorization.
+  exercises:
+    - auth-api
+    - auth-ui
+    - home-portal
+    - agents-ui
+    - grafana
+    - n8n
+    - platform-rabbitmq
+
+  # deploys: ONE-TO-ONE across the estate. The Services this Aggregator alone
+  # may apply. Every other Aggregator naming them in `exercises` is a gate.
+  #
+  # Enforced twice: E_NO_DEPLOYER / E_MULTIPLE_DEPLOYERS at composition, and by
+  # the API server, because this list generates the Role in
+  # rendered/deployer-rbac.yaml.
+  deploys:
+    - auth-api
+    - auth-ui
+
+  # ONE pin. Renovate bumps it whenever composition publishes a new lock.
+  pins:
+    composedLock: ghcr.io/jorisjonkers-dev/composed@sha256:0f2a1c9e4b7d8a3f6c5e2b9d4a7f1c8e3b6d9a2f5c8e1b4d7a0f3c6e9b2d5a8f
+
+  # Drift correction runs in-cluster, not on an Actions schedule. CLAUDE.md
+  # measured Actions crons at four to seven runs per repo per day regardless of
+  # the declared interval, and forbids raising the frequency to compensate.
+  reapply:
+    schedule: '23 * * * *'
+    onConflict: report        # never --force-conflicts automatically
+
+  lag:
+    maxLocksBehind: 3        # beyond this, reported

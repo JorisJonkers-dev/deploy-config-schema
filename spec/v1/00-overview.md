@@ -20,6 +20,44 @@ The rule that makes this worth naming: **Layer 1 contains no mechanisms, Layer 3
 contains no decisions.** Every field is assignable to exactly one layer, and
 which layer is decided by the contention test in ADR-0003.
 
+## The system
+
+```mermaid
+flowchart TB
+    subgraph AUTH["authored, in each owning repository"]
+        a1["service.yml"]
+        a2["env/&lt;workload&gt;/*.env"]
+        a3["node declarations"]
+        a4["aggregator.yml"]
+    end
+
+    a1 --> FR["Intent Fragment<br/>OCI, per repository"]
+    a2 --> FR
+    a3 --> FR
+
+    FR --> CO["composition<br/>26 invariants<br/>automatic, no PR"]
+    CTX["Cluster Context<br/>pinned by digest"] --> CO
+    PAR["participants.yml"] --> CO
+
+    CO --> CI["ComposedIntent<br/>+ CompositionLock"]
+    CI --> RES["Resolved Deployment<br/>every assignment,<br/>a pure function"]
+    RES --> RS["resolved.yml<br/>committed back per Service"]
+    RES --> DS["Deliverable Set<br/>Fragments, one adapter each"]
+
+    a4 --> AG["Aggregator<br/>exercises + deploys"]
+    CI --> AG
+    AG --> GATE["vcluster + relationship suite"]
+    GATE --> AG
+
+    DS --> CA["class A, 364 objects<br/>kubectl apply --server-side<br/>by the Aggregator"]
+    DS --> CB["class B, 41 objects<br/>Flux reconciles<br/>18 HelmReleases + foundation"]
+    CA --> K["the cluster"]
+    CB --> K
+    K --> CRON["in-cluster CronJob<br/>re-applies its own lock"]
+    CRON --> K
+    RS -.->|"an owner reads their assignments"| AUTH
+```
+
 ## Decision register
 
 | ADR | Decision |
@@ -27,7 +65,7 @@ which layer is decided by the contention test in ADR-0003.
 | [0002](../../docs/adr/0002-three-layer-meta-model.md) | Three layers, the middle one a versioned contract |
 | [0003](../../docs/adr/0003-contention-decides-authority.md) | Contention decides who declares a value |
 | [0004](../../docs/adr/0004-flat-service-identity.md) | One flat Service Id; renames are data |
-| [0005](../../docs/adr/0005-credential-provisioning.md) | Claims by Vault path; four Claim Modes |
+| [0005](../../docs/adr/0005-credential-provisioning.md) | Secrets on the Service at two levels; access tiers and delivery |
 | [0006](../../docs/adr/0006-reconcile-unit-is-derived.md) | Reconcile Unit derived from the dependency graph |
 | [0007](../../docs/adr/0007-configuration-and-assets.md) | Config declares its source; code is not configuration |
 | [0008](../../docs/adr/0008-runtime-mechanics-derived-from-intent.md) | Runtime mechanics derived from declared intent |
@@ -41,6 +79,7 @@ which layer is decided by the contention test in ADR-0003.
 | [0016](../../docs/adr/0016-deliverables-and-ledgers.md) | Adapters own Deliverables; holes are bidirectional ledgers |
 | [0017](../../docs/adr/0017-resolved-deployment-publish-back.md) | Assignments written back to the owning repository |
 | [0018](../../docs/adr/0018-derived-value-overrides.md) | Derived values overridable inline; assignments are not |
+| [0019](../../docs/adr/0019-push-delivery-via-aggregators.md) | Push delivery via aggregators; Flux keeps the foundation |
 
 ## Chapters
 
@@ -55,10 +94,11 @@ spends its time removing.
 |---|---|---|
 | [`10-service-intent.md`](10-service-intent.md) | **written** — Service, Workload, and every layer-1 field by concern | embedded |
 | [`16-dependencies.md`](16-dependencies.md) | **written** — edges, inbound derivations, the derivation map | embedded |
-| `20-resolved-deployment.md` | what layer 2 assigns, and publish-back | embedded |
-| `30-deliverables.md` | Adapters, Fragments, coverage, ledgers | embedded |
-| `40-composition.md` | Intent Fragments, participants, the lock | embedded |
-| `50-lifecycle.md` | build, co-test, publish, compose, render, reconcile | embedded |
+| [`20-resolved-deployment.md`](20-resolved-deployment.md) | **written** — the purity rule, the assignment catalogue, publish-back | embedded |
+| [`30-deliverables.md`](30-deliverables.md) | **written** — Fragments, the adapter set, measured coverage, ledgers | embedded |
+| [`40-composition.md`](40-composition.md) | **written** — Intent Fragments, the 26 estate-wide invariants, the lock | embedded |
+| [`50-lifecycle.md`](50-lifecycle.md) | **written** — push delivery, aggregators, prune, drift, rollback | embedded |
+| [`60-setup.md`](60-setup.md) | **written** — bootstrap order, onboarding, safe adoption of live Services | embedded |
 
 **Chapter 16's derivation map is the load-bearing artefact**, and its value is
 that it is checkable by a script rather than read by eye. Three properties hold
@@ -81,35 +121,94 @@ inbound arrows is a bled concern". That was wrong and is superseded: a
 `placement`. Convergence on an object is normal; convergence on the same *field*
 of an object is the defect.
 
+## Examples
+
+Every example is rendered from live state, and every YAML and JSON file is
+parse-checked in CI.
+
+| path | what it shows |
+|---|---|
+| `examples/{knowledge,auth-api,platform-postgres}.service.yml` | Service Intent: two-level secrets, `probes: none`, TCP probes, `runtime: none`, a proposed sidecar |
+| `examples/{knowledge-api,knowledge-ingest-worker,auth-api,platform-postgres}.base.env` | env files with `${dependency:…}` and `${secret:…}` placeholders |
+| `examples/aggregator.yml` | `exercises` many-to-many, `deploys` one-to-one, one pin |
+| `examples/renovate.json` | the custom manager tracking the composed-lock pin |
+| `examples/workflows/service-publish-fragment.yml` | publish on merge, `oras push` then `oras resolve`, read back |
+| `examples/workflows/compose.yml` | pull participants, assert 26 invariants, **prove the gate can fail** |
+| `examples/workflows/aggregator-gate.yml` | triple-digest assert, vcluster, suite, guaranteed teardown |
+| `examples/workflows/aggregator-deploy.yml` | prune by label query, SSA in DAG order, read back, report lag |
+| `examples/rendered/deployer-rbac.yaml` | the generated identity that makes deploy authority an API-server control |
+| `examples/rendered/reapply-cronjob.yaml` | in-cluster drift correction |
+| `examples/negative/duplicate-service-id/` | a negative fixture, so an invariant that stops running is detectable |
+
+All four workflows are **one job with many steps**, each carrying
+`if: ${{ !cancelled() }}`. `CLAUDE.md` measured why: *"561 minutes of real
+compute billed 2,845 — four fifths of the spend was rounding"*, and *"prefer one
+job with many steps."*
+
 ## Open items
 
 Decisions this specification depends on and does not itself make.
 
-1. **Kubernetes secrets-at-rest encryption.** ADR-0005 makes `mode: env` and
-   `mode: file` conditional on it. No `--secrets-encryption` configuration exists
-   in `nix-config` or the bootstrap tree today. Blocks those two modes; `fetch`
-   and `write` are unaffected.
-2. **Default-deny promotion.** ADR-0011 requires audit mode first. The criterion
+1. **`exposure[].name` and apex hosts.** Chapter 20 corrects ADR-0003 by
+   separating *identity* (unique, declared, checked) from *pool* (finite,
+   assigned), because not one live hostname is derivable from a Service Id. An
+   exposure entry therefore carries a `name`, and `apex: true` is proposed for
+   `home-portal`. Both need grading — the first moves a value the contention test
+   had placed on the platform side.
+2. **Kubernetes secrets-at-rest encryption.** ADR-0005 makes `delivery: env` and
+   `delivery: file` conditional on it. No `--secrets-encryption` configuration exists
+   in `nix-config` or the bootstrap tree today. Blocks those two deliveries;
+   `delivery: self` and `access: custody` persist nothing and are unaffected.
+3. **Default-deny promotion.** ADR-0011 requires audit mode first. The criterion
    for promoting to enforce is unstated.
-3. **Four images to build.** ADR-0007 moves `hermes-bootstrap` (221 lines of
+4. **Four images to build.** ADR-0007 moves `hermes-bootstrap` (221 lines of
    shell), `n8n-hooks` (499 lines of JavaScript) and the `garage` bootstrap out of
    ConfigMaps, and retires the `alpine:3.21` plus ConfigMap pattern.
    `postgres-init-script` needs no image because it becomes derived.
-4. **Label prefix retirement.** ADR-0009 keeps one prefix. Retiring
+5. **Label prefix retirement.** ADR-0009 keeps one prefix. Retiring
    `personal-stack/*` means relabelling live nodes, and `CLAUDE.md` is explicit
    that a `kubectl label` drifts back on the next reconcile — so it must go
    through the generated contract.
-5. **Where third-party Service Intent lives.** ADR-0015 has each Domain publish
-   its own Intent Fragment, but whether `homelab-collections` splits into
-   per-domain repositories or stays one repository publishing several fragments is
-   undecided.
-6. **Three fields chapter 10 had to propose.** `sidecars` (a Workload holds more
+6. ~~**Where third-party Service Intent lives.**~~ **Resolved by chapter 40.**
+   Publication is repository-scoped and a fragment declares the domains it
+   contributes to, so `homelab-collections` may stay one repository publishing one
+   fragment for five domains, or split into five. Composition behaves identically,
+   which makes the split a convenience rather than a prerequisite.
+7. **Three fields chapter 10 had to propose.** `sidecars` (a Workload holds more
    than one container: `postgres` plus `postgres-exporter`, `stalwart` plus
    `stalwart-apply`, `agent-runner` plus the `agent-gateway` jar), `size` (a
    closed resource class, since requests and limits are contended), and
    `minAvailable` (since `replicas` is contended, and `auth-api`'s two were a
    capacity decision). All three are marked `<<proposed>>` in chapter 10's
    diagram and need grading before it is approved.
-7. **Per-adapter totality measurement.** ADR-0016's cost is the gap between
-   "attributable" and "total" across 342 files. That gap should be measured per
-   adapter before any schedule is set.
+8. **Closing the measured coverage gap.** Chapter 30 measured it, so this is no
+   longer an unknown: of 450 objects, 364 should come from an adapter and 328 do.
+   The 36-object gap is `rbac` (16) and `availability` (6), which need writing,
+   plus `prometheus` (11) and `networking` (3), which have working renderers that
+   were never registered. Separately, four duplicated adapter pairs must collapse
+   before attribution can be enforced, and Grafana's 45 authored objects need a
+   home that is not "the ledger, indefinitely".
+9. **The `resolved.yml` drift check's failure mode.** ADR-0017 requires the
+   published projection to be guarded but not what a stale copy does — block that
+   service's own pipeline, or merely report.
+10. ~~**Fragment publication trigger**~~ and ~~**who runs composition**~~ —
+    **both resolved by chapter 50.** Fragments publish on merge, independently of
+    any image release; composition runs automatically on any publish with no pull
+    request.
+11. **Whether the union may span clusters** (chapter 40). The lock is keyed by
+    cluster, but Service Id uniqueness is estate-wide. Invisible with one cluster.
+12. **Fragment signing** (chapter 40). Composition verifies `MANIFEST.sha256` per
+    file but not provenance, while `deploy-artifact.yml` already carries
+    `id-token: write` and `attestations: write`.
+13. **Aggregator CI cost** (chapter 50). A change anywhere invalidates every
+    aggregator's pin, so ~6 suites run per service change. `CLAUDE.md` measures
+    the shape — *"561 minutes of real compute billed 2,845"* — and advises one job
+    with many steps, which sharded Gradle execution contradicts.
+14. **Whether the test vcluster runs Flux for class B** (chapter 50). It does
+    today; if production keeps Flux for the foundation, the test target should, or
+    the paths diverge exactly where the foundation lives.
+15. **The lag bound** (chapter 50). "More than N locks behind is reported" needs an
+    N, and a decision on whether exceeding it blocks that aggregator's next merge.
+16. **What replaces `deploy/production`** (chapter 50). Flux still reads it for
+    class B, so it survives but narrowed to the foundation. ADR-0008 in the
+    workspace records its current semantics.
