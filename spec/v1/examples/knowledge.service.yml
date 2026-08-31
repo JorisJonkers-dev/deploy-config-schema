@@ -1,11 +1,10 @@
 # Worked example — services/knowledge/platform/service.yml
 #
 # Exercises: two Workloads on two runtimes, five path rules with mixed
-# audiences, mode: file at 0400, an irreplaceable volume, and a deliberate
-# mandatory: false.
+# audiences, probes: none for a Workload with no listener, and an
+# irreplaceable volume. Every value is what knowledge runs today.
 #
-# Every value below is what knowledge actually runs today. The comments name
-# what each declaration replaces.
+# Companions: examples/knowledge.base.env (x2), examples/knowledge.secrets.yml
 apiVersion: intent.jorisjonkers.dev/v1
 kind: Service
 schemaVersion: 1.0.0
@@ -15,74 +14,24 @@ domain: knowledge
 owner: joris
 alertClass: business-hours
 
-# knowledge is a provider: the agents services consume its MCP surface.
+# Surfaces other Services depend on. Flat map, integer ports. The rendered
+# k8s port name is the surface name, which is how 'http' survives.
 provides:
-  - surface: http
-    port: http
-    protocol: http
+  http: 8080
 
 workloads:
   # ---------------------------------------------------------------- api
   - name: knowledge-api
     lifecycle: service
     image: knowledge-api
-    runtime: jvm
-
-    ports:
-      - {name: http, number: 8080}
+    runtime: jvm            # -> otel-jvm profile: 10 OTEL + 6 PYROSCOPE keys
 
     dependsOn:
       - {service: platform-postgres, surface: postgres}
       - {service: platform-rabbitmq, surface: amqp}
 
-    config:
-      # App knobs. The only class a Service may author as literals.
-      SPRING_PROFILES_ACTIVE: {from: literal, value: prod}
-      KB_RECALL_DEFAULT_MODE: {from: literal, value: hybrid}
-      KNOWLEDGE_MODE:         {from: literal, value: lite}
-
-      # Coordinates. Bound by name because knowledge reads DB_HOST while n8n
-      # reads DB_POSTGRESDB_HOST from this same Postgres.
-      DB_HOST: {from: dependency, of: platform-postgres, field: host}
-      DB_PORT: {from: dependency, of: platform-postgres, field: port}
-      DB_NAME: {from: dependency, of: platform-postgres, field: database}
-      RABBITMQ_HOST: {from: dependency, of: platform-rabbitmq, field: host}
-      RABBITMQ_PORT: {from: dependency, of: platform-rabbitmq, field: port}
-
-      # Not declared, and a build error if it were:
-      #   SERVER_PORT              -> from ports
-      #   DEPLOYMENT_ENVIRONMENT   -> from the Cluster Target
-      #   OTEL_* (10 keys)         -> from runtime: jvm
-      #   PYROSCOPE_* (6 keys)     -> from runtime: jvm
-
-    claims:
-      - path: secret/data/platform/postgres
-        mode: env
-        keys:
-          kb.user: DB_USER
-          kb.password: DB_PASSWORD
-        rotation: {tolerates: restart}
-
-      - path: secret/data/platform/rabbitmq
-        mode: env
-        keys:
-          rabbitmq.user: RABBITMQ_USER
-          rabbitmq.password: RABBITMQ_PASSWORD
-        rotation: {tolerates: restart}
-
-      # Per-device MCP bearer tokens. Every key is named, so adding a device is
-      # a pull request here rather than a Vault-only edit. That cost was
-      # accepted for the auditability of answering, from this file alone, which
-      # variable carries which secret.
-      - path: secret/data/knowledge-system/mcp-bearer
-        mode: env
-        keys:
-          workstation: KNOWLEDGE_MCP_TOKENS_WORKSTATION
-        rotation: {tolerates: restart}
-
     exposure:
-      - surface: primary
-        port: http
+      - port: 8080          # integer, at its point of use
         audience: authenticated
         paths:
           - {path: /mcp,               match: exact,  audience: anonymous}
@@ -90,15 +39,18 @@ workloads:
           - {path: /install.sh,        match: exact,  audience: anonymous}
           - {path: /install-agents.sh, match: exact,  audience: anonymous}
           - {path: /,                  match: prefix, audience: authenticated}
-        # No hostname. kb.jorisjonkers.dev is assigned, and this one block
-        # replaces the six other places it used to be declared: the
-        # reachability channel, both edge catalogs, both IngressRoutes and the
-        # Gatus endpoint.
+        # No hostname. kb.jorisjonkers.dev is assigned, and this block
+        # replaces the six places it used to be declared independently.
 
-    health:
-      readiness: {path: /api/actuator/health/readiness, port: http}
-      liveness:  {path: /api/actuator/health/liveness,  port: http}
-      mandatory: true
+    readiness:
+      path: /api/actuator/health/readiness
+      port: 8080
+    liveness:
+      path: /api/actuator/health/liveness
+      port: 8080
+      # Distinct paths, stated. A liveness probe on the readiness endpoint
+      # turns a Postgres outage into a crash-loop.
+
     startupBudget: 600s     # JVM cold start measured at ~250-300s
     zeroDowntime: true      # the MCP endpoint 503s if a roll opens a gap
 
@@ -107,65 +59,30 @@ workloads:
       # this replaces nodeSelector site: frankfurt without naming a site.
       requires: [public-ingress]
 
-    observability:
-      scrape: {port: http, path: /api/actuator/prometheus}
+    scrape:
+      port: 8080            # resolves to port name 'http' via provides
+      path: /api/actuator/prometheus
 
   # ------------------------------------------------------------- worker
   - name: knowledge-ingest-worker
     lifecycle: service
     image: knowledge-ingest-worker
-    runtime: python         # a different Runtime Profile: 5 OTEL keys plus
-                            # OTEL_PYTHON_LOG_CORRELATION, and no JVM batch
-                            # tuning
-
-    # No ports. A RabbitMQ consumer with no listener.
+    runtime: python         # a different profile: 5 OTEL keys plus
+                            # OTEL_PYTHON_LOG_CORRELATION, no JVM batch tuning
 
     dependsOn:
       - {service: platform-rabbitmq, surface: amqp}
       - {service: platform-postgres, surface: postgres}
 
-    config:
-      INGEST_QUEUE:   {from: literal, value: knowledge.ingest}
-      INGEST_PREFETCH: {from: literal, value: '4'}
-      LOG_LEVEL:      {from: literal, value: INFO}
-      RABBITMQ_HOST: {from: dependency, of: platform-rabbitmq, field: host}
-      RABBITMQ_PORT: {from: dependency, of: platform-rabbitmq, field: port}
-
-    claims:
-      - path: secret/data/platform/rabbitmq
-        mode: env
-        keys:
-          rabbitmq.user: RABBITMQ_USER
-          rabbitmq.password: RABBITMQ_PASSWORD
-        rotation: {tolerates: restart}
-
-      - path: secret/data/platform/postgres
-        mode: env
-        keys:
-          kb.user: DB_USER
-          kb.password: DB_PASSWORD
-        rotation: {tolerates: restart}
-
-      # An SSH key cannot be an environment variable. This is the case that
-      # forced mode: file into the model.
-      - path: secret/data/knowledge-system/vault-deploy-key
-        mode: file
-        keys:
-          key: /home/worker/.ssh/id_ed25519
-        fileMode: "0400"
-        rotation: {tolerates: restart}
+    # A RabbitMQ consumer with no listener. Declared, not omitted, so the
+    # absence is a decision rather than an oversight.
+    probes: none
 
     stateful: true
     volumes:
       - claim: knowledge-vault-clone
         mountAt: /var/lib/knowledge-vault
         durability: irreplaceable
-        # irreplaceable renders a backup job with retention, an off-cluster
-        # copy, and owner approval on any relocation. local-path also pins
-        # this Workload to the node holding the PV; that is derived, not
-        # declared here.
-
-    health:
-      # Deliberate. No ports, no listener, nothing to probe -- recorded so the
-      # absence is a decision rather than an omission.
-      mandatory: false
+        # Renders a backup job with retention plus an off-cluster copy, and
+        # requires owner approval to relocate. local-path also pins this
+        # Workload to the node holding the PV -- derived, not declared.

@@ -64,6 +64,28 @@ an additional off-cluster copy plus owner approval on relocation for
 irreplaceable data. ADR-0011 already used this vocabulary in prose: *"Valkey is
 deliberately unbacked as reconstructible cache."*
 
+## Probes carry their own paths
+
+`readiness` and `liveness` are sibling declarations, each carrying its own path
+and port, or `tcp` and a port for a service with no HTTP surface. Neither may
+omit its path, and there is no fallback from one to the other.
+
+The v2 model let `livenessPath` fall back to `path`, and two live workloads rely
+on it: `app-ui` declares only `/`, and `agents-login` only `/healthz`. That
+fallback makes a specific failure the default. Readiness means *can I serve
+traffic*; liveness means *is my process wedged*. When liveness probes the
+readiness endpoint, a **dependency** outage turns readiness red, which fails
+liveness, which restarts the pod — converting a degraded service into a
+crash-loop. Requiring both paths does not prevent someone pointing them at the
+same endpoint; it prevents them doing so without noticing.
+
+`postgres` shows why `tcp` is not optional: both its probes are `tcpSocket` on
+port `db`, and the other data services are the same.
+
+A Workload with no listener declares `probes: none` — `knowledge-ingest-worker`
+has no ports and nothing to probe, and saying so distinguishes it from an
+oversight.
+
 ## Consequences
 
 - An unusual workload cannot hand-tune its probes or strategy without an escape

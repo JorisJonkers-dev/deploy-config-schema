@@ -3,21 +3,32 @@
 Layer 1. The only layer a human authors, and the only layer that lives in a
 Service's own repository.
 
-Two rules govern everything below, and every field here is justified against one
-of them:
+Two rules govern everything below, and every field is justified against one of
+them:
 
 1. **Service Intent contains no mechanisms.** A field belongs here only if it
    states a requirement. `RollingUpdate`, `nodeSelector`, `IngressRoute`,
-   `VaultStaticSecret` and `statefulset` are mechanisms and appear nowhere in
-   this layer.
+   `VaultStaticSecret` and `statefulset` are mechanisms and appear nowhere.
 2. **Service Intent contains no contended values.** A value that must be unique
    across the estate, or that draws on a shared finite resource, is assigned by
    layer 2 ([ADR-0003](../../docs/adr/0003-contention-decides-authority.md)). A
-   Service expresses a need for it and reads the assignment back from its
-   generated `resolved.yml`
-   ([ADR-0017](../../docs/adr/0017-resolved-deployment-publish-back.md)).
+   Service expresses a need and reads the assignment back from its generated
+   `resolved.yml` ([ADR-0017](../../docs/adr/0017-resolved-deployment-publish-back.md)).
 
-## Document identity
+## Three artefacts, not one
+
+Layer 1 is authored as three kinds of file, each owning one thing:
+
+| file | owns |
+|---|---|
+| `platform/service.yml` | shape: workloads, surfaces, dependencies, exposure, probes, volumes, placement |
+| `platform/env/<workload>/base.env` + `platform/env/<workload>/<cluster>.env` | every environment variable that Workload receives |
+| `platform/secrets.yml` | what each Workload may do to a secret, and where file-shaped secrets land |
+
+They are separate because they answer different questions and change on different
+rhythms, and because the split makes each check the others: an env file
+referencing a secret with no grant is an error, and a grant with no reference is a
+dead grant.
 
 ```yaml
 apiVersion: intent.jorisjonkers.dev/v1
@@ -25,14 +36,11 @@ kind: Service
 schemaVersion: 1.0.0
 ```
 
-The `apiVersion` deliberately does not reuse `deployment.jorisjonkers.dev`. Three
-mutually incompatible documents already share that string, which is the defect
+The `apiVersion` deliberately does not reuse `deployment.jorisjonkers.dev`, which
+three mutually incompatible documents already share — the defect
 [ADR-0002](../../docs/adr/0002-three-layer-meta-model.md) exists to fix. Each
-layer gets its own namespace: `intent.` here, `resolved.` for layer 2, and layer
-3 emits native objects of the target it is written for.
-
-`schemaVersion` is an exact match against the installed toolkit
-([ADR-0013](../../docs/adr/0013-schema-version-lockstep.md)).
+layer gets its own namespace. `schemaVersion` is an exact match against the
+installed toolkit ([ADR-0013](../../docs/adr/0013-schema-version-lockstep.md)).
 
 ## The model
 
@@ -52,11 +60,6 @@ classDiagram
         +string workload
         +string reason
     }
-    class ProvidedSurface {
-        +string name
-        +PortName port
-        +Protocol protocol
-    }
     class Workload {
         +string name
         +Lifecycle lifecycle
@@ -68,9 +71,10 @@ classDiagram
         +int minAvailable
         +SizeClass size
     }
-    class Port {
+    class Surface {
         +string name
-        +int number
+        +int port
+        +Protocol protocol
     }
     class Sidecar {
         <<proposed>>
@@ -82,33 +86,8 @@ classDiagram
         +string surface
         +bool required
     }
-    class ConfigValue {
-        +string name
-        +Source from
-        +string value
-        +ServiceId of
-        +string field
-    }
-    class Claim {
-        +VaultPath path
-        +ClaimMode mode
-        +map keys
-        +FileMode fileMode
-        +Ops ops
-    }
-    class Rotation {
-        +Tolerance tolerates
-        +Duration maxAge
-    }
-    class Asset {
-        +Path from
-        +Path mountAt
-        +ChangeResponse onChange
-        +map substitute
-    }
     class Exposure {
-        +string surface
-        +PortName port
+        +int port
         +Audience audience
     }
     class PathRule {
@@ -116,21 +95,21 @@ classDiagram
         +Match match
         +Audience audience
     }
-    class Health {
-        +Probe readiness
-        +Probe liveness
-        +bool mandatory
-    }
     class Probe {
         +Path path
-        +PortName port
-        +bool tcp
+        +int port
+        +int tcp
+    }
+    class Asset {
+        +Path from
+        +Path mountAt
+        +ChangeResponse onChange
+        +map substitute
     }
     class Volume {
         +ClaimName claim
         +Path mountAt
         +DurabilityClass durability
-        +bool readOnly
     }
     class Placement {
         +Capability[] requires
@@ -139,8 +118,8 @@ classDiagram
         +Capability capability
         +int weight
     }
-    class Observability {
-        +PortName port
+    class Scrape {
+        +int port
         +Path path
     }
     class Override {
@@ -149,68 +128,127 @@ classDiagram
         +string reason
     }
 
+    class EnvFile {
+        +ClusterTarget cluster
+        +dotenv entries
+    }
+    class Placeholder {
+        +Kind kind
+        +string source
+    }
+
+    class SecretAccess {
+        +ServiceId service
+    }
+    class Grant {
+        +VaultPath path
+        +string[] keys
+        +AccessTier access
+        +Delivery delivery
+        +Path mountAt
+        +FileMode fileMode
+    }
+    class Rotation {
+        +Tolerance tolerates
+        +Duration maxAge
+    }
+
     Service "1" *-- "0..1" Alias : aliases
-    Service "1" *-- "0..*" ProvidedSurface : provides
+    Service "1" *-- "0..*" Surface : provides
     Service "1" *-- "1..*" Workload : workloads
 
-    Workload "1" *-- "0..*" Port : ports
     Workload "1" *-- "0..*" Sidecar : sidecars
     Workload "1" *-- "0..*" DependencyEdge : dependsOn
-    Workload "1" *-- "0..*" ConfigValue : config
-    Workload "1" *-- "0..*" Claim : claims
-    Workload "1" *-- "0..*" Asset : assets
     Workload "1" *-- "0..*" Exposure : exposure
-    Workload "1" *-- "0..1" Health : health
+    Workload "1" *-- "0..1" Probe : readiness
+    Workload "1" *-- "0..1" Probe : liveness
+    Workload "1" *-- "0..*" Asset : assets
     Workload "1" *-- "0..*" Volume : volumes
     Workload "1" *-- "0..1" Placement : placement
-    Workload "1" *-- "0..1" Observability : observability
+    Workload "1" *-- "0..1" Scrape : scrape
     Workload "1" *-- "0..*" Override : overrides
 
-    Claim "1" *-- "0..1" Rotation : rotation
     Exposure "1" *-- "0..*" PathRule : paths
-    Health "1" *-- "2" Probe
     Placement "1" *-- "0..*" CapabilityPreference : prefers
+    DependencyEdge ..> Surface : names a Surface of another Service
 
-    DependencyEdge ..> ProvidedSurface : names a surface of another Service
-    ConfigValue ..> DependencyEdge : from dependency resolves through
+    Service "1" *-- "1..*" EnvFile : env/
+    EnvFile "1" *-- "0..*" Placeholder : resolves
+
+    Service "1" *-- "0..1" SecretAccess : secrets.yml
+    SecretAccess "1" *-- "0..*" Grant : per workload
+    Grant "1" *-- "0..1" Rotation : rotation
+    Placeholder ..> Grant : a secret placeholder must match a grant
 ```
 
-The diagram is embedded here rather than kept as a separate `.mmd`. A standalone
+The diagram is embedded rather than kept as a separate `.mmd`. A standalone
 `.mmd` does not render on GitHub, so it would be invisible in exactly the review
-this chapter exists for — and a copy in both places is the duplication this
-specification spends its time removing.
+this chapter exists for.
 
 ## Service
 
 | field | required | notes |
 |---|---|---|
-| `id` | yes | The one referencable identity. Estate-unique, enforced at composition. [ADR-0004](../../docs/adr/0004-flat-service-identity.md) |
-| `domain` | yes | Ownership grouping, and owner of any shared Secret Store paths this Service provides. Also the unit of Intent Fragment publication. [ADR-0015](../../docs/adr/0015-composition-by-oci-fragments.md) |
-| `owner` | yes | Who is notified. Feeds notifier routing with `alertClass`. |
+| `id` | yes | The one referencable identity, estate-unique. [ADR-0004](../../docs/adr/0004-flat-service-identity.md) |
+| `domain` | yes | Ownership grouping, owner of shared Secret Store paths, and the unit of Intent Fragment publication. [ADR-0015](../../docs/adr/0015-composition-by-oci-fragments.md) |
+| `owner` | yes | Who is notified. |
 | `alertClass` | yes | `none` \| `business-hours` \| `urgent` \| `page`. Urgency, never routing. [ADR-0012](../../docs/adr/0012-observability-by-class.md) |
-| `aliases` | no | A deliberate divergence between the Service Id and a coordinate derived from it, with `reason`. [ADR-0004](../../docs/adr/0004-flat-service-identity.md) |
-| `provides` | no | Named Surfaces other Services may depend on. A provider declares a port once; every consumer names the Surface. [ADR-0011](../../docs/adr/0011-dependency-edges.md) |
+| `aliases` | no | A deliberate divergence from a derived coordinate, with `reason`. |
+| `provides` | no | Surfaces other Services may depend on, as a flat map of name to port integer. |
 | `workloads` | yes | One or more. |
 
-Derived from the Service and never declared: `namespace`, Reconcile Unit and its
-ordering, image digests, and every hostname.
+## Ports and surfaces
+
+There is no `ports` list. A port is an **integer**, written where it is used:
+
+```yaml
+provides:
+  http: 8080
+  metrics: 9187
+```
+
+```yaml
+exposure:
+  - port: 8080
+    audience: authenticated
+readiness:
+  path: /api/actuator/health/readiness
+  port: 8080
+scrape:
+  port: 9187
+  path: /metrics
+```
+
+The rendered Kubernetes port name is **the name of the `provides` surface
+declaring that same integer**; where no surface declares it, the name derives
+from the role — `http` for an exposure, `metrics` for a scrape. That rule
+reproduces every port name the live cluster uses, because the live names already
+are surface names: `http` (23 references), `metrics`, `db`, `smtp`, `sieve`, `s3`,
+`submissions`.
+
+`containerPort` entries are derived. They are documentational in Kubernetes —
+traffic routes by `targetPort` regardless — so declaring them would be a third
+place to state a number.
+
+**One thing to settle:** the live cluster names Postgres's port `db` while the
+surface a consumer would naturally write is `postgres`. Either the surface is
+named `db`, or the rename is accepted as a parity entry. `submissions` and
+`submission` both appear live, which is a separate inconsistency this rule
+happens to expose.
 
 ## Workload
 
 ### Identity and lifecycle
 
-`name` is local to the Service. `image` is an alias resolved to a digest through
-the images lock — never a tag, never a digest in this layer.
+`image` is an alias resolved to a digest through the images lock — never a tag,
+never a digest here.
 
-`lifecycle` is `service` (long-running) or `job` (runs to completion). It is not
-`deployment` / `statefulset` / `job`, because those are mechanisms and rule 1
-forbids them; the object kind is derived from `lifecycle`, `stateful` and
-`volumes`. `postgres` runs `type: Recreate` today precisely because it holds a
-`ReadWriteOnce` volume, which is the derivation working by hand already.
+`lifecycle` is `service` or `job`. Not `deployment` / `statefulset` / `job`,
+because those are mechanisms; the object kind derives from `lifecycle`, `stateful`
+and `volumes`.
 
-`runtime` selects the Runtime Profile: `jvm`, `python`, `node`, `static`, or
-`none`. `none` is the correct answer for a third-party image, and it means no
-profile values are injected at all.
+`runtime` selects the Runtime Profile: `jvm`, `python`, `node`, `static`, `none`.
+`none` is correct for a third-party image and injects no profile values at all.
 
 ### Dependencies
 
@@ -220,126 +258,108 @@ dependsOn:
   - {service: auth-api, surface: http, required: false}
 ```
 
-Declared per Workload, not per Service, so network policy is precise: within
-`knowledge`, `knowledge-api` reaches Postgres while
-`knowledge-ingest-worker` reaches RabbitMQ, and neither inherits the other's
-egress. The Service's edge set is the union of its Workloads' edges, and that
-union is what drives the Reconcile Unit DAG and co-test membership. This refines
-the wording in [ADR-0006](../../docs/adr/0006-reconcile-unit-is-derived.md) and
-[ADR-0011](../../docs/adr/0011-dependency-edges.md), which both say "the
-Service's `dependsOn`" — the decision is unchanged, the level is one deeper.
+Declared per Workload, so network policy is precise: within `knowledge`, the API
+reaches Postgres while the ingest worker reaches RabbitMQ, and neither inherits
+the other's egress. The Service's edge set is the union, and that union drives the
+Reconcile Unit DAG and co-test membership. Chapter 16 covers what an edge derives.
 
-Four things derive from one edge: reconcile ordering, Dependency Coordinates,
-NetworkPolicy egress, and co-test membership.
+### Configuration — env files
 
-### Configuration
+Configuration is authored as dotenv, not as a map in this document
+([ADR-0007](../../docs/adr/0007-configuration-and-assets.md)):
 
-```yaml
-config:
-  SPRING_PROFILES_ACTIVE: {from: literal, value: prod}
-  DB_HOST: {from: dependency, of: platform-postgres, field: host}
+Env files are **per Workload**, because Workloads of one Service do not share an
+environment: `knowledge-api` and `knowledge-ingest-worker` overlap on the
+RabbitMQ coordinates and on nothing else.
+
+```
+# platform/env/knowledge-api/base.env
+SPRING_PROFILES_ACTIVE=prod
+KNOWLEDGE_MODE=lite
+DB_HOST=${dependency:platform-postgres.host}
+DB_USER=${secret:platform/postgres#kb.user}
 ```
 
-`from` is `literal` or `dependency`. Every key declares its source
-([ADR-0007](../../docs/adr/0007-configuration-and-assets.md)), and a key whose
-value the platform derives may not be authored — `DB_HOST` as a literal is a
-build error, as is any `OTEL_*` or `PYROSCOPE_*` key belonging to a Runtime
-Profile.
+`base.env` carries everything that does not vary; one overlay per Cluster Target
+carries only what differs, overlay winning key by key. With one cluster the
+overlay is usually empty.
 
-A coordinate binds by name because consumers disagree about names: `knowledge`
-reads `DB_HOST`/`DB_PORT`/`DB_NAME` and `n8n` reads
-`DB_POSTGRESDB_HOST`/`DB_POSTGRESDB_PORT`/`DB_POSTGRESDB_DATABASE` from the same
+A literal is written literally. A derived value is a **named placeholder** —
+`${dependency:…}` for a coordinate, `${secret:…}` for a secret. Writing a derived
+value as a literal is a build error, and so is writing a Runtime Profile key at
+all: `OTEL_*` and `PYROSCOPE_*` come from `runtime`, and an exceptional value goes
+in `overrides`, not here.
+
+The placeholder names the source; the key names the variable. That is what lets
+`knowledge` write `DB_HOST` and `n8n` write `DB_POSTGRESDB_HOST` from the same
 Postgres.
 
-Overriding a profile value uses `overrides`, not `config`. Earlier illustration
-put an `overrides:` key inside a `config` entry; that would be a second mechanism
-for one thing, so this chapter unifies on the Workload-level `overrides` list in
-[ADR-0018](../../docs/adr/0018-derived-value-overrides.md).
+The renderer partitions the file: literal keys become plain env entries, and
+`${secret:…}` keys become `envFrom` secretRef entries.
 
-### Secrets
+### Secrets — a separate document
 
-```yaml
-claims:
-  - path: secret/data/platform/postgres
-    mode: env
-    keys: {kb.user: DB_USER, kb.password: DB_PASSWORD}
-    rotation: {tolerates: restart}
-```
-
-`path` is a full KV-v2 data path — the same addressing
-`VaultSecretProvider.getSecret(path, key)` already takes. `mode` is one of four
+Secrets are not declared here. `platform/secrets.yml` declares what each Workload
+may do, with what delivery, and how it tolerates rotation
 ([ADR-0005](../../docs/adr/0005-credential-provisioning.md)):
 
-| mode | shape of `keys` | renders |
-|---|---|---|
-| `env` | `{vaultKey: ENV_NAME}` | a VSO sync, a Secret, and named `env` entries |
-| `fetch` | a list of keys | a policy, a Kubernetes auth role, and `spring.cloud.vault` wiring. No Secret, no env |
-| `file` | `{vaultKey: /path/on/disk}` plus `fileMode` | a projected file |
-| `write` | `ops` on a path prefix | a policy granting writes under a prefix |
-
-`rotation.tolerates: reload` is only valid under `mode: fetch`. A pod's
-environment is fixed for its lifetime, so `reload` with `mode: env` is a build
-error rather than a silent failure at rotation time.
-
-### Assets
-
 ```yaml
-assets:
-  - from: config/postgresql.conf
-    mountAt: /etc/postgresql/postgresql.conf
-    onChange: restart
+apiVersion: intent.jorisjonkers.dev/v1
+kind: SecretAccess
+service: knowledge
+workloads:
+  knowledge-api:
+    - path: secret/data/platform/postgres
+      keys: [kb.user, kb.password]
+      access: read
+      delivery: env
+      rotation: {tolerates: restart}
 ```
 
-An Asset is a declarative settings file in the consuming application's own
-format. It may not be executable and may not be a program: scripts belong in an
-image. `onChange` defaults to `restart`, and `restart` renders a content-hashed
-object name so the change actually reaches the pod — 16 of 18 ConfigMaps today
-are plain, meaning an edit applies successfully and has no effect.
+`access` is `read`, `self-renew`, `self-roll` or `custody`. `delivery` is `env`,
+`file` or `self`. The two files check each other: a `delivery: env` grant with no
+matching placeholder is a dead grant, and a placeholder with no grant is an
+unauthorised reference.
 
-`substitute` replaces named placeholders from declared sources. It is not a
-template language.
-
-### Exposure
+### Probes
 
 ```yaml
-exposure:
-  - surface: primary
-    port: http
-    audience: authenticated
-    paths:
-      - {path: /mcp, match: exact, audience: anonymous}
-      - {path: /, match: prefix, audience: authenticated}
+readiness:
+  path: /api/actuator/health/readiness
+  port: 8080
+liveness:
+  path: /api/actuator/health/liveness
+  port: 8080
 ```
 
-`audience` is the single vocabulary — `anonymous`, `authenticated`, `internal`,
-`lan` — shared with route Tiers, which replaces three disjoint vocabularies
-carrying seven values between them
-([ADR-0010](../../docs/adr/0010-exposure-by-audience.md)). No hostname appears
-here; six artefacts derive from this block, including the hostname, the Tier, the
-middleware chain, the reachability entry and the external health check.
+Two sibling declarations, each with its own path. **There is no fallback.** A
+liveness probe pointed at a readiness endpoint turns a dependency outage into a
+crash-loop, and the v2 model made that the default for anyone declaring one path
+([ADR-0008](../../docs/adr/0008-runtime-mechanics-derived-from-intent.md)).
 
-### Health and rollout
+A service with no HTTP surface uses `tcp`:
 
 ```yaml
-health:
-  readiness: {path: /api/actuator/health/readiness, port: http}
-  liveness:  {path: /api/actuator/health/liveness, port: http}
-  mandatory: true
+readiness: {tcp: 5432}
+liveness:  {tcp: 5432}
+```
+
+A Workload with no listener declares the absence:
+
+```yaml
+probes: none        # knowledge-ingest-worker: no ports, nothing to probe
+```
+
+### Rollout
+
+```yaml
 startupBudget: 600s
 zeroDowntime: true
 ```
 
-A probe is HTTP (`path` + `port`) or TCP (`tcp: true` + `port`). TCP is not
-optional to support: `postgres` uses `tcpSocket` on port `db` for both probes
-today, as do the other data services.
-
-`mandatory: false` records a deliberate absence — `knowledge-ingest-worker` has
-no ports and nothing to probe, and saying so distinguishes it from an oversight.
-
-Derived from `startupBudget`, `zeroDowntime`, `stateful` and `volumes`: rollout
-strategy, surge and unavailability, startup probe period and threshold, progress
-deadline, and the Flux health-check timeout class
-([ADR-0008](../../docs/adr/0008-runtime-mechanics-derived-from-intent.md)).
+Derived from these plus `stateful` and `volumes`: rollout strategy, surge and
+unavailability, startup probe period and threshold, progress deadline, and the
+Flux health-check timeout class.
 
 ### Volumes
 
@@ -354,9 +374,24 @@ volumes:
 data is worth, which only the owning Service knows. Backup job, retention sweep,
 off-cluster copy and move-plan requirement all derive from it. Storage class and
 size do not appear: they draw on finite node disk and are assigned.
+`volumeClaimTemplate` is forbidden — a template ties the volume to the Workload's
+name, so a rename orphans the claim.
 
-`volumeClaimTemplate` is forbidden. A template ties the volume to the Workload's
-name, so a rename orphans the claim and starts empty.
+### Exposure
+
+```yaml
+exposure:
+  - port: 8080
+    audience: authenticated
+    paths:
+      - {path: /mcp, match: exact, audience: anonymous}
+      - {path: /,    match: prefix, audience: authenticated}
+```
+
+`audience` is the single vocabulary — `anonymous`, `authenticated`, `internal`,
+`lan` — shared with route Tiers, replacing three disjoint vocabularies carrying
+seven values ([ADR-0010](../../docs/adr/0010-exposure-by-audience.md)). No
+hostname appears; six artefacts derive from this block.
 
 ### Placement
 
@@ -367,30 +402,31 @@ placement:
     - {capability: arm64, weight: 50}
 ```
 
-Capabilities, never labels
-([ADR-0009](../../docs/adr/0009-node-facts-and-placement.md)). An unsatisfiable
-`requires` leaves a pod `Pending`, which is loud; an unsatisfiable `prefers` is
-discarded by the scheduler in silence, so **both** are validated against the node
-contract and an unsatisfiable preference is a build error. That is the
-`gpu-model-gtx960m` trap, which "read as GPU-aware placement while doing
-nothing".
+Capabilities, never labels. Both are validated against the node contract, and an
+unsatisfiable **preference** is a build error — the scheduler discards it in
+silence, which is the `gpu-model-gtx960m` trap that *"read as GPU-aware placement
+while doing nothing"* ([ADR-0009](../../docs/adr/0009-node-facts-and-placement.md)).
 
-Placement that is already implied is not declared. A `local-path` volume pins its
-Workload to the node holding the PV, and the resolver states that rather than
-every stateful Service repeating it.
+Placement already implied is not declared: a `local-path` volume pins its Workload
+to the node holding the PV, and the resolver states that.
 
-### Observability
+### Assets and observability
 
 ```yaml
-observability:
-  scrape: {port: http, path: /api/actuator/prometheus}
+assets:
+  - from: config/postgresql.conf
+    mountAt: /etc/postgresql/postgresql.conf
+    onChange: restart
+scrape:
+  port: 9187
+  path: /metrics
 ```
 
-The scrape surface stays declared because it genuinely varies —
-`/api/actuator/prometheus` for `auth-api`, `/metrics` for the Postgres exporter.
-Everything else derives: ServiceMonitor, internal and external health checks,
-the PrometheusRule (always carrying `release: metrics-stack`, without which a
-rule is accepted and never evaluates), and notifier routing.
+An Asset is a declarative settings file in the application's own format, never
+executable and never a program. `onChange` defaults to `restart`, which renders a
+content-hashed object name so the change actually reaches the pod — 16 of 18
+ConfigMaps today are plain, meaning an edit applies successfully and has no
+effect.
 
 ### Overrides
 
@@ -401,63 +437,60 @@ overrides:
     reason: nginx pods, ~10-20Mi each; the derived 1800 assumes a JVM cold start.
 ```
 
-Overrides a **derivation**, never an **assignment**. Hostname, namespace, node,
-Secret Store path, Reconcile Unit and image digest are not overridable, because
-they arbitrate shared resources and a local override reintroduces collision
+Overrides a **derivation**, never an **assignment**
 ([ADR-0018](../../docs/adr/0018-derived-value-overrides.md)).
 
-## What Service Intent may never contain
+## What layer 1 may never contain
 
 A build error, not a warning:
 
-| forbidden | why | where it comes from instead |
-|---|---|---|
-| a hostname | contended | assigned; read from `resolved.yml` |
-| a namespace | contended | derived from `id`, or an alias |
-| a node label or selector | mechanism, and contended | `placement.requires` |
-| `replicas` | contended | assigned from `minAvailable` and capacity |
-| storage class, volume size | contended | assigned |
-| a Reconcile Unit or `platform.layer` | contended | derived from the edge set |
-| an image tag or digest | mechanism | the images lock |
-| `RollingUpdate`, `maxSurge`, `progressDeadlineSeconds` | mechanism | derived; `overrides` if genuinely exceptional |
-| `statefulset` / `deployment` | mechanism | derived from `lifecycle` + volumes |
-| a Dependency Coordinate (`DB_HOST`, …) | derived | `from: dependency` |
-| a Runtime Profile value (`OTEL_*`, `PYROSCOPE_*`) | derived | the profile; `overrides` if exceptional |
-| a route tier, middleware, or `authMode` | mechanism | `audience` |
-| a `volumeClaimTemplate` | orphans data on rename | declare the claim cluster-side |
-| an executable Asset | code, not configuration | an image |
-| a raw secret value | — | a Claim |
+| forbidden | where the value comes from |
+|---|---|
+| a hostname | assigned; read from `resolved.yml` |
+| a namespace | derived from `id`, or an alias |
+| a node label or selector | `placement.requires` |
+| `replicas` | assigned from `minAvailable` and capacity |
+| storage class, volume size | assigned |
+| a Reconcile Unit or `platform.layer` | derived from the edge set |
+| an image tag or digest | the images lock |
+| a `ports` list, or a port as a string | an integer at its point of use |
+| `RollingUpdate`, `maxSurge`, `progressDeadlineSeconds` | derived; `overrides` if exceptional |
+| `statefulset` / `deployment` | derived from `lifecycle` + volumes |
+| a liveness probe with no path | state it, or use `tcp`, or `probes: none` |
+| a Dependency Coordinate as a literal | `${dependency:…}` |
+| a Runtime Profile key in an env file | `runtime`; `overrides` if exceptional |
+| a secret value, anywhere | a grant plus `${secret:…}` |
+| a secret grant with no reference | remove it — it is a dead grant |
+| a route tier, middleware, or `authMode` | `audience` |
+| a `volumeClaimTemplate` | declare the claim cluster-side |
+| an executable Asset | an image |
 
 ## Still to be graded
 
-This chapter had to propose three things that no decision in the register
-covers. They are marked `<<proposed>>` in the diagram and should be graded before
-this chapter is approved.
+Three fields no decision in the register covers, marked `<<proposed>>` in the
+diagram:
 
-1. **`sidecars`.** A Workload can hold more than one container, and this is not
-   an edge case: `postgres` runs `postgres-exporter` on 9187, `stalwart` runs a
-   `stalwart-apply` sidecar, and `agent-runner` carries the `agent-gateway` jar.
-   Proposed as a reduced-field list rather than promoting every Workload to a
-   `containers` array, because the overwhelming majority have exactly one.
-2. **`size`.** Resource requests and limits draw on finite node capacity, so
-   rule 2 forbids declaring them. Proposed as a closed class mapped to
-   requests/limits by the cluster context, in the manner `timeoutClass` already
-   works. The alternative is that layer 1 says nothing about resources and the
-   platform assigns blind.
+1. **`sidecars`.** A Workload holds more than one container, and this is not an
+   edge case: `postgres` runs `postgres-exporter` on 9187, `stalwart` runs a
+   `stalwart-apply` sidecar, `agent-runner` carries the `agent-gateway` jar.
+2. **`size`.** Requests and limits draw on finite node capacity, so rule 2 forbids
+   declaring them. Proposed as a closed class mapped by the cluster context, in
+   the manner `timeoutClass` already works.
 3. **`minAvailable`.** `replicas` is contended for the same reason, and
-   `auth-api`'s two replicas were a capacity decision, not an availability one —
-   `live-divergence.md` is explicit that the UIs' Pi preference "was a capacity
-   decision, not an architecture one". Proposed so a Service can state how many
-   instances must be serving without claiming cluster capacity it does not own.
-
-Two further items complete a shape rather than propose a policy, and need no
-grading: probe kinds (`tcp`, forced by `postgres`'s live probes) and `lifecycle`
-replacing `kind` (a direct application of rule 1).
+   `auth-api`'s two replicas were a capacity decision on freed Frankfurt budget,
+   not an availability requirement.
 
 ## Worked examples
 
 | example | what it exercises |
 |---|---|
-| [`knowledge.service.yml`](examples/knowledge.service.yml) | two Workloads, two runtimes, five path rules with mixed audiences, `mode: file` at `0400`, an `irreplaceable` volume, a deliberate `mandatory: false` |
-| [`auth-api.service.yml`](examples/auth-api.service.yml) | `mode: fetch` with dynamic credentials and `tolerates: reload`, a Transit `write` grant, four dependencies, nine inbound-derived CORS origins, self-referencing exposure |
-| [`platform-postgres.service.yml`](examples/platform-postgres.service.yml) | a third-party image with `runtime: none`, a proposed sidecar, TCP probes, a static Asset, `provides` consumed by eight Services, and an init script that becomes derived |
+| [`knowledge.service.yml`](examples/knowledge.service.yml) + [`env/`](examples/knowledge.base.env) + [`secrets.yml`](examples/knowledge.secrets.yml) | two Workloads, two runtimes, five path rules, `probes: none`, a `0400` file secret, an `irreplaceable` volume |
+| [`auth-api.service.yml`](examples/auth-api.service.yml) + [`env/`](examples/auth-api.base.env) + [`secrets.yml`](examples/auth-api.secrets.yml) | `delivery: self` with `tolerates: reload`, a `self-roll` Transit grant, four dependencies, inbound-derived CORS |
+| [`platform-postgres.service.yml`](examples/platform-postgres.service.yml) + [`env`](examples/platform-postgres.base.env) + [`secrets.yml`](examples/platform-postgres.secrets.yml) | third-party image with `runtime: none`, a proposed sidecar, TCP probes, a static Asset, `provides` consumed by eight Services |
+
+The env-file-to-`secrets.yml` cross-check has been run against all three example
+sets. `knowledge` has 5 placeholders matching 5 env-delivered keys;
+`platform-postgres` has 1 matching 1; `auth-api` has **0 and 0**, because all
+three of its grants are `delivery: self` — which demonstrates the check does not
+false-positive on runtime fetch. No dead grants, no unauthorised references, and
+no `delivery: env` paired with `tolerates: reload`.

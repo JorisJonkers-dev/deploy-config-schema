@@ -2,16 +2,43 @@
 status: proposed
 ---
 
-# Configuration declares its source; code is not configuration
+# Configuration is env files with named placeholders; code is not configuration
 
-Every environment value a Workload receives declares where it comes from —
-`literal`, `dependency`, `profile`, or a Claim — in the same shape Claims use.
-Values that the platform derives may not be authored: writing `DB_HOST` or
-`OTEL_EXPORTER_OTLP_ENDPOINT` by hand is a build error, and overriding a Runtime
-Profile value requires naming the profile it overrides. File-shaped
-configuration is carried as an **Asset**: a declarative settings file in the
-consuming application's own format, with optional placeholder substitution.
-Scripts and programs are not Assets — they belong in an image.
+Configuration is authored as **env files** in real dotenv format: `base.env`
+carries everything that does not vary, and one overlay per Cluster Target carries
+only what differs, overlay winning key by key. A literal is written literally. A
+value the platform derives is written as a **named placeholder** the renderer
+resolves — `${dependency:…}` for a Dependency Coordinate, `${secret:…}` for a
+secret (ADR-0005). Writing a derived value as a literal is a build error, and
+overriding a Runtime Profile value uses the Workload's `overrides` list, never the
+env file. File-shaped configuration is carried as an **Asset**: a declarative
+settings file in the consuming application's own format, with optional
+placeholder substitution. Scripts and programs are not Assets — they belong in an
+image.
+
+```
+# services/knowledge/platform/env/base.env
+SPRING_PROFILES_ACTIVE=prod
+KNOWLEDGE_MODE=lite
+DB_HOST=${dependency:platform-postgres.host}
+DB_USER=${secret:platform/postgres#kb.user}
+```
+
+Env files were chosen over a typed source-declaring map because dotenv is the one
+`.env` format in the estate that already carries real configuration:
+`tools/stalwart-provisioner/deploy/production.env` holds
+`STALWART_PROVISIONER_LOG_LEVEL=info` and `STALWART_PROVISIONER_DRY_RUN=false`.
+The other two formats sharing that extension carry nothing — six service-repo
+files are comments only, and twenty collection files are YAML
+`DeploymentEnvironment` documents whose `spec.values` holds `namespace` and
+`paritySource`.
+
+Placeholders are not a template language. They are the same restricted mechanism
+this ADR already defines for Assets: a named placeholder with a declared source,
+and nothing else. `base.env` plus one overlay per cluster also formalises what
+`stalwart-provisioner` already half-invented — `runtime.env` holds values that do
+not vary while `production.env` and `staging.env` are byte-identical to each
+other.
 
 ## Why
 
@@ -37,14 +64,14 @@ owners, which is why they accumulated in one place:
   different but equally fixed set. Two Runtime Profiles, one derived value,
   sixty duplicated lines.
 
-Derived values are *forbidden* rather than *defaulted* because a permitted
-override is indistinguishable from a stale copy. Forbidding them is what stops
-the duplication returning.
+Derived values are *forbidden as literals* rather than *defaulted* because a
+permitted override is indistinguishable from a stale copy. A placeholder is how
+you reference one; a literal for a derived key is a build error.
 
-Coordinates must bind through a declared name because consumers disagree:
-`knowledge` reads `DB_HOST`/`DB_PORT`/`DB_NAME` while `n8n` reads
-`DB_POSTGRESDB_HOST`/`DB_POSTGRESDB_PORT`/`DB_POSTGRESDB_DATABASE` plus
-`DB_TYPE`, from the same Postgres.
+Coordinates bind through whatever name the consumer chooses, because consumers
+disagree: `knowledge` writes `DB_HOST=${dependency:platform-postgres.host}` while
+`n8n` writes `DB_POSTGRESDB_HOST=${dependency:platform-postgres.host}` for the
+same Postgres. The placeholder names the source; the key names the variable.
 
 ## Assets, and why code is excluded
 
@@ -93,6 +120,13 @@ has gone unexamined.
   it becomes derived.
 - Assets are unvalidated by the platform: a malformed `postgresql.conf` renders
   successfully and fails at runtime.
-- Substitution introduces a second templating surface alongside rendering, and
-  it must be restricted to named placeholders with declared sources — never a
-  general template language.
+- Substitution is one mechanism used in two places — env files and Assets — and
+  must stay restricted to named placeholders with declared sources. Never a
+  general template language, and specifically never conditionals or arithmetic.
+- The env file's effective value needs two files to determine (`base.env` plus the
+  cluster overlay). That is the cost of not duplicating unchanged lines, and
+  `stalwart-provisioner`'s identical `production.env` and `staging.env` are what
+  the duplication looks like.
+- An env file is rendered into a mix of destinations: literal keys become plain
+  env entries, `${secret:…}` keys become `envFrom` secretRef entries. The renderer
+  partitions; the author does not.
