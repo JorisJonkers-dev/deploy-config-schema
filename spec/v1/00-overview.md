@@ -42,27 +42,25 @@ which layer is decided by the contention test in ADR-0003.
 | [0017](../../docs/adr/0017-resolved-deployment-publish-back.md) | Assignments written back to the owning repository |
 | [0018](../../docs/adr/0018-derived-value-overrides.md) | Derived values overridable inline; assignments are not |
 
-## Chapters to write
+## Chapters
 
 Each lands as its own pull request into `v1-pre-release`, carrying its prose, its
-diagram, and worked example YAML.
+diagram and worked example YAML. **Diagrams are embedded in their chapter** as
+fenced `mermaid` blocks rather than kept as standalone `.mmd` files: GitHub does
+not render a bare `.mmd`, so it would be invisible in the review the chapter
+exists for, and a copy in both places is the duplication this specification
+spends its time removing.
 
 | Chapter | Covers | Diagram |
 |---|---|---|
-| `10-service-intent.md` | Service, Workload, identity, aliases, Domains | `10-service-intent.mmd` |
-| `11-secrets.md` | Claims, Subtrees, the four Modes, Rotation Tolerance | in `10` |
-| `12-configuration.md` | sources, Runtime Profiles, Coordinates, Assets, Change Response | in `10` |
-| `13-runtime.md` | Startup Budget, health, rollout, volumes, Durability Class | in `10` |
-| `14-exposure.md` | Audience, Surfaces, paths, Registered Unmanaged Surfaces | in `10` |
-| `15-placement.md` | Capabilities, requires/prefers, volume pinning | in `10` |
-| `16-dependencies.md` | Edges, Surfaces, the four derivations | `40-derivation-map.mmd` |
-| `17-observability.md` | scrape, Alert Class, notifier routing | in `10` |
-| `20-resolved-deployment.md` | what layer 2 assigns, and publish-back | `20-resolved.mmd` |
-| `30-deliverables.md` | Adapters, Fragments, coverage, ledgers | `30-deliverables.mmd` |
-| `40-composition.md` | Intent Fragments, participants, the lock | `60-topology.mmd` |
-| `50-lifecycle.md` | build, co-test, publish, compose, render, reconcile | `50-pipeline.mmd` |
+| [`10-service-intent.md`](10-service-intent.md) | **written** — Service, Workload, and every layer-1 field by concern | embedded |
+| `16-dependencies.md` | Edges, Surfaces, the four derivations | embedded |
+| `20-resolved-deployment.md` | what layer 2 assigns, and publish-back | embedded |
+| `30-deliverables.md` | Adapters, Fragments, coverage, ledgers | embedded |
+| `40-composition.md` | Intent Fragments, participants, the lock | embedded |
+| `50-lifecycle.md` | build, co-test, publish, compose, render, reconcile | embedded |
 
-`40-derivation-map.mmd` is the load-bearing diagram. It maps each declared field
+**Chapter 16's derivation map is the load-bearing diagram.** It maps each declared field
 to every Deliverable derived from it, and its acceptance criterion is structural:
 **any node with two inbound arrows is a bled concern.** One declaration of
 `exposure.audience` must reach the hostname, the IngressRoute, the reachability
@@ -91,6 +89,13 @@ Decisions this specification depends on and does not itself make.
    its own Intent Fragment, but whether `homelab-collections` splits into
    per-domain repositories or stays one repository publishing several fragments is
    undecided.
-6. **Per-adapter totality measurement.** ADR-0016's cost is the gap between
+6. **Three fields chapter 10 had to propose.** `sidecars` (a Workload holds more
+   than one container: `postgres` plus `postgres-exporter`, `stalwart` plus
+   `stalwart-apply`, `agent-runner` plus the `agent-gateway` jar), `size` (a
+   closed resource class, since requests and limits are contended), and
+   `minAvailable` (since `replicas` is contended, and `auth-api`'s two were a
+   capacity decision). All three are marked `<<proposed>>` in chapter 10's
+   diagram and need grading before it is approved.
+7. **Per-adapter totality measurement.** ADR-0016's cost is the gap between
    "attributable" and "total" across 342 files. That gap should be measured per
    adapter before any schedule is set.

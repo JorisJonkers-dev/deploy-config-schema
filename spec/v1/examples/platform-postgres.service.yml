@@ -1,0 +1,113 @@
+# Worked example — the data domain's platform-postgres
+#
+# Exercises: a third-party image with runtime: none, a proposed sidecar, TCP
+# probes, a static Asset, provides consumed by eight Services, and an init
+# script that stops being authored at all.
+#
+# postgres has no repository of its own. Under ADR-0015 it is published in the
+# data domain's Intent Fragment; whether that fragment comes from a split-out
+# per-domain repository or from homelab-collections is open item 5.
+apiVersion: intent.jorisjonkers.dev/v1
+kind: Service
+schemaVersion: 1.0.0
+
+id: platform-postgres
+domain: data
+owner: joris
+alertClass: page          # eight Services depend on it
+
+# Declared once here; every consumer names the surface rather than the port.
+# The eight consumers today: auth-api, agents-api, knowledge (api and ingest
+# worker), lightrag, n8n, outline, and the observability backup jobs.
+provides:
+  - surface: postgres
+    port: db
+    protocol: tcp
+  - surface: metrics
+    port: metrics
+    protocol: http
+
+workloads:
+  - name: postgres
+    lifecycle: service
+    # A third-party image, so the reference is pinned upstream rather than
+    # resolved through our images lock.
+    image: pgvector/pgvector:pg17
+    # No Runtime Profile. A third-party image cannot consume OTEL_* or
+    # PYROSCOPE_* wiring, and injecting it would be noise. 'none' says so
+    # deliberately rather than leaving runtime unset.
+    runtime: none
+
+    ports:
+      - {name: db,      number: 5432}
+      - {name: metrics, number: 9187}
+
+    # PROPOSED FIELD -- see chapter 10, "Still to be graded".
+    # postgres-exporter runs in the same pod and serves the metrics port.
+    # stalwart (stalwart-apply) and agent-runner (the agent-gateway jar) have
+    # the same shape, so this is not an edge case.
+    sidecars:
+      - name: postgres-exporter
+        image: quay.io/prometheuscommunity/postgres-exporter:v0.18.0
+        ports:
+          - {name: metrics, number: 9187}
+        claims:
+          - path: secret/data/platform/postgres
+            mode: env
+            keys:
+              exporter.datasource: DATA_SOURCE_NAME
+            rotation: {tolerates: restart}
+
+    assets:
+      # Fully static: zero derived values in 54 lines. Baking it into the
+      # image was rejected because that would mean a derived image, a build
+      # pipeline, a registry entry and a Renovate rule, plus a rebuild on
+      # every upstream pg17 bump -- to change one settings file.
+      - from: config/postgresql.conf
+        mountAt: /etc/postgresql/postgresql.conf
+        onChange: restart
+
+      # NOT declared: init-databases.sh.
+      #
+      # Its 98 lines create one database and one owning user per consuming
+      # Service -- auth_db, agents_db, knowledge_db, n8n_db -- which the
+      # dependency graph already knows from the inbound edges and Claims. It
+      # becomes a derived Deliverable.
+      #
+      # It also reads /run/secrets/<name>, a Docker Compose convention that
+      # does not exist in Kubernetes, and falls back to environment variables.
+      # That dead path is how long the file has gone unexamined.
+
+    health:
+      # TCP, not HTTP. postgres has no HTTP surface, and this is what the live
+      # probes do -- tcpSocket on port db for both readiness and liveness.
+      readiness: {tcp: true, port: db}
+      liveness:  {tcp: true, port: db}
+      mandatory: true
+    startupBudget: 60s
+    zeroDowntime: false
+    # zeroDowntime: false is forced, not chosen. A ReadWriteOnce local-path
+    # volume cannot attach to two pods at once, so the strategy derives to
+    # Recreate -- which is exactly what runs today, and why 21 of 30 workloads
+    # in this cluster use Recreate.
+
+    stateful: true
+    volumes:
+      - claim: postgres-data
+        mountAt: /var/lib/postgresql/data
+        durability: recoverable
+        # recoverable renders a backup job with a retention sweep, closing the
+        # gap ADR-0011 in the workspace recommended: today each backup job
+        # writes a fixed filename, so the PVC holds only the newest copy and
+        # history exists solely in the Frankfurt node backup.
+        #
+        # Not declared: storageClass and 20Gi. Both draw on finite node disk
+        # and are assigned. Snapshots are not available at all -- local-path
+        # has no CSI snapshot support and no VolumeSnapshot CRDs exist.
+
+    # No placement block. The postgres-data volume pins this Workload to the
+    # node holding the PV, and the resolver states that rather than every
+    # stateful Service repeating it.
+
+    observability:
+      scrape: {port: metrics, path: /metrics}
