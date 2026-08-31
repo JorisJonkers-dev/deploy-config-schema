@@ -1,10 +1,10 @@
 # Worked example — services/knowledge/platform/service.yml
 #
 # Exercises: two Workloads on two runtimes, five path rules with mixed
-# audiences, probes: none for a Workload with no listener, and an
-# irreplaceable volume. Every value is what knowledge runs today.
+# audiences, probes: none for a Workload with no listener, secrets at BOTH
+# levels, and an irreplaceable volume. Every value is what knowledge runs today.
 #
-# Companions: examples/knowledge.base.env (x2), examples/knowledge.secrets.yml
+# Companions: examples/knowledge.base.env (one per workload)
 apiVersion: intent.jorisjonkers.dev/v1
 kind: Service
 schemaVersion: 1.0.0
@@ -18,6 +18,22 @@ alertClass: business-hours
 # k8s port name is the surface name, which is how 'http' survives.
 provides:
   http: 8080
+
+# Shared secrets. Both Workloads read the same Postgres and RabbitMQ
+# credentials, so declaring them once here is the difference between one edit
+# and two when a key is added.
+secrets:
+  - path: secret/data/platform/postgres
+    keys: [kb.user, kb.password]
+    access: read
+    delivery: env
+    rotation: {tolerates: restart}
+
+  - path: secret/data/platform/rabbitmq
+    keys: [rabbitmq.user, rabbitmq.password]
+    access: read
+    delivery: env
+    rotation: {tolerates: restart}
 
 workloads:
   # ---------------------------------------------------------------- api
@@ -63,6 +79,17 @@ workloads:
       port: 8080            # resolves to port name 'http' via provides
       path: /api/actuator/prometheus
 
+    # Workload-specific: the API serves /mcp, the worker does not.
+    # Every key is named, so adding a device is one line here plus one in the
+    # env file -- accepted for being able to answer, from the repository
+    # alone, which variable carries which secret.
+    secrets:
+      - path: secret/data/knowledge-system/mcp-bearer
+        keys: [workstation]
+        access: read
+        delivery: env
+        rotation: {tolerates: restart}
+
   # ------------------------------------------------------------- worker
   - name: knowledge-ingest-worker
     lifecycle: service
@@ -86,3 +113,15 @@ workloads:
         # Renders a backup job with retention plus an off-cluster copy, and
         # requires owner approval to relocate. local-path also pins this
         # Workload to the node holding the PV -- derived, not declared.
+
+    # Workload-specific: an SSH private key cannot be an environment variable,
+    # and only the worker pushes to the knowledge vault. delivery: file is why
+    # file delivery exists at all.
+    secrets:
+      - path: secret/data/knowledge-system/vault-deploy-key
+        keys: [key]
+        access: read
+        delivery: file
+        mountAt: /home/worker/.ssh/id_ed25519
+        fileMode: "0400"
+        rotation: {tolerates: restart}

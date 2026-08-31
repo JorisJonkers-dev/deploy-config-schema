@@ -15,20 +15,20 @@ them:
    Service expresses a need and reads the assignment back from its generated
    `resolved.yml` ([ADR-0017](../../docs/adr/0017-resolved-deployment-publish-back.md)).
 
-## Three artefacts, not one
+## Two artefacts
 
-Layer 1 is authored as three kinds of file, each owning one thing:
+Layer 1 is authored as two kinds of file:
 
 | file | owns |
 |---|---|
-| `platform/service.yml` | shape: workloads, surfaces, dependencies, exposure, probes, volumes, placement |
+| `platform/service.yml` | shape: workloads, surfaces, dependencies, exposure, probes, volumes, placement, and secret **access** |
 | `platform/env/<workload>/base.env` + `platform/env/<workload>/<cluster>.env` | every environment variable that Workload receives |
-| `platform/secrets.yml` | what each Workload may do to a secret, and where file-shaped secrets land |
 
-They are separate because they answer different questions and change on different
-rhythms, and because the split makes each check the others: an env file
-referencing a secret with no grant is an error, and a grant with no reference is a
-dead grant.
+The split that matters is not file-level but concern-level. A secret's **access**
+is declared in `service.yml`, beside the `dependsOn` edge that motivates it; the
+**environment variable** that carries it is a placeholder in the env file. Each
+file therefore checks the other: an env file referencing a secret with no grant is
+an unauthorised reference, and a grant with no reference is a dead grant.
 
 ```yaml
 apiVersion: intent.jorisjonkers.dev/v1
@@ -137,9 +137,6 @@ classDiagram
         +string source
     }
 
-    class SecretAccess {
-        +ServiceId service
-    }
     class Grant {
         +VaultPath path
         +string[] keys
@@ -175,8 +172,8 @@ classDiagram
     Service "1" *-- "1..*" EnvFile : env/
     EnvFile "1" *-- "0..*" Placeholder : resolves
 
-    Service "1" *-- "0..1" SecretAccess : secrets.yml
-    SecretAccess "1" *-- "0..*" Grant : per workload
+    Service "1" *-- "0..*" Grant : secrets (shared)
+    Workload "1" *-- "0..*" Grant : secrets (workload-specific)
     Grant "1" *-- "0..1" Rotation : rotation
     Placeholder ..> Grant : a secret placeholder must match a grant
 ```
@@ -297,29 +294,43 @@ Postgres.
 The renderer partitions the file: literal keys become plain env entries, and
 `${secret:…}` keys become `envFrom` secretRef entries.
 
-### Secrets — a separate document
+### Secrets
 
-Secrets are not declared here. `platform/secrets.yml` declares what each Workload
-may do, with what delivery, and how it tolerates rotation
-([ADR-0005](../../docs/adr/0005-credential-provisioning.md)):
+A `secrets` list declares what a Workload may do to a Secret Store path. It sits
+at **whichever level the secret is shared**: on the Service when every Workload
+holds it, on a Workload when only that one does
+([ADR-0005](../../docs/adr/0005-credential-provisioning.md)).
 
 ```yaml
-apiVersion: intent.jorisjonkers.dev/v1
-kind: SecretAccess
-service: knowledge
+# on the Service: every Workload gets these
+secrets:
+  - path: secret/data/platform/postgres
+    keys: [kb.user, kb.password]
+    access: read
+    delivery: env
+    rotation: {tolerates: restart}
+
 workloads:
-  knowledge-api:
-    - path: secret/data/platform/postgres
-      keys: [kb.user, kb.password]
-      access: read
-      delivery: env
-      rotation: {tolerates: restart}
+  - name: knowledge-ingest-worker
+    # on the Workload: only this one gets it
+    secrets:
+      - path: secret/data/knowledge-system/vault-deploy-key
+        keys: [key]
+        access: read
+        delivery: file
+        mountAt: /home/worker/.ssh/id_ed25519
+        fileMode: "0400"
 ```
 
+A Workload's effective set is the Service-level list plus its own. There is no
+override or removal syntax: a Workload that must *not* hold a shared secret is
+evidence the secret was never shared, and it moves down a level.
+
 `access` is `read`, `self-renew`, `self-roll` or `custody`. `delivery` is `env`,
-`file` or `self`. The two files check each other: a `delivery: env` grant with no
-matching placeholder is a dead grant, and a placeholder with no grant is an
-unauthorised reference.
+`file` or `self`. An env-delivered grant is bound by a `${secret:…}` placeholder
+in the env file, and the two check each other: a `delivery: env` grant with no
+placeholder is a dead grant, and a placeholder with no grant is an unauthorised
+reference.
 
 ### Probes
 
@@ -484,12 +495,13 @@ diagram:
 
 | example | what it exercises |
 |---|---|
-| [`knowledge.service.yml`](examples/knowledge.service.yml) + [`env/`](examples/knowledge.base.env) + [`secrets.yml`](examples/knowledge.secrets.yml) | two Workloads, two runtimes, five path rules, `probes: none`, a `0400` file secret, an `irreplaceable` volume |
-| [`auth-api.service.yml`](examples/auth-api.service.yml) + [`env/`](examples/auth-api.base.env) + [`secrets.yml`](examples/auth-api.secrets.yml) | `delivery: self` with `tolerates: reload`, a `self-roll` Transit grant, four dependencies, inbound-derived CORS |
-| [`platform-postgres.service.yml`](examples/platform-postgres.service.yml) + [`env`](examples/platform-postgres.base.env) + [`secrets.yml`](examples/platform-postgres.secrets.yml) | third-party image with `runtime: none`, a proposed sidecar, TCP probes, a static Asset, `provides` consumed by eight Services |
+| [`knowledge.service.yml`](examples/knowledge.service.yml) + [`env`](examples/knowledge-api.base.env) | two Workloads, two runtimes, five path rules, `probes: none`, secrets at **both** levels, a `0400` file secret, an `irreplaceable` volume |
+| [`auth-api.service.yml`](examples/auth-api.service.yml) + [`env`](examples/auth-api.base.env) | `delivery: self` with `tolerates: reload`, a `self-roll` Transit grant, four dependencies, inbound-derived CORS |
+| [`platform-postgres.service.yml`](examples/platform-postgres.service.yml) + [`env`](examples/platform-postgres.base.env) | third-party image with `runtime: none`, a proposed sidecar, TCP probes, a static Asset, `provides` consumed by eight Services |
 
-The env-file-to-`secrets.yml` cross-check has been run against all three example
-sets. `knowledge` has 5 placeholders matching 5 env-delivered keys;
+The env-file-to-`secrets` cross-check has been run against all three example
+sets. `knowledge-api` has 5 placeholders matching 5 env-delivered keys, and its ingest
+worker 4 more against the same Service-level grants;
 `platform-postgres` has 1 matching 1; `auth-api` has **0 and 0**, because all
 three of its grants are `delivery: self` — which demonstrates the check does not
 false-positive on runtime fetch. No dead grants, no unauthorised references, and

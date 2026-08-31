@@ -7,8 +7,7 @@
 # domain's Intent Fragment. Whether that comes from a split-out per-domain
 # repository or from homelab-collections is open item 5.
 #
-# Companions: examples/platform-postgres.base.env,
-#             examples/platform-postgres.secrets.yml
+# Companions: examples/platform-postgres.base.env
 apiVersion: intent.jorisjonkers.dev/v1
 kind: Service
 schemaVersion: 1.0.0
@@ -99,3 +98,18 @@ workloads:
     scrape:
       port: 9187            # resolves to port name 'metrics' via provides
       path: /metrics
+
+    # Declared on the Workload rather than the Service: it is consumed by the
+    # postgres-exporter sidecar, which lives inside this Workload.
+    #
+    # Deliberately absent: the per-consumer credentials (kb.*, auth.*,
+    # agents.*, n8n.*). postgres does not read them -- its consumers each
+    # declare their own grant. The Secret Subtree for this path is owned by the
+    # data domain and lists the readers, which is what makes "who breaks if I
+    # rotate this" answerable.
+    secrets:
+      - path: secret/data/platform/postgres
+        keys: [exporter.datasource]
+        access: read
+        delivery: env
+        rotation: {tolerates: restart}

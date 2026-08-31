@@ -2,28 +2,49 @@
 status: proposed
 ---
 
-# Secret access is a separate document; binding is a placeholder
+# Secrets are declared on the Service, at whichever level they are shared; binding is a placeholder
 
-A Service's secrets are declared in their own document, `SecretAccess`, keyed by
-Workload. Each entry names a Secret Store path, the keys within it, an **access
-tier**, a **delivery**, and a **rotation tolerance**. The document owns access and
-file placement; it does not own environment variable names. An env-delivered
-secret appears in the Service's env file as a `${secret:path#key}` placeholder,
-the same named-placeholder mechanism ADR-0007 uses for Dependency Coordinates.
+Secrets are declared in the Service document as a `secrets` list, at **two
+possible levels**: on the Service, where every Workload receives them, or on a
+Workload, where only it does. Each entry names a Secret Store path, the keys
+within it, an **access tier**, a **delivery**, and a **rotation tolerance**. The
+declaration owns access and file placement; it does not own environment variable
+names. An env-delivered secret appears in the Service's env file as a
+`${secret:path#key}` placeholder, the same named-placeholder mechanism ADR-0007
+uses for Dependency Coordinates.
 
 ```yaml
-# platform/secrets.yml
-apiVersion: intent.jorisjonkers.dev/v1
-kind: SecretAccess
-service: knowledge
+# platform/service.yml
+id: knowledge
+
+# Shared: every Workload of this Service gets these.
+secrets:
+  - path: secret/data/platform/postgres
+    keys: [kb.user, kb.password]
+    access: read
+    delivery: env
+    rotation: {tolerates: restart}
+
 workloads:
-  knowledge-api:
-    - path: secret/data/platform/postgres
-      keys: [kb.user, kb.password]
-      access: read
-      delivery: env
-      rotation: {tolerates: restart}
+  - name: knowledge-ingest-worker
+    # Workload-specific: only this one gets it.
+    secrets:
+      - path: secret/data/knowledge-system/vault-deploy-key
+        keys: [key]
+        access: read
+        delivery: file
+        mountAt: /home/worker/.ssh/id_ed25519
+        fileMode: "0400"
 ```
+
+The two levels exist because sharing is the common case and duplication is what
+drifts. `knowledge` holds six grants across two Workloads, and two of them —
+`platform/postgres` and `platform/rabbitmq` — are identical for both. Declaring
+those once is the difference between one edit and two when a key is added.
+
+A Workload's effective grant set is the Service-level list plus its own. There is
+no override or removal syntax: a Workload that must *not* hold a shared secret is
+evidence the secret was not shared, and it moves down a level.
 
 ## Access tiers
 
@@ -81,7 +102,7 @@ variable: `secret/data/knowledge-system/vault-deploy-key` is projected at `0400`
 today, alongside `jorisjonkers-dev-tls`, `garage-node-secrets` and
 `vault-prometheus-token`.
 
-## Why the document is separate
+## Why the declaration is not a separate document
 
 Four rival vocabularies and a fifth live mechanism existed at once: the `round3`
 `vault-dynamic-secrets` schema, fully designed and entirely unused; the resolved
@@ -91,10 +112,16 @@ failed; the v2 authoring type `Array<{ kind: string; [k: string]: unknown }>`, a
 untyped passthrough; and hand-written Vault Agent Injector annotations in twelve
 files, which is what actually ran.
 
-Separating access from the Service document keeps three concerns apart that were
-previously one field: *what a Workload may do to a secret* (this document), *what
-environment variable carries it* (the env file), and *what the platform must
-rebuild when it changes* (derived from `rotation`).
+The separation that matters is not file-level. Three concerns were previously one
+field, and they are now three: *what a Workload may do to a secret* (the `secrets`
+list), *what environment variable carries it* (the env file placeholder), and
+*what the platform must rebuild when it changes* (derived from `rotation`).
+
+A separate `SecretAccess` document was considered and rejected. It would have put
+grants in a third file keyed by Workload name — a join key that can drift, with no
+compensating benefit, since the access-versus-binding split is already achieved by
+the env file placeholder. Keeping grants on the Service also puts them beside the
+`dependsOn` edges that motivate them, which is where a reviewer looks.
 
 ## Validation
 
@@ -125,7 +152,11 @@ rolls one of those keys.
   `envFrom` secretRef entry rather than a literal value.
 - A leak scan must still cover env files. They contain references rather than
   values, but nothing structurally prevents someone pasting a value.
-- Two files must agree on Workload names. That join key can drift, and the dead
-  grant and unauthorised reference checks are what catch it.
+- The env file and the `secrets` list must agree, and the dead-grant and
+  unauthorised-reference checks are what catch it. There is no Workload-name join
+  key, because grants live on the Workload itself.
+- A Service-level grant is held by every Workload, including ones added later.
+  That is the intended behaviour, and it means adding a Workload silently widens
+  the blast radius of shared secrets unless the author moves them down.
 - `rolloutRestartTargets` is derived from `rotation.tolerates` rather than
   declared.
