@@ -1,0 +1,130 @@
+# Worked example — services/auth-api/platform/service.yml
+#
+# Exercises: mode: fetch with dynamic credentials and tolerates: reload, a
+# Transit write grant, four dependencies, nine inbound-derived CORS origins,
+# and exposure the Service refers back to itself.
+#
+# auth-api is the strongest validation of ADR-0005 in the estate, because it
+# already runs mode: fetch in production. Its live manifest carries
+# SPRING_CONFIG_IMPORT: vault://, VAULT_AUTHENTICATION: KUBERNETES,
+# VAULT_KUBERNETES_ROLE: auth-api and VAULT_DB_ENABLED: true -- spring-cloud-
+# vault's dynamic database backend. It also agent-injects secret/data/auth-api
+# and uses Vault Transit for JWT signing: three mechanisms in one Workload,
+# which this file collapses into one vocabulary.
+apiVersion: intent.jorisjonkers.dev/v1
+kind: Service
+schemaVersion: 1.0.0
+
+id: auth-api
+domain: auth
+owner: joris
+alertClass: page          # every forward-auth protected route depends on this
+
+provides:
+  - surface: http
+    port: http
+    protocol: http
+
+workloads:
+  - name: auth-api
+    lifecycle: service
+    image: auth-api
+    runtime: jvm
+
+    ports:
+      - {name: http, number: 8081}
+
+    dependsOn:
+      - {service: platform-postgres, surface: postgres}
+      - {service: platform-valkey,   surface: redis}
+      - {service: platform-rabbitmq, surface: amqp}
+      - {service: stalwart,          surface: smtp}
+
+    config:
+      SPRING_PROFILES_ACTIVE: {from: literal, value: prod}
+      SESSION_COOKIE_SECURE:  {from: literal, value: 'true'}
+
+      DB_HOST:            {from: dependency, of: platform-postgres, field: host}
+      DB_PORT:            {from: dependency, of: platform-postgres, field: port}
+      VALKEY_HOST:        {from: dependency, of: platform-valkey,   field: host}
+      VALKEY_PORT:        {from: dependency, of: platform-valkey,   field: port}
+      SPRING_RABBITMQ_HOST: {from: dependency, of: platform-rabbitmq, field: host}
+      SPRING_RABBITMQ_PORT: {from: dependency, of: platform-rabbitmq, field: port}
+      MAIL_HOST:          {from: dependency, of: stalwart, field: host}
+      MAIL_PORT:          {from: dependency, of: stalwart, field: port}
+
+      # Not declared. Each was hand-written and is now derived:
+      #
+      #   AUTH_ISSUER, AUTH_LOGIN_URL, CONFIRMATION_URL
+      #     -> from this Workload's own assigned exposure
+      #
+      #   AUTH_CORS_ALLOWED_ORIGINS
+      #     -> from INBOUND edges. Nine hostnames were maintained by hand
+      #        here: jorisjonkers.dev, auth, agents, vault, n8n, grafana,
+      #        dashboard, rabbitmq, status. Every one of them is a Service
+      #        with a dependsOn edge to auth-api, so the list is the inbound
+      #        edge set projected onto assigned hostnames.
+      #
+      #   MAIL_USERNAME (auth@jorisjonkers.dev)
+      #     -> from the cluster public domain plus this Service's id
+      #
+      #   VAULT_ADDR, VAULT_AUTHENTICATION, VAULT_KUBERNETES_ROLE,
+      #   VAULT_ENABLED, SPRING_CONFIG_IMPORT, VAULT_DB_ENABLED
+      #     -> from the claims below. mode: fetch renders its own wiring.
+      #
+      #   OTEL_* (10), PYROSCOPE_* (6)  -> from runtime: jvm
+      #   SERVER_PORT, DEPLOYMENT_ENVIRONMENT -> from ports, Cluster Target
+
+    claims:
+      # Dynamic database credentials, re-read by the application at runtime.
+      # This is the only combination that achieves zero-downtime rotation: a
+      # pod's environment is fixed for its lifetime, so tolerates: reload with
+      # mode: env would be a build error.
+      - path: secret/data/platform/postgres
+        mode: fetch
+        keys: [auth.user, auth.password]
+        rotation:
+          tolerates: reload
+          maxAge: 168h
+
+      # The service's own configuration tree, already imported through
+      # SPRING_CONFIG_IMPORT: vault:// today.
+      - path: secret/data/auth-api
+        mode: fetch
+        keys: ['*']
+        rotation: {tolerates: reload}
+
+      # JWT signing through Vault Transit. Not a KV read: it is an operation
+      # grant, so it renders a policy and an auth role and injects nothing.
+      - path: transit/keys/auth-api-jwt
+        mode: write
+        ops: [sign, verify, read_public_key]
+
+    exposure:
+      - surface: primary
+        port: http
+        # The login and registration surface must be reachable unauthenticated
+        # -- auth-api is what performs authentication, so it cannot sit behind
+        # it. The application enforces its own authorization internally; this
+        # audience describes the edge only.
+        audience: anonymous
+
+    health:
+      readiness: {path: /api/actuator/health/readiness, port: http}
+      liveness:  {path: /api/actuator/health/liveness,  port: http}
+      mandatory: true
+    startupBudget: 600s
+    zeroDowntime: true
+
+    # PROPOSED FIELD -- see chapter 10, "Still to be graded".
+    # Live runs replicas: 2. The manifest comment records that as a capacity
+    # decision on freed Frankfurt budget, not an availability requirement, and
+    # that deploys were already zero-downtime through maxUnavailable: 0. So
+    # the availability requirement is 1 and the second replica is capacity.
+    minAvailable: 1
+
+    placement:
+      requires: [public-ingress]
+
+    observability:
+      scrape: {port: http, path: /api/actuator/prometheus}
