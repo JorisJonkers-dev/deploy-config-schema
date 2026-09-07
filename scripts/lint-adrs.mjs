@@ -42,7 +42,6 @@ for (const f of files) {
   // -- structure
   if (!['premise', 'decision'].includes(fm.tier)) err(f, `tier must be premise|decision, got '${fm.tier}'`);
   if (fm.tier === 'premise') PREMISES.add(f.slice(0, 4));
-  const statusOk = STATUS.includes(fm.status) || /^superseded-by: ?\d{4}$/.test(`superseded-by: ${(fm['superseded-by'] || '')}`) && fm.status === undefined;
   if (!STATUS.includes(fm.status) && !fm['superseded-by']) err(f, `status must be proposed|accepted|superseded-by, got '${fm.status}'`);
   if (!CLAIM.includes(fm.claim)) err(f, `claim must be one of ${CLAIM.join('|')}, got '${fm.claim}'`);
   if (fm.claim !== 'settled' && !fm.owner) err(f, `claim '${fm.claim}' requires an owner`);
@@ -79,7 +78,7 @@ for (const f of files) {
     err(f, `bare citation '${bare[0]}' outside a link`);
   }
   // -- internal links resolve
-  for (const link of text.matchAll(/\]\((\d{4}-[\w\-]+\.md)\)/g)) {
+  for (const link of text.matchAll(/\]\(((?:deferred\/)?\d{4}-[\w-]+\.md)\)/g)) {
     if (!existsSync(join(adrDir, link[1]))) err(f, `link to missing ADR file ${link[1]}`);
   }
   // -- normative target + anchor exist
@@ -103,8 +102,10 @@ if (!existsSync(readmePath)) errors.push('docs/adr/README.md: index missing');
 else {
   const readme = readFileSync(readmePath, 'utf8');
   for (const f of files) if (!readme.includes(f)) err('README.md', `no row for ${f}`);
-  for (const link of readme.matchAll(/\((\d{4}-[\w\-]+\.md)\)/g)) {
-    if (!files.includes(link[1])) err('README.md', `row points at missing file ${link[1]}`);
+  // Rows may point into deferred/, which is parked direction work and not part
+  // of the linted set; both are checked against the filesystem, not the list.
+  for (const link of readme.matchAll(/\(((?:deferred\/)?\d{4}-[\w-]+\.md)\)/g)) {
+    if (!existsSync(join(adrDir, link[1]))) err('README.md', `row points at missing file ${link[1]}`);
   }
 }
 
