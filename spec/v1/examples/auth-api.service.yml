@@ -1,18 +1,39 @@
 # Worked example — services/auth-api/platform/service.yml
 #
-# Exercises: delivery: self with tolerates: reload (which auth-api already runs
-# in production), a self-roll Transit grant, four dependencies, and config that
-# is almost entirely derived.
+# Exercises: a Release Unit shared with auth-ui, delivery: self with
+# tolerates: reload (which auth-api already runs in production), a self-roll
+# Transit grant that takes no placeholder, four dependencies, and config that is
+# almost entirely derived.
 #
-# Companions: examples/auth-api.base.env
+# Companion: examples/auth-api.base.env — env files are per WORKLOAD
+# (docs/adr/0011-configuration-env-files-per-workload.md), so the file lives at
+# platform/env/auth-api/base.env even though this Service has one Workload.
 apiVersion: intent.jorisjonkers.dev/v1
 kind: Service
+
+# The DATA MODEL's own semver, not the toolkit package's version
+# (docs/adr/0039-artifact-schema-versioning.md). It starts at 1.0.0 and is
+# bumped only when the model changes, so a literal here is legitimate and does
+# not go stale on a toolkit release. Composition admits same-major,
+# minor <= toolkit; the composition lock records the exact versions that ran.
 schemaVersion: 1.0.0
 
 id: auth-api
 domain: auth
 owner: joris
 alertClass: page          # every forward-auth protected route depends on this
+
+# Release Unit. auth-api and auth-ui are one product in two processes: a new UI
+# against an old API is a broken product even though both pods report healthy.
+# auth-ui declares `releaseUnit: auth` in its own repository; composition
+# materialises the pair. No member's new version receives traffic until every
+# member's new version is healthy by its own declared readiness, and if any
+# member misses its startup budget none of them switch
+# (docs/adr/0060-release-unit.md). At most one unit per Service.
+#
+# Not a Reconcile Unit. That one is DERIVED from the dependency graph and
+# orders (postgres before auth-api); this one is DECLARED and is atomic.
+releaseUnit: auth
 
 provides:
   http: 8081
@@ -23,20 +44,43 @@ provides:
 # production via SPRING_CONFIG_IMPORT: vault:// and VAULT_DB_ENABLED: true.
 # Consequently auth-api's env file contains no ${secret:...} placeholder at
 # all, and the dead-grant check correctly does not fire.
+#
+# The grant unit is the PATH, never the key
+# (docs/adr/0023-grant-unit-is-the-path.md): a KV-v2 read returns the whole
+# document, so `keys:` documents the expected keys and feeds validation and
+# confers nothing. No wildcard is expressible.
 secrets:
-  # Dynamic database credentials, re-read at runtime. The only combination
-  # achieving zero-downtime rotation: a pod's environment is fixed for its
-  # lifetime, so tolerates: reload with delivery: env would be a build error.
-  - path: secret/data/platform/postgres
-    keys: [auth.user, auth.password]
+  # Dynamic database credentials, minted per lease by the database engine and
+  # re-read at runtime. The only combination achieving zero-downtime rotation:
+  # a pod's environment is fixed for its lifetime, so tolerates: reload with
+  # delivery: env would be a build error.
+  #
+  # SPLIT PATH. `secret/data/platform/postgres` used to be one document holding
+  # every consumer's credentials, which made auth-api's password readable by
+  # knowledge's pods. One path per reader set is the layout rule; this path's
+  # reader set is auth-api alone, and knowledge reads .../postgres/kb.
+  - path: secret/data/platform/postgres/auth
+    keys: [user, password]
     access: read
     delivery: self
     rotation:
       tolerates: reload
       maxAge: 168h
 
+  # auth-api's own document: the static credentials for the three dependencies
+  # whose credentials are not minted by an engine. They sit here rather than
+  # under the platform Subtrees because the reader set is auth-api alone --
+  # 0023 asks for one path per reader set, not one path per consumer. Only the
+  # Postgres pair above is dynamic, which is why it must live under the data
+  # domain's mount.
+  #
+  # Every key is enumerated. A wildcard key list -- `keys` naming a single
+  # star, which this grant used to carry -- left the vocabulary: it appears in
+  # no field table and no invariant, and it made the reader set undecidable
+  # without reading live Vault contents, which the pinned-input rule forbids
+  # (docs/adr/0006-pinned-inputs.md). Adding a key is now a Service edit.
   - path: secret/data/auth-api
-    keys: ['*']
+    keys: [mail.password, valkey.password, rabbitmq.user, rabbitmq.password]
     access: read
     delivery: self
     rotation: {tolerates: reload}
@@ -47,6 +91,11 @@ secrets:
   # in the mount. No rollAffectsReaders acknowledgement is needed: composition
   # shows no other Service reads it, and verifiers follow JWKS rather than
   # caching the key.
+  #
+  # A non-KV mount takes NO placeholder and `delivery: self` is its only legal
+  # delivery (docs/adr/0027-secret-reference-join-key.md): a transit key is
+  # never materialised into an env var or a file, so there is nothing for a
+  # ${secret:...} reference to carry. `keys:` names the mount object.
   - path: transit/keys/auth-api-jwt
     keys: [auth-api-jwt]
     access: self-roll
@@ -56,8 +105,24 @@ secrets:
 workloads:
   - name: auth-api
     lifecycle: service
+    # An alias resolved to a digest through the images lock -- never a tag and
+    # never a digest here. That is what keeps every rendered Deliverable
+    # E_FLOATING_IMAGE clean without layer 1 carrying a hash.
     image: auth-api
     runtime: jvm
+
+    # Resource class, closed at xs..xl
+    # (docs/adr/0016-pod-hardening-and-resource-class.md). The class name is
+    # what an author writes; the requests and limits behind it live in chapter
+    # 10 and reach the render through the pinned Cluster Context, because
+    # capacity is contended and therefore not a layer-1 value.
+    size: m
+
+    # No `hardening` block. The class defaults to `restricted` -- runAsNonRoot,
+    # readOnlyRootFilesystem, all capabilities dropped, seccomp RuntimeDefault
+    # -- and this image meets it: the JVM writes only to /tmp, which the render
+    # supplies as an emptyDir. An image that cannot meet the default declares
+    # the specific exception with a reason; see platform-postgres.
 
     dependsOn:
       - {service: platform-postgres, surface: postgres}
@@ -73,21 +138,29 @@ workloads:
         # authorization; this audience describes the edge only.
         audience: anonymous
 
-    readiness:
-      path: /api/actuator/health/readiness
-      port: 8081
-    liveness:
-      path: /api/actuator/health/liveness
-      port: 8081
+    # Siblings, each carrying its own endpoint, neither falling back to the
+    # other (docs/adr/0014-probes-are-siblings.md). Deliberately identical
+    # endpoints would still be written twice.
+    probes:
+      readiness:
+        path: /api/actuator/health/readiness
+        port: 8081
+      liveness:
+        path: /api/actuator/health/liveness
+        port: 8081
 
     startupBudget: 600s
     zeroDowntime: true
 
-    # PROPOSED FIELD -- chapter 10, "Still to be graded".
-    # Live runs replicas: 2. The manifest records that as a capacity decision
-    # on freed Frankfurt budget, not an availability requirement, and notes
-    # deploys were already zero-downtime through maxUnavailable: 0. So the
-    # availability requirement is 1 and the second replica is capacity.
+    # PROPOSED FIELD -- chapter 10, "Still to be graded". `size` above was the
+    # third such field and is now graded; `minAvailable` and `sidecars` remain.
+    #
+    # This states the AVAILABILITY requirement, which is 1. The replica count
+    # is not declared here and is not read from the live cluster: it is
+    # assigned in layer 2 from the pinned ClusterState snapshot and its digest
+    # (docs/adr/0034-cluster-state-pinned-input.md), so the same inputs always
+    # produce the same number. Live runs two, recorded as a capacity decision
+    # on freed Frankfurt budget rather than an availability requirement.
     minAvailable: 1
 
     placement:

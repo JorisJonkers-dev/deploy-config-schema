@@ -1,16 +1,19 @@
 # deploy-config-schema/.github/workflows/compose.yml  (or its own repository)
 #
-# Composes every published Intent Fragment into one ComposedIntent, checks the
-# 26 estate-wide invariants, and publishes the result with its lock.
+# Composes every published Intent Fragment into one ComposedIntent, asserts the
+# estate-wide invariants, and publishes the result with its lock. Composition
+# is part of the model (docs/adr/0037-composition-oci-fragments.md), which is
+# why this workflow stays in the spec while the deploy workflows do not.
 #
 #   fragment publishes -> repository_dispatch -> pull all participants
 #                                             -> verify + union
-#                                             -> assert 26 invariants
+#                                             -> assert the invariants
+#                                             -> prove the gate can fail
 #                                             -> publish ComposedIntent + lock
 #
-# Triggered by the publish, NOT by a schedule. CLAUDE.md: scheduled workflows
-# deliver four to seven runs per repo per day regardless of the declared
-# interval and run late by hours, and raising the frequency does not help. A
+# Triggered by the publish, NOT by a schedule. The estate measured Actions
+# crons at four to seven runs per repo per day regardless of the declared
+# interval, running late by hours, and raising the frequency does not help. A
 # fragment publish needs a prompt reaction, so it pushes rather than being
 # polled. The nightly schedule below is a safety net for a missed dispatch, not
 # the primary path.
@@ -26,8 +29,8 @@ on:
 permissions: {}
 
 concurrency:
-  # Composition must be serialised: two concurrent runs would race on
-  # previousLockDigest and break the lock chain.
+  # Composition must be serialised: two concurrent runs would race on the
+  # previous lock digest and break the lock chain.
   group: compose-production
   cancel-in-progress: false
 
@@ -46,64 +49,140 @@ jobs:
       - uses: actions/checkout@v4
       - uses: oras-project/setup-oras@v1
 
+      - name: Install the toolkit at this repository's pinned version
+        id: toolkit
+        run: |
+          # Bare `npx deploy-config-schema` resolves from the registry at
+          # invocation time, so two runs of the same inputs could compose with
+          # different toolkits and produce different render hashes. Every step
+          # below calls `npx --no-install`, which can only use what this step
+          # installed.
+          #
+          # The version comes from this repository's own lockfile, bumped by
+          # Renovate behind the ordering gate
+          # (docs/adr/0040-renovate-ordering-gate.md). It is NOT read from any
+          # document's schemaVersion: schemaVersion is the data model's own
+          # semver and no longer tracks the package version
+          # (docs/adr/0039-artifact-schema-versioning.md).
+          npm ci
+          TOOLKIT="$(node -p "require('./package-lock.json') \
+            .packages['node_modules/@jorisjonkers-dev/deploy-config-schema'].version")"
+          test -n "$TOOLKIT"
+          echo "toolkit=${TOOLKIT}" >> "$GITHUB_OUTPUT"
+          echo "composing with toolkit ${TOOLKIT}"
+
+      - name: Require a digest-pinned Cluster Context
+        if: ${{ !cancelled() }}
+        env:
+          CONTEXT_REF: ${{ vars.CONTEXT_REF }}
+        run: |
+          # Every assignment is a function of pinned, digested inputs
+          # (docs/adr/0006-pinned-inputs.md). A tag in this variable is a
+          # mutable input nothing records, so the ref must carry a digest.
+          case "$CONTEXT_REF" in
+            *@sha256:*) echo "context ${CONTEXT_REF}" ;;
+            *) echo "CONTEXT_REF must be digest-pinned, got '${CONTEXT_REF}'"; exit 1 ;;
+          esac
+
       - name: Resolve every participant
         id: pull
+        if: ${{ !cancelled() }}
         run: |
           # participants.yml is the one central artefact. It changes when a
-          # domain or an Aggregator is added or retired, not when a
-          # declaration changes.
-          npx deploy-config-schema compose pull \
+          # domain is added or retired, not when a declaration changes.
+          npx --no-install deploy-config-schema compose pull \
             --participants participants.yml \
             --out fragments/ \
             --record fragments/RESOLVED.json
-          # Fails with E_PARTICIPANT_MISSING or E_PARTICIPANT_STALE. Not
-          # pedantry: Flux prunes, so a domain that silently stops publishing
-          # is deleted from the cluster by a render that looks entirely valid.
+          # Fails with E_PARTICIPANT_MISSING, or E_PARTICIPANT_STALE past the
+          # participant's maxAge -- seven days by default
+          # (docs/adr/0038-participants-list-staleness.md). Not pedantry: the
+          # composed union is the estate's only complete picture, so a domain
+          # that silently stops publishing yields a ComposedIntent that looks
+          # entirely valid and is missing every Service that domain owns. What
+          # then happens to the objects those Services already have in a
+          # cluster is a delivery question, defined separately from the model:
+          # see docs/adr/deferred/README.md.
 
       - name: Verify each package against its own manifest
         if: ${{ !cancelled() }}
         run: |
           for d in fragments/*/; do ( cd "$d" && sha256sum -c MANIFEST.sha256 ); done
 
-      - name: Union and assert the 26 invariants
+      - name: Union and assert the invariants
         if: ${{ !cancelled() }}
         run: |
-          npx deploy-config-schema compose union \
+          npx --no-install deploy-config-schema compose union \
             --fragments fragments/ \
             --context-ref "${{ vars.CONTEXT_REF }}" \
             --out composed/ \
             --report composed/invariants.json
-          # Identity, references, secrets, completeness. Any failure produces
-          # no ComposedIntent, so nothing downstream can render.
+          # Identity, references, secrets, completeness -- chapter 40 holds the
+          # list and its error codes. Any failure produces no ComposedIntent,
+          # so nothing downstream can render.
+          #
+          # The secret checks are string comparisons over the union, with no
+          # mount table and no Vault read: a ${secret:...} placeholder must
+          # byte-match a granted path (E_UNAUTHORISED_SECRET_REFERENCE), and a
+          # delivery: env grant must have a placeholder (E_UNBOUND_SECRET_GRANT)
+          # -- docs/adr/0027-secret-reference-join-key.md.
 
-      - name: Prove the gate can fail
+      - name: Prove the gate can fail, on the right error
         if: ${{ !cancelled() }}
         run: |
-          # CLAUDE.md: check your own gate can fail before trusting that it
-          # passed. A known-bad fixture must be rejected, or an assertion that
-          # silently stopped running looks identical to one that passes.
-          npx deploy-config-schema compose union \
+          # Check your own gate can fail before trusting that it passed. The
+          # fixture is otherwise valid, so the union reaches the identity check
+          # rather than tripping on something else on the way in.
+          #
+          # The assertion is on the ERROR CODE, not the exit status. A step
+          # that accepted any non-zero exit would keep printing success while
+          # proving a different invariant -- exactly the failure this fixture
+          # exists to detect, one level up.
+          set +e
+          out="$(npx --no-install deploy-config-schema compose union \
             --fragments spec/v1/examples/negative/duplicate-service-id/ \
             --context-ref "${{ vars.CONTEXT_REF }}" \
-            --out /tmp/should-fail && { echo "gate did not fail"; exit 1; }
-          echo "gate rejects a duplicate Service Id as expected"
+            --out /tmp/should-fail 2>&1)"
+          status=$?
+          set -e
+          printf '%s\n' "$out"
+          if [ "$status" -eq 0 ]; then
+            echo "gate did not fail"; exit 1
+          fi
+          printf '%s' "$out" | grep -q 'E_DUPLICATE_SERVICE_ID' || {
+            echo "gate failed, but not on E_DUPLICATE_SERVICE_ID"; exit 1; }
+          echo "gate rejects a duplicate Service Id with E_DUPLICATE_SERVICE_ID"
 
       - name: Publish ComposedIntent and its lock
         id: publish
         if: ${{ !cancelled() }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TOOLKIT: ${{ steps.toolkit.outputs.toolkit }}
         run: |
           REF="ghcr.io/${{ github.repository_owner }}/composed:latest"
           echo "$GH_TOKEN" | oras login ghcr.io -u "${{ github.actor }}" --password-stdin
 
+          # The previous lock digest is READ FROM THE REGISTRY, not from a
+          # repository variable. A variable no step updates is either stale
+          # forever -- every lock claiming the same ancestor -- or maintained
+          # by hand out of band, which is the mutable remembered state the
+          # pinned-input rule forbids (docs/adr/0006-pinned-inputs.md).
+          # Absent on the very first composition, which is the one legitimate
+          # empty ancestor.
+          PREVIOUS="$(oras resolve "$REF" 2>/dev/null || true)"
+          echo "previous lock ancestor: ${PREVIOUS:-<none, first composition>}"
+
           # The lock records what was composed -- every resolved fragment
-          # digest -- and is written INSIDE the package minus its own digest,
-          # which cannot exist yet.
-          npx deploy-config-schema compose lock \
+          # digest and the exact toolkit version that produced this tree, since
+          # the accepted schemaVersion RANGE is not enough to replay with
+          # (docs/adr/0039-artifact-schema-versioning.md). It is written INSIDE
+          # the package minus its own digest, which cannot exist yet.
+          npx --no-install deploy-config-schema compose lock \
             --resolved fragments/RESOLVED.json \
             --composed composed/ \
-            --previous "${{ vars.PREVIOUS_LOCK_DIGEST }}" \
+            --toolkit "$TOOLKIT" \
+            --previous "$PREVIOUS" \
             --out composed/composition-lock.yml
 
           ( cd composed && oras push "$REF" . )
@@ -113,6 +192,8 @@ jobs:
       - name: Read the composed digest back
         if: ${{ !cancelled() }}
         run: |
+          # A successful push is not evidence that a consumer can read what was
+          # meant. Pull it back by digest and verify the content.
           oras pull "ghcr.io/${{ github.repository_owner }}/composed@${{ steps.publish.outputs.digest }}" \
             --output check/
-          npx deploy-config-schema compose verify --composed check/
+          npx --no-install deploy-config-schema compose verify --composed check/

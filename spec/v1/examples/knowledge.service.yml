@@ -1,12 +1,17 @@
 # Worked example — services/knowledge/platform/service.yml
 #
-# Exercises: two Workloads on two runtimes, five path rules with mixed
-# audiences, probes: none for a Workload with no listener, secrets at BOTH
-# levels, and an irreplaceable volume. Every value is what knowledge runs today.
+# Exercises: two Workloads on two runtimes and therefore two identities, five
+# path rules with mixed audiences, probes: none for a Workload with no
+# listener, grants at BOTH levels, and an irreplaceable volume.
 #
-# Companions: examples/knowledge.base.env (one per workload)
+# Companions, one per Workload:
+#   examples/knowledge-api.base.env
+#   examples/knowledge-ingest-worker.base.env
 apiVersion: intent.jorisjonkers.dev/v1
 kind: Service
+
+# The data model's own semver, not the toolkit's
+# (docs/adr/0039-artifact-schema-versioning.md).
 schemaVersion: 1.0.0
 
 id: knowledge
@@ -14,21 +19,44 @@ domain: knowledge
 owner: joris
 alertClass: business-hours
 
+# No `releaseUnit`. knowledge's two Workloads belong to one Service and roll
+# together for that reason; a Release Unit couples several SERVICES
+# (docs/adr/0060-release-unit.md), and knowledge has no partner Service that
+# must cut over with it. Declaring one here would buy nothing and would widen
+# every rollback to a set.
+
 # Surfaces other Services depend on. Flat map, integer ports. The rendered
 # k8s port name is the surface name, which is how 'http' survives.
 provides:
   http: 8080
 
-# Shared secrets. Both Workloads read the same Postgres and RabbitMQ
+# Shared grants. Both Workloads read the same Postgres and RabbitMQ
 # credentials, so declaring them once here is the difference between one edit
-# and two when a key is added.
+# and two when a key is added. A Service-level grant is held by every Workload,
+# including ones added later; a grant that must NOT be shared moves down a
+# level, and there is no removal syntax
+# (docs/adr/0022-grants-live-on-the-service.md).
+#
+# delivery: env and delivery: file render a Kubernetes Secret, so both are
+# refused unless the pinned Cluster Context advertises secretsEncryption: true
+# -- E_SECRETS_AT_REST_REQUIRED (docs/adr/0028-secrets-at-rest-gate.md). Until
+# that flag lands on the pinned k3s version, knowledge cannot ship.
 secrets:
-  - path: secret/data/platform/postgres
-    keys: [kb.user, kb.password]
+  # SPLIT PATH, one path per reader set
+  # (docs/adr/0023-grant-unit-is-the-path.md). A KV-v2 read returns the whole
+  # document, so the only boundary the store can enforce is the path: while
+  # every consumer's credentials shared secret/data/platform/postgres, these
+  # pods could read auth-api's database password. The reader set here is
+  # knowledge's two Workloads; auth-api reads .../postgres/auth.
+  - path: secret/data/platform/postgres/kb
+    keys: [user, password]
     access: read
     delivery: env
     rotation: {tolerates: restart}
 
+  # NOT split. Its reader set is already exactly this Service's two Workloads,
+  # and the rule is one path per reader SET, not one path per consumer. It
+  # splits on the day a second Service is granted it.
   - path: secret/data/platform/rabbitmq
     keys: [rabbitmq.user, rabbitmq.password]
     access: read
@@ -39,8 +67,16 @@ workloads:
   # ---------------------------------------------------------------- api
   - name: knowledge-api
     lifecycle: service
-    image: knowledge-api
+    image: knowledge-api    # alias -> digest through the images lock
     runtime: jvm            # -> otel-jvm profile: 10 OTEL + 6 PYROSCOPE keys
+
+    size: m                 # closed class xs..xl; the numbers behind it are
+                            # contended and live in the pinned Cluster Context
+                            # (docs/adr/0016-pod-hardening-and-resource-class.md)
+
+    # No `hardening` block: the default `restricted` class applies unstated --
+    # runAsNonRoot, readOnlyRootFilesystem, drop ALL, seccomp RuntimeDefault.
+    # This image is built here and meets it.
 
     dependsOn:
       - {service: platform-postgres, surface: postgres}
@@ -58,12 +94,13 @@ workloads:
         # No hostname. kb.jorisjonkers.dev is assigned, and this block
         # replaces the six places it used to be declared independently.
 
-    readiness:
-      path: /api/actuator/health/readiness
-      port: 8080
-    liveness:
-      path: /api/actuator/health/liveness
-      port: 8080
+    probes:
+      readiness:
+        path: /api/actuator/health/readiness
+        port: 8080
+      liveness:
+        path: /api/actuator/health/liveness
+        port: 8080
       # Distinct paths, stated. A liveness probe on the readiness endpoint
       # turns a Postgres outage into a crash-loop.
 
@@ -79,10 +116,11 @@ workloads:
       port: 8080            # resolves to port name 'http' via provides
       path: /api/actuator/prometheus
 
-    # Workload-specific: the API serves /mcp, the worker does not.
-    # Every key is named, so adding a device is one line here plus one in the
-    # env file -- accepted for being able to answer, from the repository
-    # alone, which variable carries which secret.
+    # Workload-level grant: the API serves /mcp, the worker does not. This is
+    # an access boundary only because identity is per Workload -- this pod
+    # authenticates as `knowledge-knowledge-api` and the worker as
+    # `knowledge-knowledge-ingest-worker`, each bound to exactly its own
+    # effective grant set (docs/adr/0024-identity-per-workload.md).
     secrets:
       - path: secret/data/knowledge-system/mcp-bearer
         keys: [workstation]
@@ -97,6 +135,12 @@ workloads:
     runtime: python         # a different profile: 5 OTEL keys plus
                             # OTEL_PYTHON_LOG_CORRELATION, no JVM batch tuning
 
+    size: s                 # a single-consumer queue worker, not a JVM server
+
+    # Default `restricted` again, and nothing here fights it: the deploy key
+    # arrives on a projected volume, not on the root filesystem, so
+    # readOnlyRootFilesystem costs this Workload nothing.
+
     dependsOn:
       - {service: platform-rabbitmq, surface: amqp}
       - {service: platform-postgres, surface: postgres}
@@ -110,13 +154,19 @@ workloads:
       - claim: knowledge-vault-clone
         mountAt: /var/lib/knowledge-vault
         durability: irreplaceable
-        # Renders a backup job with retention plus an off-cluster copy, and
-        # requires owner approval to relocate. local-path also pins this
+        # The one fact only the owning Service knows
+        # (docs/adr/0015-durability-class-per-volume.md); schedule, sweep and
+        # destination are derived. `irreplaceable` renders a backup job with
+        # retention plus an off-cluster copy, and its restore must be
+        # rehearsed before the first production apply
+        # (docs/adr/0057-datastore-and-restore.md). local-path also pins this
         # Workload to the node holding the PV -- derived, not declared.
 
-    # Workload-specific: an SSH private key cannot be an environment variable,
-    # and only the worker pushes to the knowledge vault. delivery: file is why
-    # file delivery exists at all.
+    # Workload-level, and delivery: file because an SSH private key cannot be
+    # an environment variable. This is the grant that makes per-Workload
+    # identity load-bearing: under one identity per Service the
+    # internet-facing API Workload would authenticate as a principal holding
+    # `read` on this key, and the store cannot narrow a read below the path.
     secrets:
       - path: secret/data/knowledge-system/vault-deploy-key
         keys: [key]
