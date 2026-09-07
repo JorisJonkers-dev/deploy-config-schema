@@ -196,7 +196,7 @@ The direction is **Cilium**, for the two properties
 that logs what a policy would drop instead of dropping it, and per-flow records
 that make the promotion criterion — **zero undeclared flows over 14 days** — an
 evidence question rather than a calendar one. The claim is **open**: the estate
-is one control-plane node plus one or two workers, and that node also runs the
+is seven nodes with exactly one control-plane host, and that host also runs the
 API server and the datastore.
 
 | | state |

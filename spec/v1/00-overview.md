@@ -325,9 +325,9 @@ through, with the deciding ADR named.
    its four rows: the registered `kubernetes` adapter already pushes `pdb.yaml`,
    `servicemonitor.yaml` and `podmonitor.yaml`, and builds the PDB from
    `rollout.availability`
-   ([0052](../../docs/adr/0052-registered-adapters-are-v1.md)). The number is
-   void until chapter 30 re-derives it from the registry, and chapter 60's
-   bootstrap step 6 is sequenced off the void number. Three related items travel
+   ([0052](../../docs/adr/0052-registered-adapters-are-v1.md)). Chapter 30 has
+   re-derived it from the registry — 20 objects across three kinds, still
+   arithmetic on the 2026-08-31 survey. Three related items travel
    with it: four duplicated adapter pairs must collapse before attribution can
    be enforced, `E_PATH_COLLISION` has zero implementations, and Grafana's 45
    authored objects need a home that is not "the ledger, indefinitely".
@@ -336,7 +336,8 @@ through, with the deciding ADR named.
      `adapterContract()`, publish the corrected table in
      [chapter 30](30-deliverables.md#coverage); the real gap is what that
      table's unattributed rows total.
-   - **Blocks:** chapter 60's bootstrap step 6; enforcing single attribution
+   - **Blocks:** chapter 60's pre-apply item on one renderer generation with
+     unambiguous attribution; enforcing single attribution
      ([0054](../../docs/adr/0054-adapter-attribution.md)).
 
 5. **`sidecars` and `minAvailable`.** Chapter 10 proposed three fields;

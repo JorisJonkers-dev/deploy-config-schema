@@ -140,7 +140,7 @@ field's placement link to this anchor rather than copying rows.
 | Reconcile Unit and its ordering | platform | unique — arbitrated | one estate-wide DAG ([The Reconcile Unit](#the-reconcile-unit)) |
 | Release Unit membership and switch gate | platform | unique — arbitrated | the set is one estate-wide object; members declare the name |
 | identity name, Vault role, Vault policy | platform | pool | `<service>-<workload>`; the auth role namespace is shared ([chapter 16](16-dependencies.md#workload-identity)) |
-| Secret Store path layout and grants | platform | pool | one path per reader set; `E_PATH_COLLISION` across Subtrees |
+| Secret Store path layout and grants | platform | pool | one path per reader set; `E_SUBTREE_PREFIX_COLLISION` across Subtrees ([chapter 40](40-composition.md#versioning)) |
 | image digest | platform | unique — arbitrated | one alias resolves to one digest estate-wide, from the pinned images lock |
 | `nodeSelector` and affinity | platform | pool | node capacity is finite ([Derived mechanics](#derived-mechanics)) |
 | recorded PV binding | platform | pool | one `local-path` PV lives on one node; read from the ClusterState snapshot |
@@ -488,7 +488,7 @@ assigned:
   namespace: knowledge-system
   reconcileUnit: apps-knowledge
   reconcileAfter: [apps-core, apps-data, apps-vso-secrets]
-  healthTimeoutClass: stateless        # 5m
+  healthTimeoutClass: stateful         # 10m — strongest class across the two Workloads
 
   workloads:
     knowledge-api:
@@ -514,7 +514,7 @@ assigned:
       placement:
         nodeSelector: {platform.jorisjonkers.dev/capability-public-ingress: "true"}
       secretObjects:
-        - {kind: VaultStaticSecret, path: secret/data/platform/postgres/knowledge}
+        - {kind: VaultStaticSecret, path: secret/data/platform/postgres/kb}
 
     knowledge-ingest-worker:
       serviceAccount: knowledge-knowledge-ingest-worker

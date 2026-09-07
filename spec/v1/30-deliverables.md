@@ -46,7 +46,7 @@ The sixteen fall into two roles, on the two sides of the composition seam
 | role | count | runs in | input | output |
 |---|---|---|---|---|
 | **fragment producer** — the five `*-fragment` adapters | 5 | the Service repository, at publish time | that repository's `Deployment`, images lock and pinned cluster context | exactly one Fragment document per Adapter per Service, pushed by digest |
-| **central adapter** | 11 | the aggregator, over the pulled fragment set | the Resolved Deployment as an `AdapterContext` of artifact documents | the file set for its subsystem |
+| **central adapter** | 11 | centrally, over the composed union | the Resolved Deployment as an `AdapterContext` of artifact documents | the file set for its subsystem |
 
 The pairing is recorded, not folklore: `src/adapters/adapter-compat.ts` maps each
 producer's `outputKind` and `outputSchema` to the central adapters that accept it
@@ -302,7 +302,7 @@ flowchart LR
       D --> FP["5 fragment producers<br/>traefik-route, gatus-endpoint,<br/>edge-catalog, image-metadata,<br/>kubernetes-workload"]
       FP --> PF["one Fragment document each<br/>pushed by digest"]
     end
-    subgraph agg["Aggregator — render"]
+    subgraph agg["Central render — over the ComposedIntent"]
       RD["Resolved Deployment<br/>+ clusterStateDigest"]
       RD --> C1["kubernetes"]
       RD --> C2["vso"]
@@ -393,7 +393,7 @@ stale participant (chapter 40) rather than as a quietly smaller render.
    `strict: true`.
 6. **The object-level gap is arithmetic on an old survey.** *Settled by:* a
    per-adapter measurement against the registered generation, recorded as the
-   number chapter 60's bootstrap sequence uses in place of the withdrawn 22.
+   corrected class-A gap in [The true gap](#the-true-gap).
 7. **The Service `ServiceAccount` name is the Service Id today**, while
    [0024](../../docs/adr/0024-identity-per-workload.md) requires
    `<service>-<workload>`, collapsing to `<service>` only for single-workload

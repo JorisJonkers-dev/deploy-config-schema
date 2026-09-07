@@ -133,9 +133,9 @@ Every term in that rule is already defined elsewhere in the model:
 
 A Workload declaring `probes: none` publishes no readiness signal and so cannot
 contribute to the gate. A Release Unit member must therefore declare readiness
-on at least one Workload — a composition-time check against chapter 40's
-estate-wide invariants, not something a delivery mechanism discovers at apply
-time.
+on at least one Workload — `E_RELEASE_UNIT_NO_READINESS`, a composition-time
+check in [chapter 40](40-composition.md#versioning)'s estate-wide invariants,
+not something a delivery mechanism discovers at apply time.
 
 **Held, not partial.** A member that fails its budget does not switch on its
 own, and does not let its neighbours switch either: the whole unit holds and

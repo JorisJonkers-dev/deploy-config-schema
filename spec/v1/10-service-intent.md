@@ -238,9 +238,8 @@ domain nor repository, so nothing structural stops two repositories claiming one
 string. `E_DUPLICATE_SERVICE_ID` fires at composition (chapter 40), and the
 window in which two repositories both claim an id is an accepted cost.
 
-An alias is bounded by whoever applies the namespace it names: a Service may not
-alias itself into a namespace another applier owns. What an applier is, and how
-that boundary is enforced, is not a model question — see
+Whether an alias may name a namespace some other applier owns is not a model
+question — see
 [Delivery and co-testing are defined separately](#delivery-and-co-testing-are-defined-separately).
 
 ## Ports and surfaces
@@ -1045,9 +1044,10 @@ Five items no decision in the register covers:
    capacity decision on freed Frankfurt budget, not an availability requirement.
    Like `size`, it must resolve through the pinned inputs, never through observed
    capacity.
-3. **Naming an exposure entry.** Three chapters disagree today: this one writes
-   `port:` alone, chapter 16's worked trace writes `surface: primary`, and chapter
-   20's projection keys the assignment `kb`. Chapter 40 checks
+3. **Naming an exposure entry.** The chapters disagree today: this one writes
+   `port:` alone, chapter 20's projection keys the assignment `kb`, and chapter
+   20 places a Service-declared hostname label this chapter defines no field
+   for. Chapter 40 checks
    `E_DUPLICATE_EXPOSURE_NAME` against a name none of them agrees on. Grading it
    moves a value the contention test previously placed on the platform side.
 4. **`self-renew` × `file`.** Refusing it follows from the tiers' own argument but

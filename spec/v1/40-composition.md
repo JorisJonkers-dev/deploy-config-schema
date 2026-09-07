@@ -166,7 +166,6 @@ Normative. Composition fails on any of these, and produces no `ComposedIntent`.
 | exposure names are unique across the union | `E_DUPLICATE_EXPOSURE_NAME` |
 | at most one Service claims the apex | `E_DUPLICATE_APEX` |
 | Secret Store path prefixes do not overlap between Subtrees | `E_SUBTREE_PREFIX_COLLISION` |
-| no two adapters claim one output path (chapter 30) | `E_PATH_COLLISION` |
 
 ### References
 
@@ -178,6 +177,7 @@ Normative. Composition fails on any of these, and produces no `ComposedIntent`.
 | every `placement.requires` and `prefers` capability is advertised by some node | `E_CAPABILITY_UNSATISFIABLE` |
 | every exposure's audience is carryable by some tier | `E_NO_TIER_FOR_AUDIENCE` |
 | every `releaseUnit` name resolves to two or more member Services | `E_RELEASE_UNIT_SINGLETON` |
+| every Release Unit member declares readiness on at least one Workload | `E_RELEASE_UNIT_NO_READINESS` |
 
 Optional edges are excluded from the cycle check deliberately. `required: false`
 means a Workload starts without its peer, so a cycle through optional edges
@@ -196,7 +196,7 @@ the only place the spelling is checkable
 |---|---|
 | every grant's `path` is declared by exactly one Subtree | `E_UNDECLARED_SECRET_PATH` |
 | the Subtree lists the granting Service as a reader of that path | `E_READER_NOT_DECLARED` |
-| every grant with `delivery: env` or `delivery: file` is named by at least one placeholder | `E_UNBOUND_SECRET_GRANT` |
+| every grant with `delivery: env` is named by at least one placeholder | `E_UNBOUND_SECRET_GRANT` |
 | every `${secret:<path>#<key>}` placeholder byte-matches a granted path | `E_UNAUTHORISED_SECRET_REFERENCE` |
 | `access: self-roll` on a path with other readers carries an acknowledgement | `E_ROLL_AFFECTS_OTHER_READERS` |
 | no literal secret value appears in an env file or an Asset | `E_RAW_SECRET` |
@@ -210,8 +210,9 @@ Three points of precision, all following from the grant unit being the path
   mount rewrite and no engine taxonomy. The `#<key>` half selects which value
   fills the variable and confers nothing; `keys:` documents and validates and
   confers nothing either.
-- `delivery: self` grants carry no placeholder at all and are excluded from
-  `E_UNBOUND_SECRET_GRANT`. A non-KV engine — `transit/keys/auth-api-jwt` — is
+- `delivery: file` and `delivery: self` grants carry no placeholder at all —
+  a file grant renders a projected file, nothing in the environment — and both
+  are excluded from `E_UNBOUND_SECRET_GRANT`. A non-KV engine — `transit/keys/auth-api-jwt` — is
   never materialised into a variable or a file, so a placeholder naming one is
   `E_UNAUTHORISED_SECRET_REFERENCE`.
 - `E_ROLL_AFFECTS_OTHER_READERS` computes over the **readers of the path**, never
@@ -228,7 +229,7 @@ Three points of precision, all following from the grant unit being the path
 | every participant's publish is within its `maxAge` | `E_PARTICIPANT_STALE` |
 | reachability equals derived ∪ registered exactly | `E_UNREGISTERED_SURFACE` |
 | every live object is attributable or ledgered (chapter 30) | `E_UNATTRIBUTED_OBJECT` |
-| every ledger entry still matches something | `E_STALE_EXEMPTION` |
+| every ledger entry still matches something | `E_LEDGER_ENTRY_STALE` |
 | no derived value is removed while a consumer still depends on it (chapter 50) | `E_CONTRACT_TOO_EARLY` |
 
 The last two are evaluated against the pinned `ClusterState` snapshot
@@ -445,8 +446,8 @@ plus the registered set, exactly.
 | condition | error |
 |---|---|
 | a reachable hostname is in neither set | `E_UNREGISTERED_SURFACE` |
-| a registered entry matches no reachable hostname | `E_STALE_EXEMPTION` |
-| an entry's `reviewBy` is in the past, or `owner`/`reason` is empty | `E_STALE_EXEMPTION` |
+| a registered entry matches no reachable hostname | `E_LEDGER_ENTRY_STALE` |
+| an entry's `reviewBy` is in the past, or `owner`/`reason` is empty | `E_LEDGER_REVIEW_OVERDUE` |
 
 Derived entries come from Audience declarations
 ([0018](../../docs/adr/0018-exposure-by-audience.md)); registered entries come

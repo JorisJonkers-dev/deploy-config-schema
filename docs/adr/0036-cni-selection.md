@@ -50,7 +50,7 @@ Cilium supplies both halves of what [0035](0035-network-policy-default-deny.md)
 needs: an audit stage that logs what a policy would drop instead of dropping it,
 and Hubble flow records, which make the promotion criterion — zero undeclared
 flows over 14 days — an evidence question rather than a calendar one. That is
-not free: the estate is one control-plane node plus one or two workers, and that
+not free: the estate is seven nodes with exactly one control-plane host, and that
 node also runs the API server, the datastore and the deploy runner. The
 direction is fixed; the fit is open.
 

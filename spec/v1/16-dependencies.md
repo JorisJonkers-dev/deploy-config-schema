@@ -140,8 +140,8 @@ one of its readers holds `read` on its neighbours' credentials.
 ```yaml
 # platform/service.yml — on the Service, since both Workloads hold it
 secrets:
-  - path: secret/data/platform/postgres/knowledge   # one path, one reader set
-    keys: [kb.user, kb.password]                    # documentation + validation
+  - path: secret/data/platform/postgres/kb          # one path, one reader set
+    keys: [user, password]                          # documentation + validation
     access: read
     delivery: env
     rotation: {tolerates: restart}
@@ -149,8 +149,8 @@ secrets:
 
 ```
 # platform/env/knowledge-api/base.env
-DB_USER=${secret:secret/data/platform/postgres/knowledge#kb.user}
-DB_PASSWORD=${secret:secret/data/platform/postgres/knowledge#kb.password}
+DB_USER=${secret:secret/data/platform/postgres/kb#user}
+DB_PASSWORD=${secret:secret/data/platform/postgres/kb#password}
 ```
 
 The placeholder's path half **byte-matches** the granted path — no mount table,

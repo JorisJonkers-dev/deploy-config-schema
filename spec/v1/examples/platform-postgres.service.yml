@@ -5,9 +5,9 @@
 # a proposed sidecar, and `provides` consumed by eight Services.
 #
 # postgres has no repository of its own; it ships in the data domain's Intent
-# Fragment (docs/adr/0037-composition-oci-fragments.md). Whether that comes
-# from a split-out per-domain repository or from homelab-collections is open
-# item 5 in chapter 00.
+# Fragment. Publication is repository-scoped, so the data domain may publish
+# from homelab-collections or from a split-out repository — composition behaves
+# identically (docs/adr/0037-composition-oci-fragments.md).
 #
 # Companion: examples/platform-postgres.base.env (per Workload)
 apiVersion: intent.jorisjonkers.dev/v1
