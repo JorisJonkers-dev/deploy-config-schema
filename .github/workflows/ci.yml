@@ -102,6 +102,15 @@
 
           /tmp/gitleaks/gitleaks detect --no-git --redact --source "${scan_root}" --exit-code 1
 
+  'adr-lint':
+    'name': 'ADR Lint'
+    'runs-on': 'ubuntu-latest'
+    'steps':
+      - 'uses': 'actions/checkout@v6'
+      - 'name': 'Lint decision records'
+        'shell': 'bash'
+        'run': 'node scripts/lint-adrs.mjs'
+
   'pipeline-complete':
     'name': 'Pipeline Complete'
     'if': 'always()'
@@ -109,6 +118,7 @@
       - 'node'
       - 'workflow-lint'
       - 'secret-scan'
+      - 'adr-lint'
     'runs-on': 'ubuntu-latest'
     'steps':
       - 'uses': 're-actors/alls-green@release/v1'
