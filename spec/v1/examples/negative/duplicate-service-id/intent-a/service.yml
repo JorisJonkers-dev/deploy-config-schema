@@ -1,6 +1,17 @@
+# Fixture A. Valid on its own: the union with intent-b is what must fail, and
+# it must fail with E_DUPLICATE_SERVICE_ID rather than for any other reason.
 apiVersion: intent.jorisjonkers.dev/v1
 kind: Service
+
+# A literal, and legitimately so. schemaVersion is the DATA MODEL's own semver
+# (docs/adr/0039-artifact-schema-versioning.md), not the toolkit package's, and
+# composition admits same-major with minor <= toolkit. Under the superseded
+# equality assert this literal went stale on the next toolkit release and the
+# fixture was rejected by E_SCHEMA_VERSION_MISMATCH before the union ever
+# evaluated identity -- while the gate-can-fail step, which tested only for a
+# non-zero exit, still printed success.
 schemaVersion: 1.0.0
+
 id: knowledge
 domain: knowledge
 owner: joris
@@ -10,4 +21,5 @@ workloads:
     lifecycle: service
     image: knowledge-api
     runtime: jvm
+    size: s
     probes: none

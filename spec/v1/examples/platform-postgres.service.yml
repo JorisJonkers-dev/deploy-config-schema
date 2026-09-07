@@ -1,15 +1,20 @@
 # Worked example — the data domain's platform-postgres
 #
-# Exercises: a third-party image with runtime: none, TCP probes, a static
-# Asset, a proposed sidecar, and provides consumed by eight Services.
+# Exercises: a third-party image behind an alias with runtime: none, the one
+# declared hardening exception in the example set, TCP probes, a static Asset,
+# a proposed sidecar, and `provides` consumed by eight Services.
 #
-# postgres has no repository of its own; under ADR-0015 it ships in the data
-# domain's Intent Fragment. Whether that comes from a split-out per-domain
-# repository or from homelab-collections is open item 5.
+# postgres has no repository of its own; it ships in the data domain's Intent
+# Fragment. Publication is repository-scoped, so the data domain may publish
+# from homelab-collections or from a split-out repository — composition behaves
+# identically (docs/adr/0037-composition-oci-fragments.md).
 #
-# Companions: examples/platform-postgres.base.env
+# Companion: examples/platform-postgres.base.env (per Workload)
 apiVersion: intent.jorisjonkers.dev/v1
 kind: Service
+
+# The data model's own semver, not the toolkit's
+# (docs/adr/0039-artifact-schema-versioning.md).
 schemaVersion: 1.0.0
 
 id: platform-postgres
@@ -31,25 +36,63 @@ provides:
 workloads:
   - name: postgres
     lifecycle: service
-    # Third-party, so pinned upstream rather than resolved through our lock.
-    image: pgvector/pgvector:pg17
+
+    # An ALIAS, resolved to a digest through the images lock -- exactly like a
+    # first-party image. Third-party is not a reason to exempt the most
+    # stateful workload in the estate: `pgvector/pgvector:pg17` is a mutable
+    # tag that moves on every upstream build, and this Workload is Recreate on
+    # a local-path RWO volume, so any reschedule is a fresh pull. Renovate
+    # raises the digest bump behind the ordering gate
+    # (docs/adr/0040-renovate-ordering-gate.md), and every rendered Deliverable
+    # stays E_FLOATING_IMAGE clean.
+    image: postgres
+
     # No Runtime Profile. A third-party image cannot consume OTEL_* or
     # PYROSCOPE_* wiring, and injecting it would be noise. 'none' says so
     # deliberately rather than leaving runtime unset.
     runtime: none
 
+    size: l                 # the datastore eight Services queue behind; the
+                            # requests and limits behind the class are assigned
+                            # from the pinned Cluster Context, not declared here
+
+    # The one declared exception in the example set
+    # (docs/adr/0016-pod-hardening-and-resource-class.md). The class still
+    # defaults to `restricted` and the other three controls stand: the pod runs
+    # as uid 999, drops all capabilities and takes seccomp RuntimeDefault. Only
+    # the named control is relaxed, and only with a reason -- the same shape a
+    # derived-value override uses (docs/adr/0031-derived-overrides-with-reason.md).
+    #
+    # The vocabulary of `allow` is the inverse of the four restricted controls:
+    # runAsRoot, writableRootFilesystem, capability:<NAME>, seccompUnconfined.
+    hardening:
+      exceptions:
+        - allow: writableRootFilesystem
+          reason: >-
+            The upstream postgres entrypoint writes its unix socket to
+            /var/run/postgresql and lock files under /tmp before the server
+            starts, and upstream publishes no read-only-root variant.
+            runAsNonRoot is NOT excepted: the PV is already owned by uid 999,
+            so the pod runs non-root as it does today. This exception is this
+            image's line in the estate's inventory of what it cannot harden,
+            and it retires when a rebuilt image relocates the socket.
+
     # PROPOSED FIELD -- chapter 10, "Still to be graded".
     # postgres-exporter runs in the same pod and serves the metrics port.
     # stalwart (stalwart-apply) and agent-runner (the agent-gateway jar) have
-    # the same shape, so this is not an edge case.
+    # the same shape, so this is not an edge case. The sidecar's image is an
+    # alias for the same reason the Workload's is; whether the graded field
+    # types it as an alias or a ref is the open half.
     sidecars:
       - name: postgres-exporter
-        image: quay.io/prometheuscommunity/postgres-exporter:v0.18.0
+        image: postgres-exporter
 
     # TCP, not HTTP. postgres has no HTTP surface, and this is what the live
-    # probes do -- tcpSocket on port db for both.
-    readiness: {tcp: 5432}
-    liveness:  {tcp: 5432}
+    # probes do -- tcpSocket on port db for both. An HTTP-only probe
+    # vocabulary could not express the estate's data tier at all.
+    probes:
+      readiness: {tcp: 5432}
+      liveness:  {tcp: 5432}
 
     startupBudget: 60s
     zeroDowntime: false
@@ -62,10 +105,15 @@ workloads:
       - claim: postgres-data
         mountAt: /var/lib/postgresql/data
         durability: recoverable
-        # Renders a backup job with a retention sweep, closing the gap
-        # ADR-0011 in the workspace recommended: today each backup job writes
-        # a fixed filename, so the PVC holds only the newest copy and history
-        # exists solely in the Frankfurt node backup.
+        # `recoverable` renders a backup job with a retention sweep, closing
+        # the gap the workspace backup-coverage decision recorded
+        # (https://github.com/JorisJonkers-dev/workspace/blob/main/docs/decisions/ADR-0011-backup-coverage-gaps.md):
+        # today each backup job writes a fixed filename, so the PVC holds only
+        # the newest copy and history exists solely in the Frankfurt node
+        # backup. It is one step below
+        # `irreplaceable` -- a nightly job suffices; no off-cluster copy and no
+        # approval on relocation are required
+        # (docs/adr/0015-durability-class-per-volume.md).
         #
         # Not declared: storageClass and 20Gi -- both draw on finite node disk
         # and are assigned. Snapshots are unavailable regardless: local-path
@@ -75,7 +123,8 @@ workloads:
       # Fully static: zero derived values in 54 lines. Baking it into the image
       # was rejected because that means a derived image, a build pipeline, a
       # registry entry and a Renovate rule, plus a rebuild on every upstream
-      # pg17 bump -- to change one settings file.
+      # pg17 bump -- to change one settings file
+      # (docs/adr/0012-assets-not-code.md).
       - from: config/postgresql.conf
         mountAt: /etc/postgresql/postgresql.conf
         onChange: restart
@@ -85,7 +134,8 @@ workloads:
       # Its 98 lines create one database and one owning user per consuming
       # Service -- auth_db, agents_db, knowledge_db, n8n_db -- which the
       # dependency graph already knows from inbound edges and grants. It
-      # becomes a derived Deliverable (chapter 16).
+      # becomes a derived Deliverable (chapter 16). An executable is code, and
+      # code is not configuration.
       #
       # It also reads /run/secrets/<name>, a Docker Compose convention that
       # does not exist in Kubernetes, then falls back to env vars. That dead
@@ -102,14 +152,28 @@ workloads:
     # Declared on the Workload rather than the Service: it is consumed by the
     # postgres-exporter sidecar, which lives inside this Workload.
     #
-    # Deliberately absent: the per-consumer credentials (kb.*, auth.*,
-    # agents.*, n8n.*). postgres does not read them -- its consumers each
-    # declare their own grant. The Secret Subtree for this path is owned by the
-    # data domain and lists the readers, which is what makes "who breaks if I
-    # rotate this" answerable.
+    # SPLIT PATH, one path per reader set
+    # (docs/adr/0023-grant-unit-is-the-path.md). The exporter's datasource used
+    # to sit in the same document as every consumer's credentials, so holding
+    # `read` for the exporter meant holding `read` on auth-api's and
+    # knowledge's database passwords too -- a KV-v2 read returns the whole
+    # document. The subtree is now:
+    #
+    #   secret/data/platform/postgres/auth       -> auth-api
+    #   secret/data/platform/postgres/kb         -> knowledge (both Workloads)
+    #   secret/data/platform/postgres/exporter   -> this Workload
+    #
+    # The data domain owns that Subtree and lists the readers of each path,
+    # which is what makes "who breaks if I rotate this" answerable without
+    # reading live Vault contents. postgres itself does not read its
+    # consumers' credentials; each consumer declares its own grant.
+    #
+    # delivery: env, so this Service is refused until the pinned Cluster
+    # Context advertises secretsEncryption: true -- E_SECRETS_AT_REST_REQUIRED
+    # (docs/adr/0028-secrets-at-rest-gate.md).
     secrets:
-      - path: secret/data/platform/postgres
-        keys: [exporter.datasource]
+      - path: secret/data/platform/postgres/exporter
+        keys: [datasource]
         access: read
         delivery: env
         rotation: {tolerates: restart}
