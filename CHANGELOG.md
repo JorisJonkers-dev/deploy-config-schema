@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.22.1](https://github.com/JorisJonkers-dev/deploy-config-schema/compare/v0.22.0...v0.22.1) (2026-10-27)
+
+
+### Bug Fixes
+
+* **deps:** pin dependencies ([#66](https://github.com/JorisJonkers-dev/deploy-config-schema/issues/66)) ([a37506d](https://github.com/JorisJonkers-dev/deploy-config-schema/commit/a37506d8722149b2ae760211597b81bfc1a85dc7))
+* **deps:** update minor and patch dependencies ([#67](https://github.com/JorisJonkers-dev/deploy-config-schema/issues/67)) ([662dbb8](https://github.com/JorisJonkers-dev/deploy-config-schema/commit/662dbb86581bb18333515396f357aa900d11d1ff))
+
 ## [0.22.0](https://github.com/JorisJonkers-dev/deploy-config-schema/compare/v0.21.0...v0.22.0) (2026-08-20)
 
 
